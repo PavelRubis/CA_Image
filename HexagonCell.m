@@ -112,29 +112,47 @@ classdef HexagonCell
                    k=cast(obj.Indexes(1,3),'double');
                    x0=0;
                    y0=0;
-               
-                   switch k
                    
+                   %первый вариант размещения координатных осей
+                   switch k
+                       
                        case 1
-                           switch compareInt32(i,j)
-                               case -1
-                                   x0=-3/2*(j-i);
-                               case 0
-                                   x0=0;
-                               case 1
-                                   x0=3/2*(i-j);
-                           end
-                           y0=(i+j)*sqrt(3)/2;
-                       
+                           y0=-sqrt(3)/2*(i+j);
+                           x0=3/2*(i-j);
+                   
                        case 2
-                           y0=-sqrt(3)/2*(i+(i-j));
+                           y0=sqrt(3)/2*(i-(j-i));
                            x0=3/2*j;
-                       
+                     
                        case 3
-                           y0=-sqrt(3)/2*(j+(j-i));
-                           x0=-3/2*i;
+                           y0=sqrt(3)/2*(j-(i-j));
+                           x0=-3/2*(j-(j-i));
                        
                    end
+                   %второй вариант размещения координатных осей
+               
+%                    switch k
+%                    
+%                        case 1
+%                            switch compareInt32(i,j)
+%                                case -1
+%                                    x0=-3/2*(j-i);
+%                                case 0
+%                                    x0=0;
+%                                case 1
+%                                    x0=3/2*(i-j);
+%                            end
+%                            y0=(i+j)*sqrt(3)/2;
+%                        
+%                        case 2
+%                            y0=-sqrt(3)/2*(i+(i-j));
+%                            x0=3/2*j;
+%                        
+%                        case 3
+%                            y0=-sqrt(3)/2*(j+(j-i));
+%                            x0=-3/2*i;
+%                        
+%                    end
                    
                    x_arr=[x0 x0+1/2 x0 x0-1 x0-3/2 x0-1];
                    y_arr=[y0 y0+sqrt(3)/2  y0+2*(sqrt(3)/2) y0+2*(sqrt(3)/2) y0+sqrt(3)/2 y0];
