@@ -22,7 +22,7 @@ function varargout = CA(varargin)
 
 % Edit the above text to modify the response to help CA
 
-% Last Modified by GUIDE v2.5 29-Mar-2020 12:31:02
+% Last Modified by GUIDE v2.5 09-Apr-2020 15:11:51
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -47,25 +47,17 @@ end
 % --- Executes just before CA is made visible.
 function CA_OpeningFcn(hObject, eventdata, handles, varargin)
 
-KAparams.Field='';
-KAparams.N=0;
-KAparams.XBorders.Left=0;
-KAparams.XBorders.Right=0;
-KAparams.YBorders.Up=0;
-KAparams.YBorders.Down=0;
-KAparams.BordersType='';
-KAparams.Lambda='';
-KAparams.Mu0=0+0i;
-KAparams.Mu=0+0i;
+CurrCA = CellularAutomat(0, 2, 1,@(z)c*(exp(i*z)),@(z_k)sum(z_k), 0, 0, 0);
+ContParms = ControlParams(1,0,0,0);
+ResProc = ResultsProcessing(' ', 1 , 1);
+ResultsProcessing.GetSetFieldOrient(0);
+ResultsProcessing.GetSetCellOrient(0);
 
-SaveParams.SavePath='';
-SaveParams.SaveFileType='';
-SaveParams.SaveFigType='';
-SaveParams.StartFilePath='';
-SaveParams.StartFile=0;
+setappdata(hObject,'CurrCA',CurrCA);
+setappdata(hObject,'ContParms',ContParms);
+setappdata(hObject,'ResProc',ResProc);
+axis image;
 
-setappdata(hObject,'KAparams',KAparams);
-setappdata(hObject,'SaveParams',SaveParams);
 % This function has no output args, see OutputFcn.
 % hObject    handle to figure
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -96,92 +88,55 @@ varargout{1} = handles.output;
 
 % --- Executes on button press in StartButton.
 function StartButton_Callback(hObject, eventdata, handles)
-% KAparams=getappdata(handles.output,'KAparams');
-% 
-% error=false;
-% errorStr='Ошибки в полях: ';
-% 
-% KAparams.N=str2double(handles.Nedit.String);
-% if(isnan(KAparams.N) || length(handles.Nedit.String)-length(num2str(KAparams.N))==1)
-%     error=true;
-%     errorStr=strcat(errorStr,'N(ребро поля), ');
-% end
-% 
-% KAparams.XBorders.Left=str2double(handles.LeftEdit.String);
-% if(isnan(KAparams.XBorders.Left) || length(handles.LeftEdit.String)-length(num2str(KAparams.XBorders.Left))==1)
-%     error=true;
-%     errorStr=strcat(errorStr,' Левая граница промежутка по X, ');
-% end
-% 
-% KAparams.XBorders.Right=str2double(handles.RightEdit.String);
-% if(isnan(KAparams.XBorders.Right) || length(handles.RightEdit.String)-length(num2str(KAparams.XBorders.Right))==1)
-%     error=true;
-%     errorStr=strcat(errorStr,' Правая граница промежутка по X, ');
-% end
-% 
-% KAparams.YBorders.Up=str2double(handles.UpEdit.String);
-% if(isnan(KAparams.YBorders.Up) || length(handles.UpEdit.String)-length(num2str(KAparams.YBorders.Up))==1)
-%     error=true;
-%     errorStr=strcat(errorStr,' Верхняя граница промежутка по Y, ');
-% end
-% 
-% KAparams.YBorders.Down=str2double(handles.DownEdit.String);
-% if(isnan(KAparams.YBorders.Down) || length(handles.DownEdit.String)-length(num2str(KAparams.YBorders.Down))==1)
-%     error=true;
-%     errorStr=strcat(errorStr,' Нижняя граница промежутка по Y, ');
-% end
-% 
-% Mu0error=false;
-% Mu0Re=str2double(handles.Mu0ReEdit.String);
-% if(isnan(Mu0Re) || length(handles.Mu0ReEdit.String)-length(num2str(Mu0Re))==1)
-%     error=true;
-%     Mu0error=true;
-%     errorStr=strcat(errorStr,' Параметр µ, ');
-% end
-% 
-% if(~Mu0error)
-%     Mu0Im=str2double(handles.Mu0ImEdit.String);
-%     if(isnan(Mu0Im) || length(handles.Mu0ImEdit.String)-length(num2str(Mu0Im))==1)
-%         error=true;
-%         Mu0error=true;
-%         errorStr=strcat(errorStr,' Параметр µ, ');
-%     end
-% end
-% 
-% if(~Mu0error)
-%     Mu0Re=strcat(handles.Mu0ReEdit.String,'+');
-%     Mu0Im=strcat(handles.Mu0ImEdit.String,'i');
-%     KAparams.Mu0=str2double(strcat(Mu0Re,Mu0Im));
-% end
-% 
-% Muerror=false;
-% MuRe=str2double(handles.MuReEdit.String);
-% if(isnan(MuRe) || length(handles.MuReEdit.String)-length(num2str(MuRe))==1)
-%     error=true;
-%     Muerror=true;
-%     errorStr=strcat(errorStr,' Параметр µ, ');
-% end
-% 
-% if(~Muerror)
-%     MuIm=str2double(handles.MuImEdit.String);
-%     if(isnan(MuIm) || length(handles.MuImEdit.String)-length(num2str(MuIm))==1)
-%         error=true;
-%         Muerror=true;
-%         errorStr=strcat(errorStr,' Параметр µ, ');
-%     end
-% end
-% 
-% if(~Muerror)
-%     MuRe=strcat(handles.MuReEdit.String,'+');
-%     MuIm=strcat(handles.MuImEdit.String,'i');
-%     KAparams.Mu=str2double(strcat(MuRe,MuIm));
-% end
-% 
-% if(error)
-%     msgbox(errorStr,'modal');
-% else
-%     
-% end
+
+contParms = getappdata(handles.output,'ContParms');
+if(~contParms.IsReady2Start) %проверка задан ли КА
+    errordlg('Ошибка. КА не задан полностью.','modal');
+else
+    if isempty(regexp(handles.IterCountEdit.String,'^\d+$')) %проверка задано ли число итераций
+        errordlg('Ошибка в поле числа итераций.','modal');
+    else
+       ca = getappdata(handles.output,'CurrCA');
+       %подготовка обоих функций
+       MakeFuncsWithNums(ca)
+       
+       %нахождение соседей каждой ячейки (без цикла пока не получается)
+       for i=1:length(ca.Cells)
+           ca.Cells(i)=FindCellsNeighbors(ca, ca.Cells(i));
+       end
+       
+       cellArr=ca.Cells;
+       itersCount=str2double(handles.IterCountEdit.String); %число итераций
+       
+       %рассчет поля КА
+       for i=1:itersCount
+           cellArr=arrayfun(@(cell)CellularAutomat.MakeIter(cell),cellArr);
+       end
+       
+       ca.Cells=cellArr;
+       
+       %создание палитры
+       colors=colormap(jet(length(ca.Cells)));
+       modulesArr=zeros(1,length(ca.Cells));
+       zbase=zeros(1,length(ca.Cells));
+       zbase(:)=CellularAutomat.ComplexModule(ca.Zbase);
+       
+       modulesArr=arrayfun(@(cell,zbase) log(CellularAutomat.ComplexModule(cell.zPath(end)) - CellularAutomat.ComplexModule(zbase)),ca.Cells,zbase);
+       [modulesArr, cellArrIndexes]=sort(modulesArr);
+       %присваивание цветов ячейкам в соответсвии с рассчитанной выше величиной
+       for i=1:length(ca.Cells)
+           ca.Cells(cellArrIndexes(i)).Color=colors(i,:);
+       end
+       
+       %отрисовка поля
+       arrayfun(@(cell) ResultsProcessing.DrawCell(cell),ca.Cells);
+      
+       setappdata(handles.output,'CurrCA',ca);
+       handles.ResetButton.Enable='on';
+    end
+end
+
+
 % hObject    handle to StartButton (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -445,6 +400,22 @@ end
 
 % --- Executes on selection change in LambdaMenu.
 function LambdaMenu_Callback(hObject, eventdata, handles)
+currCA=getappdata(handles.output,'CurrCA');
+
+switch hObject.Value
+    
+    case 1
+        currCA.Lambda = @(z_k)Miu0+sum(z_k);
+    case 2
+        currCA.Lambda = @(z_k)Miu + Miu0*(abs(sum(z_k-Zbase)/(length(z_k))));
+    case 3
+        currCA.Lambda = @(z_k,c)Miu + Miu0* abs(sum(arrayfun(@(z_k,c)c*z_k,c,z_k)));
+    case 4
+        currCA.Lambda = @(z_k)Miu + Miu0*(sum(z_k-Zbase)/(length(z_k)));
+end
+
+setappdata(handles.output,'CurrCA',currCA);
+        
 % hObject    handle to LambdaMenu (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -693,18 +664,18 @@ function pushbutton12_Callback(hObject, eventdata, handles)
 
 
 
-function edit43_Callback(hObject, eventdata, handles)
-% hObject    handle to edit43 (see GCBO)
+function IterCountEdit_Callback(hObject, eventdata, handles)
+% hObject    handle to IterCountEdit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Hints: get(hObject,'String') returns contents of edit43 as text
-%        str2double(get(hObject,'String')) returns contents of edit43 as a double
+% Hints: get(hObject,'String') returns contents of IterCountEdit as text
+%        str2double(get(hObject,'String')) returns contents of IterCountEdit as a double
 
 
 % --- Executes during object creation, after setting all properties.
-function edit43_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to edit43 (see GCBO)
+function IterCountEdit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to IterCountEdit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 
@@ -715,40 +686,64 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
 end
 
 
-% --- Executes on button press in pushbutton13.
-function pushbutton13_Callback(hObject, eventdata, handles)
-% hObject    handle to pushbutton13 (see GCBO)
+% --- Executes on button press in ResetButton.
+function ResetButton_Callback(hObject, eventdata, handles)
+axes(handles.CAField);
+cla reset;
+axis image
+set(gca,'xtick',[])
+set(gca,'ytick',[])
+
+ca = getappdata(handles.output,'CurrCA');
+contParms = getappdata(handles.output,'ContParms');
+
+ca.Cells=CACell(0,0,[0,0,0],[0 0 0],1,1);
+contParms.IsReady2Start=false;
+
+setappdata(handles.output,'CurrCA',ca);
+setappdata(handles.output,'ContParms',contParms);
+
+handles.MiuReEdit.Enable='on';
+handles.MiuImEdit.Enable='on';
+handles.Miu0ReEdit.Enable='on';
+handles.Miu0ImEdit.Enable='on';
+handles.NFieldEdit.Enable='on';
+handles.BaseZEdit.Enable='on';
+handles.BaseImagMenu.Enable='on';
+handles.UsersBaseImagEdit.Enable='on';
+handles.DefaultCB.Enable='on';
+% hObject    handle to ResetButton (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
-% --- Executes on button press in pushbutton16.
-function pushbutton16_Callback(hObject, eventdata, handles)
-% hObject    handle to pushbutton16 (see GCBO)
+% --- Executes on button press in StopButton.
+function StopButton_Callback(hObject, eventdata, handles)
+% hObject    handle to StopButton (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
-% --- Executes on button press in pushbutton17.
-function pushbutton17_Callback(hObject, eventdata, handles)
-% hObject    handle to pushbutton17 (see GCBO)
+% --- Executes on button press in ContinueButton.
+function ContinueButton_Callback(hObject, eventdata, handles)
+% hObject    handle to ContinueButton (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 
-function PathEdit_Callback(hObject, eventdata, handles)
-% hObject    handle to PathEdit (see GCBO)
+function SaveResPathEdit_Callback(hObject, eventdata, handles)
+% hObject    handle to SaveResPathEdit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Hints: get(hObject,'String') returns contents of PathEdit as text
-%        str2double(get(hObject,'String')) returns contents of PathEdit as a double
+% Hints: get(hObject,'String') returns contents of SaveResPathEdit as text
+%        str2double(get(hObject,'String')) returns contents of SaveResPathEdit as a double
 
 
 % --- Executes during object creation, after setting all properties.
-function PathEdit_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to PathEdit (see GCBO)
+function SaveResPathEdit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to SaveResPathEdit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 
@@ -759,11 +754,12 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
 end
 
 
-% --- Executes on button press in SavePathButton.
-function SavePathButton_Callback(hObject, eventdata, handles)
-SaveParams.SavePath = uigetdir('C:\');
-handles.PathEdit.String=SaveParams.SavePath;
-% hObject    handle to SavePathButton (see GCBO)
+% --- Executes on button press in SaveResPathButton.
+function SaveResPathButton_Callback(hObject, eventdata, handles)
+resProc=getappdata(handles.output,'ResProc');
+resProc.ResPath = uigetdir('C:\');
+setappdata(handles.output,'ResProc',resProc);
+% hObject    handle to SaveResPathButton (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
@@ -1242,18 +1238,18 @@ function radiobutton25_Callback(hObject, eventdata, handles)
 
 
 
-function edit75_Callback(hObject, eventdata, handles)
-% hObject    handle to edit75 (see GCBO)
+function NFieldEdit_Callback(hObject, eventdata, handles)
+% hObject    handle to NFieldEdit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Hints: get(hObject,'String') returns contents of edit75 as text
-%        str2double(get(hObject,'String')) returns contents of edit75 as a double
+% Hints: get(hObject,'String') returns contents of NFieldEdit as text
+%        str2double(get(hObject,'String')) returns contents of NFieldEdit as a double
 
 
 % --- Executes during object creation, after setting all properties.
-function edit75_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to edit75 (see GCBO)
+function NFieldEdit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to NFieldEdit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 
@@ -1891,18 +1887,18 @@ function pushbutton31_Callback(hObject, eventdata, handles)
 
 
 
-function edit100_Callback(hObject, eventdata, handles)
-% hObject    handle to edit100 (see GCBO)
+function BorderIm0Edit_Callback(hObject, eventdata, handles)
+% hObject    handle to BorderIm0Edit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Hints: get(hObject,'String') returns contents of edit100 as text
-%        str2double(get(hObject,'String')) returns contents of edit100 as a double
+% Hints: get(hObject,'String') returns contents of BorderIm0Edit as text
+%        str2double(get(hObject,'String')) returns contents of BorderIm0Edit as a double
 
 
 % --- Executes during object creation, after setting all properties.
-function edit100_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to edit100 (see GCBO)
+function BorderIm0Edit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to BorderIm0Edit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 
@@ -1914,18 +1910,18 @@ end
 
 
 
-function edit101_Callback(hObject, eventdata, handles)
-% hObject    handle to edit101 (see GCBO)
+function BorderIm1Edit_Callback(hObject, eventdata, handles)
+% hObject    handle to BorderIm1Edit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Hints: get(hObject,'String') returns contents of edit101 as text
-%        str2double(get(hObject,'String')) returns contents of edit101 as a double
+% Hints: get(hObject,'String') returns contents of BorderIm1Edit as text
+%        str2double(get(hObject,'String')) returns contents of BorderIm1Edit as a double
 
 
 % --- Executes during object creation, after setting all properties.
-function edit101_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to edit101 (see GCBO)
+function BorderIm1Edit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to BorderIm1Edit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 
@@ -1937,18 +1933,18 @@ end
 
 
 
-function edit98_Callback(hObject, eventdata, handles)
-% hObject    handle to edit98 (see GCBO)
+function BorderRe0Edit_Callback(hObject, eventdata, handles)
+% hObject    handle to BorderRe0Edit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Hints: get(hObject,'String') returns contents of edit98 as text
-%        str2double(get(hObject,'String')) returns contents of edit98 as a double
+% Hints: get(hObject,'String') returns contents of BorderRe0Edit as text
+%        str2double(get(hObject,'String')) returns contents of BorderRe0Edit as a double
 
 
 % --- Executes during object creation, after setting all properties.
-function edit98_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to edit98 (see GCBO)
+function BorderRe0Edit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to BorderRe0Edit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 
@@ -1960,18 +1956,18 @@ end
 
 
 
-function edit99_Callback(hObject, eventdata, handles)
-% hObject    handle to edit99 (see GCBO)
+function BorderRe1Edit_Callback(hObject, eventdata, handles)
+% hObject    handle to BorderRe1Edit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Hints: get(hObject,'String') returns contents of edit99 as text
-%        str2double(get(hObject,'String')) returns contents of edit99 as a double
+% Hints: get(hObject,'String') returns contents of BorderRe1Edit as text
+%        str2double(get(hObject,'String')) returns contents of BorderRe1Edit as a double
 
 
 % --- Executes during object creation, after setting all properties.
-function edit99_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to edit99 (see GCBO)
+function BorderRe1Edit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to BorderRe1Edit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 
@@ -2012,19 +2008,19 @@ function pushbutton32_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 
 
-% --- Executes on selection change in popupmenu20.
+% --- Executes on selection change in LambdaMenu.
 function popupmenu20_Callback(hObject, eventdata, handles)
-% hObject    handle to popupmenu20 (see GCBO)
+% hObject    handle to LambdaMenu (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Hints: contents = cellstr(get(hObject,'String')) returns popupmenu20 contents as cell array
-%        contents{get(hObject,'Value')} returns selected item from popupmenu20
+% Hints: contents = cellstr(get(hObject,'String')) returns LambdaMenu contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from LambdaMenu
 
 
 % --- Executes during object creation, after setting all properties.
 function popupmenu20_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to popupmenu20 (see GCBO)
+% hObject    handle to LambdaMenu (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 
@@ -2036,18 +2032,18 @@ end
 
 
 
-function edit106_Callback(hObject, eventdata, handles)
-% hObject    handle to edit106 (see GCBO)
+function Z0SourcePathEdit_Callback(hObject, eventdata, handles)
+% hObject    handle to Z0SourcePathEdit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Hints: get(hObject,'String') returns contents of edit106 as text
-%        str2double(get(hObject,'String')) returns contents of edit106 as a double
+% Hints: get(hObject,'String') returns contents of Z0SourcePathEdit as text
+%        str2double(get(hObject,'String')) returns contents of Z0SourcePathEdit as a double
 
 
 % --- Executes during object creation, after setting all properties.
-function edit106_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to edit106 (see GCBO)
+function Z0SourcePathEdit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to Z0SourcePathEdit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 
@@ -2058,40 +2054,147 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
 end
 
 
-% --- Executes on button press in pushbutton33.
-function pushbutton33_Callback(hObject, eventdata, handles)
-% hObject    handle to pushbutton33 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
+% --- Executes on button press in Z0SourcePathButton.
+function Z0SourcePathButton_Callback(hObject, eventdata, handles)
+[file,path] = uigetfile('*.xlsx');
+path=strcat(path,file);
+setappdata(handles.ReadZ0SourceButton,'Z0SourcePath',path);
+handles.Z0SourcePathEdit.String=path;
 
-
-% --- Executes on button press in pushbutton34.
-function pushbutton34_Callback(hObject, eventdata, handles)
-% hObject    handle to pushbutton34 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-
-% --- Executes on button press in pushbutton35.
-function pushbutton35_Callback(hObject, eventdata, handles)
-% hObject    handle to pushbutton35 (see GCBO)
+% hObject    handle to Z0SourcePathButton (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 
-function edit109_Callback(hObject, eventdata, handles)
-% hObject    handle to edit109 (see GCBO)
+% --- Executes on button press in ReadZ0SourceButton.
+function ReadZ0SourceButton_Callback(hObject, eventdata, handles)
+path=getappdata(hObject,'Z0SourcePath');
+if(isempty(regexp(handles.NFieldEdit.String,'^\d+(\.?)(?(1)\d+|)$')) || isempty(path) || ~ischar(path))
+    errordlg('Ошибка. Недопустимое для задания начальной конфигурации значение ребра поля N, или неверный путь к файлу','modal');
+else
+    path=getappdata(hObject,'Z0SourcePath');
+    z0Arr=[];
+    
+    if(regexp(path,'\.txt$'))
+        formatSpec = '%f%f';
+        file = fopen(path, 'r');
+        z0Arr = fscanf(file, formatSpec);
+        fclose(file);
+    else
+        numsMatr=xlsread(path,1);
+        z0Arr=arrayfun(@(re,im) complex(re,im),numsMatr(:,1),numsMatr(:,2));
+    end
+
+    
+    z0Arr=z0Arr';
+    N=str2double(handles.NFieldEdit.String);
+    currCA=getappdata(handles.output,'CurrCA');
+    
+    fieldType=currCA.FieldType;
+    cellCount=0;
+    
+    if fieldType
+        cellCount=N*(N-1)*3;
+    else
+        cellCount=N*N;
+    end
+    
+    if length(z0Arr)<cellCount
+        errordlg('Ошибка. Количество начальных состояний в файле меньше количества ячеек.','modal');
+        setappdata(handles.output,'CurrCA',currCA);
+    else
+        z0Arr=z0Arr(1,1:cellCount);
+        g=1;
+        if fieldType
+            for k=1:3
+                for j = 0:N-1
+                    for i = 1:N-1
+                        cell=CACell(z0Arr(g),z0Arr(g),[i,j,k],[0 0 0],fieldType,N);
+                        currCA.Cells=[currCA.Cells cell];
+                        g=g+1;
+                    end
+                end
+            end
+        else
+            for x=0:N-1
+                for y=0:N-1     
+                    cell=CACell(z0Arr(g),z0Arr(g),[x,y,0],[0 0 0],fieldType,N);
+                    currCA.Cells=[currCA.Cells cell];
+                    g=g+1;
+                end
+            end
+        end
+        msgbox(strcat('Начальная конфигурация КА была успешно задана из файла',path),'modal');
+        currCA.N=N;
+        setappdata(handles.output,'CurrCA',currCA);
+    end
+    
+end
+
+% hObject    handle to ReadZ0SourceButton (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Hints: get(hObject,'String') returns contents of edit109 as text
-%        str2double(get(hObject,'String')) returns contents of edit109 as a double
+
+% --- Executes on button press in CountBaseZButton.
+function CountBaseZButton_Callback(hObject, eventdata, handles)
+
+Muerror=false;
+if(isempty(regexp(handles.MiuReEdit.String,'^\d+(\.?)(?(1)\d+|)$')))
+    Muerror=true;
+end
+
+if(~Muerror)
+    if(isempty(regexp(handles.MiuReEdit.String,'^\d+(\.?)(?(1)\d+|)$')))
+        Muerror=true;
+    end
+end
+
+if(Muerror)
+    errordlg('Ошибка. Недопустимое значение параметра Мю.','modal');
+else
+    MiuReStr=strcat(handles.MiuReEdit.String,'+');
+    MiuImStr=strcat(handles.MiuImEdit.String,'i');
+    MiuStr=strcat(MiuReStr,MiuImStr);
+    
+    currCA=getappdata(handles.output,'CurrCA');
+    currCA.Miu = str2double(MiuStr);
+    
+    MiuStr=strcat('(',MiuStr);
+    MiuStr=strcat(MiuStr,')');
+    
+    FbaseStr=strrep(func2str(currCA.Base),'c',MiuStr);
+    Fbase=str2func(FbaseStr);
+    
+    mapz_zero=@(z) abs(Fbase(z)-z);
+    z0=-3.5+0.5*i;
+    mapz_zero_xy=@(z) mapz_zero(z(1)+i*z(2));
+    [zeq,zer]=fminsearch(mapz_zero_xy, [real(z0) imag(z0)],optimset('TolX',1e-9));
+    
+    currCA.Zbase=complex(zeq(1),zeq(2));
+    
+    handles.BaseZEdit.String=num2str(currCA.Zbase);
+    setappdata(handles.output,'CurrCA',currCA);
+end
+% hObject    handle to CountBaseZButton (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
+
+function BaseZEdit_Callback(hObject, eventdata, handles)
+% hObject    handle to BaseZEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of BaseZEdit as text
+%        str2double(get(hObject,'String')) returns contents of BaseZEdit as a double
 
 
 % --- Executes during object creation, after setting all properties.
-function edit109_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to edit109 (see GCBO)
+function BaseZEdit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to BaseZEdit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 
@@ -2102,16 +2205,119 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
 end
 
 
-% --- Executes on button press in pushbutton36.
-function pushbutton36_Callback(hObject, eventdata, handles)
-% hObject    handle to pushbutton36 (see GCBO)
+% --- Executes on button press in SaveParamsButton.
+function SaveParamsButton_Callback(hObject, eventdata, handles)
+error=false;
+errorStr='Ошибки в текстовых полях: ';
+
+if(isempty(regexp(handles.NFieldEdit.String,'^\d+$')))
+    error=true;
+    errorStr=strcat(errorStr,'N, ');
+end
+
+Muerror=false;
+if(isempty(regexp(handles.MiuReEdit.String,'^\d+(\.?)(?(1)\d+|)$')))
+    error=true;
+    Muerror=true;
+    errorStr=strcat(errorStr,'Мю, ');
+end
+
+if(~Muerror)
+    if(isempty(regexp(handles.MiuImEdit.String,'^\d+(\.?)(?(1)\d+|)$')))
+        error=true;
+        Muerror=true;
+        errorStr=strcat(errorStr,'Мю, ');
+    end
+end
+
+Mu0error=false;
+if(isempty(regexp(handles.Miu0ReEdit.String,'^\d+(\.?)(?(1)\d+|)$')))
+    error=true;
+    Mu0error=true;
+    errorStr=strcat(errorStr,'Мю0, ');
+end
+
+if(~Mu0error)
+    if(isempty(regexp(handles.Miu0ImEdit.String,'^\d+(\.?)(?(1)\d+|)$')))
+        error=true;
+        errorStr=strcat(errorStr,'Мю0, ');
+    end
+end
+
+currCA=getappdata(handles.output,'CurrCA');
+if isempty(currCA.Cells) || length(currCA.Cells)==1
+     error=true;
+     regexprep(errorStr,', $','.');
+     errorStr=strcat(errorStr,' Не задана начальная конфигурация КА Z0.');
+end
+
+if error
+    regexprep(errorStr,', $','.');
+    errordlg(errorStr,'modal');
+else
+    
+    currCA.N=str2double(handles.NFieldEdit.String);
+    
+    MiuReStr=strcat(handles.MiuReEdit.String,'+');
+    MiuImStr=strcat(handles.MiuImEdit.String,'i');
+    MiuStr=strcat(MiuReStr,MiuImStr);
+    currCA.Miu=str2double(MiuStr);
+    
+    MiuStr=strcat('(',MiuStr);
+    MiuStr=strcat(MiuStr,')');
+    FbaseStr=strrep(func2str(currCA.Base),'c',MiuStr);
+    Fbase=str2func(FbaseStr);
+    
+    mapz_zero=@(z) abs(Fbase(z)-z);
+    z0=-3.5+0.5*i;
+    mapz_zero_xy=@(z) mapz_zero(z(1)+i*z(2));
+    [zeq,zer]=fminsearch(mapz_zero_xy, [real(z0) imag(z0)],optimset('TolX',1e-9));
+    
+    currCA.Zbase=complex(zeq(1),zeq(2));
+    handles.BaseZEdit.String=num2str(currCA.Zbase);
+    
+    Miu0ReStr=strcat(handles.Miu0ReEdit.String,'+');
+    Miu0ImStr=strcat(handles.Miu0ImEdit.String,'i');
+    Miu0Str=strcat(Miu0ReStr,Miu0ImStr);
+    currCA.Miu0=str2double(Miu0Str);
+    
+    setappdata(handles.output,'CurrCA',currCA);
+    
+    contParms = getappdata(handles.output,'ContParms');
+    contParms.IsReady2Start=true;
+    setappdata(handles.output,'ContParms',contParms);
+    
+    handles.MiuReEdit.Enable='off';
+    handles.MiuImEdit.Enable='off';
+    handles.Miu0ReEdit.Enable='off';
+    handles.Miu0ImEdit.Enable='off';
+    handles.NFieldEdit.Enable='off';
+    handles.BaseZEdit.Enable='off';
+    handles.BaseImagMenu.Enable='off';
+    handles.UsersBaseImagEdit.Enable='off';
+    handles.DefaultCB.Enable='off';
+end
+% hObject    handle to SaveParamsButton (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
-% --- Executes on button press in pushbutton37.
-function pushbutton37_Callback(hObject, eventdata, handles)
-% hObject    handle to pushbutton37 (see GCBO)
+% --- Executes on button press in CancelParamsButton.
+function CancelParamsButton_Callback(hObject, eventdata, handles)
+handles.MiuReEdit.Enable='on';
+handles.MiuImEdit.Enable='on';
+handles.Miu0ReEdit.Enable='on';
+handles.Miu0ImEdit.Enable='on';
+handles.NFieldEdit.Enable='on';
+handles.BaseZEdit.Enable='on';
+handles.BaseImagMenu.Enable='on';
+handles.UsersBaseImagEdit.Enable='on';
+handles.DefaultCB.Enable='on';
+
+contParms = getappdata(handles.output,'ContParms');
+contParms.IsReady2Start=false;
+setappdata(handles.output,'ContParms',contParms);
+% hObject    handle to CancelParamsButton (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
@@ -2146,8 +2352,8 @@ function InterButton_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 
 
-% --- Executes on button press in InterCheckbox.
-function InterCheckbox_Callback(hObject, eventdata, handles)
+% --- Executes on button press in DefaultCB.
+function DefaultCB_Callback(hObject, eventdata, handles)
 if(hObject.Value==1)
     handles.InitZ0Menu.Enable='on';
     handles.Z0Edit1.Enable='on';
@@ -2165,11 +2371,11 @@ else
     handles.InterButton.Enable='off';
     handles.InterParamsTable.Enable='off';
 end
-% hObject    handle to InterCheckbox (see GCBO)
+% hObject    handle to DefaultCB (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Hint: get(hObject,'Value') returns toggle state of InterCheckbox
+% Hint: get(hObject,'Value') returns toggle state of DefaultCB
 
 
 % --- Executes on button press in checkbox5.
@@ -2182,18 +2388,18 @@ function checkbox5_Callback(hObject, eventdata, handles)
 
 
 
-function edit107_Callback(hObject, eventdata, handles)
-% hObject    handle to edit107 (see GCBO)
+function MiuReEdit_Callback(hObject, eventdata, handles)
+% hObject    handle to MiuReEdit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Hints: get(hObject,'String') returns contents of edit107 as text
-%        str2double(get(hObject,'String')) returns contents of edit107 as a double
+% Hints: get(hObject,'String') returns contents of MiuReEdit as text
+%        str2double(get(hObject,'String')) returns contents of MiuReEdit as a double
 
 
 % --- Executes during object creation, after setting all properties.
-function edit107_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to edit107 (see GCBO)
+function MiuReEdit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to MiuReEdit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 
@@ -2205,18 +2411,18 @@ end
 
 
 
-function edit108_Callback(hObject, eventdata, handles)
-% hObject    handle to edit108 (see GCBO)
+function MiuImEdit_Callback(hObject, eventdata, handles)
+% hObject    handle to MiuImEdit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Hints: get(hObject,'String') returns contents of edit108 as text
-%        str2double(get(hObject,'String')) returns contents of edit108 as a double
+% Hints: get(hObject,'String') returns contents of MiuImEdit as text
+%        str2double(get(hObject,'String')) returns contents of MiuImEdit as a double
 
 
 % --- Executes during object creation, after setting all properties.
-function edit108_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to edit108 (see GCBO)
+function MiuImEdit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to MiuImEdit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 
@@ -2228,18 +2434,18 @@ end
 
 
 
-function edit104_Callback(hObject, eventdata, handles)
-% hObject    handle to edit104 (see GCBO)
+function Miu0ReEdit_Callback(hObject, eventdata, handles)
+% hObject    handle to Miu0ReEdit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Hints: get(hObject,'String') returns contents of edit104 as text
-%        str2double(get(hObject,'String')) returns contents of edit104 as a double
+% Hints: get(hObject,'String') returns contents of Miu0ReEdit as text
+%        str2double(get(hObject,'String')) returns contents of Miu0ReEdit as a double
 
 
 % --- Executes during object creation, after setting all properties.
-function edit104_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to edit104 (see GCBO)
+function Miu0ReEdit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to Miu0ReEdit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 
@@ -2251,18 +2457,18 @@ end
 
 
 
-function edit105_Callback(hObject, eventdata, handles)
-% hObject    handle to edit105 (see GCBO)
+function Miu0ImEdit_Callback(hObject, eventdata, handles)
+% hObject    handle to Miu0ImEdit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Hints: get(hObject,'String') returns contents of edit105 as text
-%        str2double(get(hObject,'String')) returns contents of edit105 as a double
+% Hints: get(hObject,'String') returns contents of Miu0ImEdit as text
+%        str2double(get(hObject,'String')) returns contents of Miu0ImEdit as a double
 
 
 % --- Executes during object creation, after setting all properties.
-function edit105_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to edit105 (see GCBO)
+function Miu0ImEdit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to Miu0ImEdit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 
@@ -2273,19 +2479,45 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
 end
 
 
-% --- Executes on selection change in popupmenu21.
-function popupmenu21_Callback(hObject, eventdata, handles)
-% hObject    handle to popupmenu21 (see GCBO)
+% --- Executes on selection change in BaseImagMenu.
+function BaseImagMenu_Callback(hObject, eventdata, handles)
+
+currCA=getappdata(handles.output,'CurrCA');
+switch hObject.Value
+    
+    case 1
+        currCA.Base=@(z)(exp(i*z));
+        handles.UsersBaseImagEdit.String='';
+        
+    case 2
+        currCA.Base=@(z)(z^2+c);
+        handles.UsersBaseImagEdit.String='';
+        
+    case 3
+        userFuncStr=handles.UsersBaseImagEdit.String;
+        if ~isempty(regexp(userFuncStr,'[^\*\^\+-\/\.\(\)\dczie(exp)(pi)]','ONCE')) || isempty(userFuncStr)
+            
+            errordlg('Ошибка. Недопустимый формат пользовательской функции.','modal');
+            hObject.Value=1;
+            currCA.Base=@(z)(exp(i*z));
+            handles.UsersBaseImagEdit.String='';
+        else
+            funcStr=strcat('@(z)',userFuncStr);
+            currCA.Base=str2func(funcStr);
+        end
+end
+setappdata(handles.output,'CurrCA',currCA);
+% hObject    handle to BaseImagMenu (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Hints: contents = cellstr(get(hObject,'String')) returns popupmenu21 contents as cell array
-%        contents{get(hObject,'Value')} returns selected item from popupmenu21
+% Hints: contents = cellstr(get(hObject,'String')) returns BaseImagMenu contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from BaseImagMenu
 
 
 % --- Executes during object creation, after setting all properties.
-function popupmenu21_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to popupmenu21 (see GCBO)
+function BaseImagMenu_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to BaseImagMenu (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 
@@ -2297,18 +2529,18 @@ end
 
 
 
-function edit103_Callback(hObject, eventdata, handles)
-% hObject    handle to edit103 (see GCBO)
+function UsersBaseImagEdit_Callback(hObject, eventdata, handles)
+% hObject    handle to UsersBaseImagEdit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Hints: get(hObject,'String') returns contents of edit103 as text
-%        str2double(get(hObject,'String')) returns contents of edit103 as a double
+% Hints: get(hObject,'String') returns contents of UsersBaseImagEdit as text
+%        str2double(get(hObject,'String')) returns contents of UsersBaseImagEdit as a double
 
 
 % --- Executes during object creation, after setting all properties.
-function edit103_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to edit103 (see GCBO)
+function UsersBaseImagEdit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to UsersBaseImagEdit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 
@@ -2445,3 +2677,67 @@ function Z0Edit3_CreateFcn(hObject, eventdata, handles)
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
+
+
+% --- Executes when selected object is changed in BordersTypePanel.
+function BordersTypePanel_SelectionChangedFcn(hObject, eventdata, handles)
+% hObject    handle to the selected object in BordersTypePanel 
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+currCA=getappdata(handles.output,'CurrCA');
+switch get(hObject,'Tag')
+    
+    case 'DeathLineBordersRB'
+        currCA.BordersType=1;
+    
+    case 'CompletedBordersRB'
+        currCA.BordersType=2;
+        
+    case 'ClosedBordersRB'
+        currCA.BordersType=3;
+    
+end
+setappdata(handles.output,'CurrCA',currCA);
+
+
+% --- Executes when selected object is changed in HexOrientationPanel.
+function HexOrientationPanel_SelectionChangedFcn(hObject, eventdata, handles)
+% hObject    handle to the selected object in HexOrientationPanel 
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+if strcmp(get(hObject,'Tag'),'VertOrientRB')
+    ResultsProcessing.GetSetCellOrient(1);
+else
+    ResultsProcessing.GetSetCellOrient(2);
+end
+
+
+% --- Executes when selected object is changed in FieldTypeGroup.
+function FieldTypeGroup_SelectionChangedFcn(hObject, eventdata, handles)
+% hObject    handle to the selected object in FieldTypeGroup 
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+currCA=getappdata(handles.output,'CurrCA');
+if strcmp(get(hObject,'Tag'),'HexFieldRB')
+    currCA.FieldType=1;
+    ResultsProcessing.GetSetFieldOrient(1);
+    handles.GorOrientRB.Value=1;
+else
+    currCA.FieldType=0;
+    ResultsProcessing.GetSetFieldOrient(0);
+end
+setappdata(handles.output,'CurrCA',currCA);
+
+
+% --- Executes when selected object is changed in CalcGroup.
+function CalcGroup_SelectionChangedFcn(hObject, eventdata, handles)
+% hObject    handle to the selected object in CalcGroup 
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+contParms=getappdata(handles.output,'ContParms');
+if strcmp(get(hObject,'Tag'),'SingleCalcRB')
+    contParms.SingleOrMultipleCalc=1;
+else
+    contParms.SingleOrMultipleCalc=0;
+end
+setappdata(handles.output,'ContParms',contParms);

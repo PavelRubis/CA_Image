@@ -1,0 +1,251 @@
+classdef ResultsProcessing
+   %класс обработки результатов моделирования
+   properties
+      ResPath (1,:) char %путь к сохраняемым результатам
+      CellsValuesFileFormat logical % формат файла для записи значений ячеек (1-txt,0-xls)
+      FigureFileFormat {mustBeInteger, mustBeInRange(FigureFileFormat,[1,4])}% формат картинки поля
+   end
+   
+   methods
+       %конструктор
+       function obj = ResultsProcessing(resPath, cellsValuesFileFormat, figureFileFormat)
+           if nargin
+               obj.ResPath=resPath;
+               obj.CellsValuesFileFormat=cellsValuesFileFormat;
+               obj.FigureFileFormat=figureFileFormat;
+           end
+       end
+       
+       % будущий метод сохранения результатов
+       function SaveRes(obj, ca, fig)
+           
+       end
+       
+   end
+   
+   methods (Static)
+       
+      % метод get-set для статической переменной ориентации ячейки (0-не задана(квадрат), 1-вертикальная, 2-горизонтальная)
+       function out = GetSetCellOrient(orient)
+           persistent CellOrientation;
+           if nargin
+               CellOrientation = orient;
+           end
+           out = CellOrientation;
+       end
+       
+      % метод get-set для статической переменной типа поля (1-гексагональное, 0-квадратное)
+       function out = GetSetFieldOrient(orient)
+           persistent FieldOrientation;
+           if nargin
+               FieldOrientation = orient;
+           end
+           out = FieldOrientation;
+       end
+       
+       %метод отрисовки ячейки КА
+       function out = DrawCell(CA_cell)
+           
+           if ResultsProcessing.GetSetFieldOrient
+               
+               if ResultsProcessing.GetSetCellOrient==1
+                   %% Отрисовка вертикального гексагона в гексагональном поле
+                   i=cast(CA_cell.Indexes(1,1),'double');
+                   j=cast(CA_cell.Indexes(1,2),'double');
+                   k=cast(CA_cell.Indexes(1,3),'double');
+                   x0=0;
+                   y0=0;
+               
+                   switch k
+                   
+                       case 1
+                           switch compareInt32(i,j)
+                               case -1
+                                   y0=-3/2*(j-i);
+                               case 0
+                                   y0=0;
+                               case 1
+                                   y0=3/2*(i-j);
+                           end
+                           x0=(i+j)*sqrt(3)/2;
+                       
+                       case 2
+                           x0=-sqrt(3)/2*(i+(i-j));
+                           y0=3/2*j;
+                       
+                       case 3
+                           x0=-sqrt(3)/2*(j+(j-i));
+                           y0=-3/2*i;
+                       
+                   end
+                   
+                   dx=sqrt(3)/2;
+                   dy=1/2;
+                   
+                   x_arr=[x0 x0+dx x0+dx x0 x0-dx x0-dx];
+                   y_arr=[y0 y0+dy y0+3*dy y0+4*dy y0+3*dy y0+dy];
+               
+                   patch(x_arr,y_arr,[CA_cell.Color(1) CA_cell.Color(2) CA_cell.Color(3)]);% рисование гексагона
+                   %%
+               else
+                   %% Отрисовка горизонтального гексагона в гексагональном поле
+                   i=cast(CA_cell.Indexes(1,1),'double');
+                   j=cast(CA_cell.Indexes(1,2),'double');
+                   k=cast(CA_cell.Indexes(1,3),'double');
+                   x0=0;
+                   y0=0;
+                   
+%                    %первый вариант размещения координатных осей
+%                    switch k
+%                        
+%                        case 1
+%                            y0=-sqrt(3)/2*(i+j);
+%                            x0=3/2*(i-j);
+%                    
+%                        case 2
+%                            y0=sqrt(3)/2*(i-(j-i));
+%                            x0=3/2*j;
+%                      
+%                        case 3
+%                            y0=sqrt(3)/2*(j-(i-j));
+%                            x0=-3/2*(j-(j-i));
+%                        
+%                    end
+
+                   %второй вариант размещения координатных осей
+                   switch k
+                   
+                       case 1
+                           switch compareInt32(i,j)
+                               case -1
+                                   x0=-3/2*(j-i);
+                               case 0
+                                   x0=0;
+                               case 1
+                                   x0=3/2*(i-j);
+                           end
+                           y0=(i+j)*sqrt(3)/2;
+                       
+                       case 2
+                           y0=-sqrt(3)/2*(i+(i-j));
+                           x0=3/2*j;
+                       
+                       case 3
+                           y0=-sqrt(3)/2*(j+(j-i));
+                           x0=-3/2*i;
+                       
+                   end
+                   
+                   dy=sqrt(3)/2;
+                   dx=1/2;
+                   
+                   x_arr=[x0 x0+dx x0 x0-(2*dx) x0-(3*dx) x0-(2*dx)];
+                   y_arr=[y0 y0+dy  y0+2*(dy) y0+2*(dy) y0+dy y0];
+               
+                   patch(x_arr,y_arr,[CA_cell.Color(1) CA_cell.Color(2) CA_cell.Color(3)]);% рисование гексагона
+                   %%
+               end
+               
+           else
+               
+               switch ResultsProcessing.GetSetCellOrient
+                   
+                   case 0
+                       %% Отрисовка квадрата в квадратном поле
+                       x_arr=[CA_cell.Indexes(2) CA_cell.Indexes(2)+1 CA_cell.Indexes(2)+1 CA_cell.Indexes(2)];
+                       y_arr=[(CA_cell.Indexes(1)) (CA_cell.Indexes(1)) (CA_cell.Indexes(1))+1 (CA_cell.Indexes(1))+1];
+                       
+                       patch(x_arr,y_arr,[CA_cell.Color(1) CA_cell.Color(2) CA_cell.Color(3)]);% рисование квадрата
+                       %%
+                   case 1
+                       %% Отрисовка вертикального гексагона в квадратном поле
+                       x0 = cast(CA_cell.Indexes(1,1),'double');% визуальная координата на оси x
+                       y0 = cast(CA_cell.Indexes(1,2),'double');% визуальная координата на оси y
+
+                       %расчет шести точек гексагона на экране
+                       if(x0)
+                           x0=x0+(x0*sqrt(3)-x0);
+                       end
+                       
+                       if(y0)
+                           if mod(y0,2)
+                               x0=x0+sqrt(3)/2;
+                           end
+                           y0=y0+(y0*1/2);
+                       end
+                       
+                       dx=sqrt(3)/2;
+                       dy=1/2;
+                   
+                       x_arr=[x0 x0+dx x0+dx x0 x0-dx x0-dx];
+                       y_arr=[y0 y0+dy y0+3*dy y0+4*dy y0+3*dy y0+dy];
+               
+                       patch(x_arr,y_arr,[CA_cell.Color(1) CA_cell.Color(2) CA_cell.Color(3)]);% рисование гексагона
+                       %%
+                   case 2
+                       %% Отрисовка горизонтального гексагона в квадратном поле
+                       x0 = cast(CA_cell.Indexes(1,1),'double');% визуальная координата на оси x
+                       y0 = cast(CA_cell.Indexes(1,2),'double');% визуальная координата на оси y
+
+                       %расчет шести точек гексагона на экране
+                       if(y0)
+                           y0=y0+(y0*sqrt(3)-y0);
+                       end
+                       
+                       if(x0)
+                           if mod(x0,2)
+                               y0=y0+sqrt(3)/2;
+                           end
+                           x0=x0+(x0*1/2);
+                       end
+                       
+                       dy=sqrt(3)/2;
+                       dx=1/2;
+                   
+                       x_arr=[x0 x0+dx x0 x0-(2*dx) x0-(3*dx) x0-(2*dx)];
+                       y_arr=[y0 y0+dy  y0+2*(dy) y0+2*(dy) y0+dy y0];
+               
+                       patch(x_arr,y_arr,[CA_cell.Color(1) CA_cell.Color(2) CA_cell.Color(3)]); % рисование гексагона
+                       %%
+               end
+           end
+           out = CA_cell;
+       end
+       
+       function out = GetCellValueModule(CA_cell)
+          out = ComplexModule(CA_cell.z0);
+       end
+       
+       %установка цвета состояния ячейки через максимальное и минимальное значение модуля состояния в массиве всего поля
+       %%
+       function cell=SetCellColor(CA_cell, color)
+           CA_cell.Color=color;
+           cell=CA_cell;
+       end
+       %%
+   end
+   
+end
+
+function mustBeInRange(a,b)
+    if any(a(:) < b(1)) || any(a(:) > b(2))
+        error(['Value assigned to Color property is not in range ',...
+            num2str(b(1)),'...',num2str(b(2))])
+    end
+end
+
+function res = compareInt32(a,b)
+    if a>b
+        res=1;
+    else
+        if a<b
+            res=-1;
+        else
+            res=0;
+        end
+    end
+end
+
+function out = ComplexModule(compNum)
+    out=sqrt(real(compNum)*real(compNum)+imag(compNum)*imag(compNum));
+end
