@@ -30,7 +30,7 @@ classdef CellularAutomat
        
        %метод рассчета состо€ни€ €чейки
        function out = MakeIter(CA_cell)
-           z_last =CA_cell.zPath(end);
+           z_last = CA_cell.zPath(end);
            [base,lambda] = CellularAutomat.GetSetFuncs;%получаем функции базового отображени€ и л€мбды
            basePart = base(z_last);% вычисление базы
            lambdaPart=0;

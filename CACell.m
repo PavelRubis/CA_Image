@@ -15,6 +15,12 @@ classdef CACell
        %конструктор €чейки
        function obj = CACell(value, path, indexes, color, FieldType, N)
            if nargin
+               if iscell(indexes)
+                   indexes=cell2mat(indexes);
+               end
+               if iscell(color)
+                   color=cell2mat(color);
+               end
                
                if FieldType
                    if(any(indexes)<0 || any(indexes)>N || (indexes(1) < 1 && indexes(3)~=0) || indexes(3) > 3 || (indexes(3)==0 && any(indexes)~=0))

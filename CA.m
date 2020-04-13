@@ -2074,61 +2074,103 @@ if(isempty(regexp(handles.NFieldEdit.String,'^\d+(\.?)(?(1)\d+|)$')) || isempty(
     errordlg('Ошибка. Недопустимое для задания начальной конфигурации значение ребра поля N, или неверный путь к файлу','modal');
 else
     path=getappdata(hObject,'Z0SourcePath');
-    z0Arr=[];
     
-    if(regexp(path,'\.txt$'))
-        formatSpec = '%f%f';
-        file = fopen(path, 'r');
-        z0Arr = fscanf(file, formatSpec);
-        fclose(file);
-    else
-        numsMatr=xlsread(path,1);
-        z0Arr=arrayfun(@(re,im) complex(re,im),numsMatr(:,1),numsMatr(:,2));
-    end
-
-    
-    z0Arr=z0Arr';
     N=str2double(handles.NFieldEdit.String);
     currCA=getappdata(handles.output,'CurrCA');
-    
-    fieldType=currCA.FieldType;
     cellCount=0;
+    fieldType= currCA.FieldType;
+    z0Arr=[];
+
     
-    if fieldType
-        cellCount=N*(N-1)*3;
+    if(regexp(path,'\.txt$'))
+        if fieldType
+            cellCount=N*(N-1)*3;
+            z0Size=[5 cellCount];
+            formatSpec = '%d %d %d %f %f\n';
+        else
+            cellCount=N*N;
+            z0Size=[4 cellCount];
+            formatSpec = '%d %d %f %f\n';
+        end
+        file = fopen(path, 'r');
+        z0Arr = fscanf(file, formatSpec,z0Size);
+        fclose(file);
+
     else
-        cellCount=N*N;
+        if fieldType
+            cellCount=N*(N-1)*3;
+        else
+            cellCount=N*N;
+        end
+        z0Arr=xlsread(path,1);
+        z0Arr=z0Arr';
     end
     
-    if length(z0Arr)<cellCount
+    if length(z0Arr(1,:))<cellCount
         errordlg('Ошибка. Количество начальных состояний в файле меньше количества ячеек.','modal');
         setappdata(handles.output,'CurrCA',currCA);
     else
-        z0Arr=z0Arr(1,1:cellCount);
-        g=1;
+        valuesArr=[];
+        idxes=[];
+        colors=[];
+        z0Arr=z0Arr';
+        
         if fieldType
-            for k=1:3
-                for j = 0:N-1
-                    for i = 1:N-1
-                        cell=CACell(z0Arr(g),z0Arr(g),[i,j,k],[0 0 0],fieldType,N);
-                        currCA.Cells=[currCA.Cells cell];
-                        g=g+1;
-                    end
-                end
+            valuesArr=arrayfun(@(re,im) complex(re,im),z0Arr(:,4),z0Arr(:,5));
+            for i=1:cellCount
+                idxes=[idxes {z0Arr(i,1:3)}];
+                colors=[colors {[0 0 0]}];
             end
         else
-            for x=0:N-1
-                for y=0:N-1     
-                    cell=CACell(z0Arr(g),z0Arr(g),[x,y,0],[0 0 0],fieldType,N);
-                    currCA.Cells=[currCA.Cells cell];
-                    g=g+1;
-                end
+            valuesArr=arrayfun(@(re,im) complex(re,im),z0Arr(:,3),z0Arr(:,4));
+            for i=1:cellCount
+                idxes=[idxes {[z0Arr(i,1:2) 0]}];
+                colors=[colors {[0 0 0]}];
             end
         end
+        valuesArr=valuesArr';
+        fieldTypeArr=zeros(1,cellCount);
+        fieldTypeArr(:)=fieldType;
+        
+        NArr=zeros(1,cellCount);
+        NArr(:)=N;
+        
+        currCA.Cells=arrayfun(@(value, path, indexes, color, FieldType, N) CACell(value, path, indexes, color, FieldType, N) ,valuesArr,valuesArr,idxes,colors,fieldTypeArr,NArr);
+        
         msgbox(strcat('Начальная конфигурация КА была успешно задана из файла',path),'modal');
         currCA.N=N;
         setappdata(handles.output,'CurrCA',currCA);
     end
+    
+%     if length(z0Arr)<cellCount
+%         errordlg('Ошибка. Количество начальных состояний в файле меньше количества ячеек.','modal');
+%         setappdata(handles.output,'CurrCA',currCA);
+%     else
+%         z0Arr=z0Arr(1,1:cellCount);
+%         g=1;
+%         if fieldType
+%             for k=1:3
+%                 for j = 0:N-1
+%                     for i = 1:N-1
+%                         cell=CACell(z0Arr(g),z0Arr(g),[i,j,k],[0 0 0],fieldType,N);
+%                         currCA.Cells=[currCA.Cells cell];
+%                         g=g+1;
+%                     end
+%                 end
+%             end
+%         else
+%             for x=0:N-1
+%                 for y=0:N-1     
+%                     cell=CACell(z0Arr(g),z0Arr(g),[x,y,0],[0 0 0],fieldType,N);
+%                     currCA.Cells=[currCA.Cells cell];
+%                     g=g+1;
+%                 end
+%             end
+%         end
+%         msgbox(strcat('Начальная конфигурация КА была успешно задана из файла',path),'modal');
+%         currCA.N=N;
+%         setappdata(handles.output,'CurrCA',currCA);
+%     end
     
 end
 
@@ -2141,12 +2183,12 @@ end
 function CountBaseZButton_Callback(hObject, eventdata, handles)
 
 Muerror=false;
-if(isempty(regexp(handles.MiuReEdit.String,'^\d+(\.?)(?(1)\d+|)$')))
+if(isempty(regexp(handles.MiuReEdit.String,'^-?\d+(\.?)(?(1)\d+|)$')))
     Muerror=true;
 end
 
 if(~Muerror)
-    if(isempty(regexp(handles.MiuReEdit.String,'^\d+(\.?)(?(1)\d+|)$')))
+    if(isempty(regexp(handles.MiuReEdit.String,'^-?\d+(\.?)(?(1)\d+|)$')))
         Muerror=true;
     end
 end
@@ -2216,14 +2258,14 @@ if(isempty(regexp(handles.NFieldEdit.String,'^\d+$')))
 end
 
 Muerror=false;
-if(isempty(regexp(handles.MiuReEdit.String,'^\d+(\.?)(?(1)\d+|)$')))
+if(isempty(regexp(handles.MiuReEdit.String,'^-?\d+(\.?)(?(1)\d+|)$')))
     error=true;
     Muerror=true;
     errorStr=strcat(errorStr,'Мю, ');
 end
 
 if(~Muerror)
-    if(isempty(regexp(handles.MiuImEdit.String,'^\d+(\.?)(?(1)\d+|)$')))
+    if(isempty(regexp(handles.MiuImEdit.String,'^-?\d+(\.?)(?(1)\d+|)$')))
         error=true;
         Muerror=true;
         errorStr=strcat(errorStr,'Мю, ');
@@ -2231,14 +2273,14 @@ if(~Muerror)
 end
 
 Mu0error=false;
-if(isempty(regexp(handles.Miu0ReEdit.String,'^\d+(\.?)(?(1)\d+|)$')))
+if(isempty(regexp(handles.Miu0ReEdit.String,'^-?\d+(\.?)(?(1)\d+|)$')))
     error=true;
     Mu0error=true;
     errorStr=strcat(errorStr,'Мю0, ');
 end
 
 if(~Mu0error)
-    if(isempty(regexp(handles.Miu0ImEdit.String,'^\d+(\.?)(?(1)\d+|)$')))
+    if(isempty(regexp(handles.Miu0ImEdit.String,'^-?\d+(\.?)(?(1)\d+|)$')))
         error=true;
         errorStr=strcat(errorStr,'Мю0, ');
     end
