@@ -1,48 +1,116 @@
 classdef ResultsProcessing
    %класс обработки результатов моделирования
    properties
-      ResPath (1,:) char %путь к сохраняемым результатам
-      CellsValuesFileFormat logical % формат файла для записи значений ячеек (1-txt,0-xls)
-      FigureFileFormat {mustBeInteger, mustBeInRange(FigureFileFormat,[1,4])}% формат картинки поля
+       isSave logical =0% сохраняем ли результаты
+       isSaveCA logical =0% сохраняем ли КА
+       isSaveFig logical =0% сохраняем ли фигуру
+       SingleOrMultipleCalc logical =1 %одиночный или множественный рассчет
+       ResPath (1,:) char %путь к сохраняемым результатам
+       CellsValuesFileFormat logical % формат файла для записи значений ячеек (1-txt,0-xls)
+       FigureFileFormat {mustBeInteger, mustBeInRange(FigureFileFormat,[1,4])}% формат картинки поля
    end
    
    methods
        %конструктор
-       function obj = ResultsProcessing(resPath, cellsValuesFileFormat, figureFileFormat)
+       function obj = ResultsProcessing(resPath, cellsValuesFileFormat, figureFileFormat, singleOrMultipleCalc)
            if nargin
                obj.ResPath=resPath;
                obj.CellsValuesFileFormat=cellsValuesFileFormat;
                obj.FigureFileFormat=figureFileFormat;
+               obj.SingleOrMultipleCalc=singleOrMultipleCalc;
            end
        end
        
        % будущий метод сохранения результатов
-       function SaveRes(obj, ca, fig)
+       function SaveRes(obj, ca, fig,iter)
+           
+           if obj.SingleOrMultipleCalc
+               ConfFileName=strcat('\Modeling ',datestr(clock));
+               ConfFileName=strcat(ConfFileName,'-CA-Conf.txt');
+               ConfFileName=strrep(ConfFileName,':','-');
+               ConfFileName=strcat(obj.ResPath,ConfFileName);
+               
+               fileID = fopen(ConfFileName, 'w');
+               fprintf(fileID, strcat('Моделирование от  ',datestr(clock)));
+               fprintf(fileID, '\n\nКонфигурация КА:\n\n');
+               
+               if ca.FieldType
+                   fprintf(fileID, 'Тип решетки поля: гексагональное\n');
+               else
+                   fprintf(fileID, 'Тип решетки поля: квадратное\n');
+               end
+               
+               switch ca.BordersType
+                   case 1
+                       fprintf(fileID, 'Тип границ поля: "линия смерти"\n');
+                   case 2
+                       fprintf(fileID, 'Тип границ поля: замыкание границ\n');
+                   case 3
+                       fprintf(fileID, 'Тип границ поля: закрытые границы\n');
+               end
+               
+               fprintf(fileID, 'Ребро N=%d\n',ca.N);
+               
+               fprintf(fileID, strcat('Базовое отображение: ',func2str(ca.Base)));
+               fprintf(fileID, strcat('\nЗависимость параметра лямбда: ',func2str(ca.Lambda)));
+               fprintf(fileID, '\nПараметр Мю=%f %fi\n',real(ca.Miu),imag(ca.Miu));
+               fprintf(fileID, 'Параметр Мю0=%f %fi\n',real(ca.Miu0),imag(ca.Miu0));
+               fprintf(fileID, 'Итерация Iter=%f\n',iter);
+               fclose(fileID);
+               
+               Z=[];
+               for i=1:length(ca.Cells)
+                   idx=cast(ca.Cells(i).Indexes,'double');
+                   Z=[Z ; [idx real(ca.Cells(i).zPath(end)) imag(ca.Cells(i).zPath(end))]];
+               end
+               Z=Z';
+               ZFileName=strrep(ConfFileName,'-CA-Conf','-Z');
+               fileID1 = fopen(ZFileName, 'w');
+               if ca.FieldType
+                   formatSpec='%d %d %d %f %f\n';
+               else
+                   formatSpec='%d %d %f %f\n';
+               end
+               fprintf(fileID1,formatSpec,Z);
+               fclose(fileID1);
+               
+           end
+           
+%            switch obj.FigureFileFormat
+%                case 1
+%                    savefig('CAField.fig');
+%                case 2
+%                    saveas(fig,'CAField.png')
+%                case 3
+%                    saveas(fig,'CAField.jpg')
+%                case 4
+%                    saveas(fig,'CAField.pdf')
+%            end
            
        end
        
    end
    
    methods (Static)
-       
+       %%
       % метод get-set для статической переменной ориентации ячейки (0-не задана(квадрат), 1-вертикальная, 2-горизонтальная)
-       function out = GetSetCellOrient(orient)
+       function out = GetSetCellOrient(Cellorient)
            persistent CellOrientation;
            if nargin
-               CellOrientation = orient;
+               CellOrientation = Cellorient;
            end
            out = CellOrientation;
        end
        
       % метод get-set для статической переменной типа поля (1-гексагональное, 0-квадратное)
-       function out = GetSetFieldOrient(orient)
+       function out = GetSetFieldOrient(Fieldorient)
            persistent FieldOrientation;
            if nargin
-               FieldOrientation = orient;
+               FieldOrientation = Fieldorient;
            end
            out = FieldOrientation;
        end
-       
+       %%
        %метод отрисовки ячейки КА
        function out = DrawCell(CA_cell)
            

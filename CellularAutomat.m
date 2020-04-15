@@ -30,30 +30,46 @@ classdef CellularAutomat
        
        %метод рассчета состояния ячейки
        function out = MakeIter(CA_cell)
-           z_last = CA_cell.zPath(end);
-           [base,lambda] = CellularAutomat.GetSetFuncs;%получаем функции базового отображения и лямбды
-           basePart = base(z_last);% вычисление базы
-           lambdaPart=0;
+           if length(CA_cell.CurrNeighbors)~=0
+             
+               z_last = CA_cell.zPath(end);
+               [base,lambda] = CellularAutomat.GetSetFuncs;%получаем функции базового отображения и лямбды
+               basePart = base(z_last);% вычисление базы
+               lambdaPart=0;
            
-           neighborsZ=zeros(1,length(CA_cell.CurrNeighbors));
-           neighborsZ=arrayfun(@(neighbor) neighbor.zPath(end)*1, CA_cell.CurrNeighbors);
+               neighborsZ=zeros(1,length(CA_cell.CurrNeighbors));
+               neighborsZ=arrayfun(@(neighbor) neighbor.zPath(end)*1, CA_cell.CurrNeighbors);
            
-           if regexp(func2str(lambda),'^@\(z_k,c\)')% если лямбда завиисит от двух переменных (в случае D2 вторая переменная-массив единиц переменного знака)
-               onesArr=ones(1,length(CA_cell.CurrNeighbors));
-               onesArr(1:2:length(onesArr))=-1;
-               lambdaPart=lambda(neighborsZ,onesArr);% вычисление лямбды
-           else
-               lambdaPart=lambda(neighborsZ);% вычисление лямбды
+               if regexp(func2str(lambda),'^@\(z_k,c\)')% если лямбда завиисит от двух переменных (в случае D2 вторая переменная-массив единиц переменного знака)
+                   onesArr=ones(1,length(CA_cell.CurrNeighbors));
+                   onesArr(1:2:length(onesArr))=-1;
+                   lambdaPart=lambda(neighborsZ,onesArr);% вычисление лямбды
+               else
+                   lambdaPart=lambda(neighborsZ);% вычисление лямбды
+               end
+               
+               z_new=lambdaPart*basePart;
+               CA_cell.zPath=[CA_cell.zPath z_new];
            end
-           
-           z_new=lambdaPart*basePart;
-           CA_cell.zPath=[CA_cell.zPath z_new];
            out = CA_cell;
        end       
        
        function out = ComplexModule(compNum)
            out=sqrt(real(compNum)*real(compNum)+imag(compNum)*imag(compNum));
        end
+       
+%        function out = UpdateNeighborsValues(CA_cell,cellArr)
+%            logicNeib=zeros(1,length(cellArr));
+%            ind=(cellArr==CA_cell.CurrNeighbors);
+%            logicNeib = arrayfun(@(celli,neighbor) neighbor.Indexes==celli.Indexes ,cellArr,CA_cell.CurrNeighbors);
+%            neibArrNumbs=find(logicNeib);
+%            
+%            if ~isempty(neibArrNumbs)
+%                CA_cell.CurrNeighbors=cellArr(neibArrNumbs(:));
+%            end
+%            
+%            out=CA_cell;
+%        end
        
     end
     

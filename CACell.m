@@ -27,12 +27,18 @@ classdef CACell
                        error('Error in cell (i,j,k) indexes.');
                    else
                        obj.Indexes=indexes;
+                       if any(obj.Indexes==(N-1)) || any(obj.Indexes==0)
+                           obj.IsExternal=true;
+                       end
                    end
                else
                    if(any(indexes)>=N || any(indexes)<0)
                        error('Error. X coordinate of cell must be <=N, Y coordinate of cell must be <=N and both coordinate must be >=0.');
                    else
                        obj.Indexes=indexes;
+                       if any(obj.Indexes(1:2)==(N-1)) || any(obj.Indexes(1:2)==0)
+                           obj.IsExternal=true;
+                       end
                    end
                end
                
@@ -40,10 +46,6 @@ classdef CACell
                obj.zPath=path;
                obj.Indexes=indexes;
                obj.Color=color;
-               
-               if any(obj.Indexes)==(N-1)
-                   obj.IsExternal=true;
-               end
            end
        end
        

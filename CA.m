@@ -47,11 +47,12 @@ end
 % --- Executes just before CA is made visible.
 function CA_OpeningFcn(hObject, eventdata, handles, varargin)
 
-CurrCA = CellularAutomat(0, 2, 1,@(z)c*(exp(i*z)),@(z_k)sum(z_k), 0, 0, 0);
+CurrCA = CellularAutomat(0, 2, 1,@(z)(exp(i*z)),@(z_k)Miu0+sum(z_k), 0, 0, 0);
 ContParms = ControlParams(1,0,0,0);
-ResProc = ResultsProcessing(' ', 1 , 1);
-ResultsProcessing.GetSetFieldOrient(0);
+ResProc = ResultsProcessing([],1,1,1);
 ResultsProcessing.GetSetCellOrient(0);
+ResultsProcessing.GetSetFieldOrient(0);
+
 
 setappdata(hObject,'CurrCA',CurrCA);
 setappdata(hObject,'ContParms',ContParms);
@@ -90,49 +91,89 @@ varargout{1} = handles.output;
 function StartButton_Callback(hObject, eventdata, handles)
 
 contParms = getappdata(handles.output,'ContParms');
-if(~contParms.IsReady2Start) %проверка задан ли КА
-    errordlg('Ошибка. КА не задан полностью.','modal');
+resProc = getappdata(handles.output,'ResProc');
+
+if (~contParms.IsReady2Start) || ((isempty(resProc.ResPath) || ~ischar(resProc.ResPath))&& resProc.isSave) %проверка задан ли КА и директория сохранения резов
+    errorStr='Ошибка. ';
+    
+    if(~contParms.IsReady2Start) 
+        errorStr='Ошибка. Конфигурация КА не задана полностью или не сохранена. ';
+    end
+    
+    if isempty(resProc.ResPath) || ~ischar(resProc.ResPath)
+        errorStr=strcat(errorStr,'Не задана директория сохранения результатов.');
+    end
+    setappdata(handles.output,'ResProc',resProc);
+    
+    errordlg(errorStr,'modal');
 else
-    if isempty(regexp(handles.IterCountEdit.String,'^\d+$')) %проверка задано ли число итераций
+    handles.CancelParamsButton.Enable='off';
+    if isempty(regexp(handles.IterCountEdit.String,'^\d+$')) || str2double(handles.IterCountEdit.String)<1 %проверка задано ли число итераций
         errordlg('Ошибка в поле числа итераций.','modal');
     else
        ca = getappdata(handles.output,'CurrCA');
        %подготовка обоих функций
        MakeFuncsWithNums(ca)
        
-       %нахождение соседей каждой ячейки (без цикла пока не получается)
+       %нахождение соседей каждой ячейки
        for i=1:length(ca.Cells)
            ca.Cells(i)=FindCellsNeighbors(ca, ca.Cells(i));
        end
        
        cellArr=ca.Cells;
+       ca_L=length(ca.Cells);
        itersCount=str2double(handles.IterCountEdit.String); %число итераций
        
        %рассчет поля КА
        for i=1:itersCount
            cellArr=arrayfun(@(cell)CellularAutomat.MakeIter(cell),cellArr);
+           
+           ca.Cells=cellArr;
+           for j=1:ca_L
+               cellArr(j)=FindCellsNeighbors(ca, ca.Cells(j));
+           end
        end
        
-       ca.Cells=cellArr;
        
        %создание палитры
-       colors=colormap(jet(length(ca.Cells)));
-       modulesArr=zeros(1,length(ca.Cells));
-       zbase=zeros(1,length(ca.Cells));
-       zbase(:)=CellularAutomat.ComplexModule(ca.Zbase);
+       colors=colormap(jet(256));
        
-       modulesArr=arrayfun(@(cell,zbase) log(CellularAutomat.ComplexModule(cell.zPath(end)) - CellularAutomat.ComplexModule(zbase)),ca.Cells,zbase);
-       [modulesArr, cellArrIndexes]=sort(modulesArr);
+       modulesArr=zeros(1,ca_L);
+       zbase=zeros(1,ca_L);
+       zbase(:)=ca.Zbase;
+       
+       modulesArr=arrayfun(@(cell,zbase) log(CellularAutomat.ComplexModule(cell.zPath(end)-zbase))/log(10),ca.Cells,zbase);
+       compareArr=-12:24/(255):12;
+       
        %присваивание цветов ячейкам в соответсвии с рассчитанной выше величиной
-       for i=1:length(ca.Cells)
-           ca.Cells(cellArrIndexes(i)).Color=colors(i,:);
+       for i=1:ca_L
+           
+           ind=find(compareArr>modulesArr(i),length(compareArr),'first');
+           
+           if isempty(ind)
+               ca.Cells(i).Color=[0 0 0];
+           else
+               ind=ind(1);
+               if ind==1
+                   ca.Cells(i).Color=[1 1 1];
+               else
+                   ca.Cells(i).Color=colors(ind-1,:);
+               end
+           end
        end
+       
+       handles.ResetButton.Enable='on';
        
        %отрисовка поля
        arrayfun(@(cell) ResultsProcessing.DrawCell(cell),ca.Cells);
+       
+       if resProc.isSave
+           SaveRes(resProc,ca,handles.CAField,contParms.IterCount);
+       end
       
        setappdata(handles.output,'CurrCA',ca);
-       handles.ResetButton.Enable='on';
+       contParms.IterCount=contParms.IterCount+1;
+       setappdata(handles.output,'ContParms',contParms);
     end
 end
 
@@ -409,7 +450,7 @@ switch hObject.Value
     case 2
         currCA.Lambda = @(z_k)Miu + Miu0*(abs(sum(z_k-Zbase)/(length(z_k))));
     case 3
-        currCA.Lambda = @(z_k,c)Miu + Miu0* abs(sum(arrayfun(@(z_k,c)c*z_k,c,z_k)));
+        currCA.Lambda = @(z_k,c)Miu + Miu0*abs(sum(arrayfun(@(z_n,o)o*z_n ,z_k,c)));
     case 4
         currCA.Lambda = @(z_k)Miu + Miu0*(sum(z_k-Zbase)/(length(z_k)));
 end
@@ -703,6 +744,7 @@ contParms.IsReady2Start=false;
 setappdata(handles.output,'CurrCA',ca);
 setappdata(handles.output,'ContParms',contParms);
 
+
 handles.MiuReEdit.Enable='on';
 handles.MiuImEdit.Enable='on';
 handles.Miu0ReEdit.Enable='on';
@@ -712,6 +754,20 @@ handles.BaseZEdit.Enable='on';
 handles.BaseImagMenu.Enable='on';
 handles.UsersBaseImagEdit.Enable='on';
 handles.DefaultCB.Enable='on';
+handles.SquareFieldRB.Enable='on';
+handles.HexFieldRB.Enable='on';
+handles.GorOrientRB.Enable='on';
+handles.VertOrientRB.Enable='on';
+handles.CompletedBordersRB.Enable='on';
+handles.DeathLineBordersRB.Enable='on';
+handles.ClosedBordersRB.Enable='on';
+handles.BaseImagMenu.Enable='on';
+handles.UsersBaseImagEdit.Enable='on';
+handles.LambdaMenu.Enable='on';
+handles.Z0SourcePathButton.Enable='on';
+handles.ReadZ0SourceButton.Enable='on';
+handles.SaveParamsButton.Enable='on';
+handles.CancelParamsButton.Enable='on';
 % hObject    handle to ResetButton (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -759,6 +815,8 @@ function SaveResPathButton_Callback(hObject, eventdata, handles)
 resProc=getappdata(handles.output,'ResProc');
 resProc.ResPath = uigetdir('C:\');
 setappdata(handles.output,'ResProc',resProc);
+handles.SaveResPathEdit.String=resProc.ResPath;
+
 % hObject    handle to SaveResPathButton (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -766,11 +824,22 @@ setappdata(handles.output,'ResProc',resProc);
 
 % --- Executes on button press in SaveCellsCB.
 function SaveCellsCB_Callback(hObject, eventdata, handles)
+resProc=getappdata(handles.output,'ResProc');
 if hObject.Value==1
+    
+    resProc.isSave=1;
+    resProc.isSaveCA=1;
+    
     set(handles.FileTypeMenu,'Enable','on');
 else
+    if ~resProc.isSaveFig
+        resProc.isSave=0;
+    end
+    resProc.isSaveCA=0;
+    
     set(handles.FileTypeMenu,'Enable','off');
 end
+setappdata(handles.output,'ResProc',resProc);
 % hObject    handle to SaveCellsCB (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -780,11 +849,21 @@ end
 
 % --- Executes on button press in SaveFigCB.
 function SaveFigCB_Callback(hObject, eventdata, handles)
+resProc=getappdata(handles.output,'ResProc');
 if hObject.Value==1
+    resProc.isSave=1;
+    resProc.isSaveFig=1;
+    
     set(handles.FigTypeMenu,'Enable','on');
 else
+    if ~resProc.isSaveCA
+        resProc.isSave=0;
+    end
+    resProc.isSaveFig=0;
+    
     set(handles.FigTypeMenu,'Enable','off');
 end
+setappdata(handles.output,'ResProc',resProc);
 % hObject    handle to SaveFigCB (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -794,6 +873,16 @@ end
 
 % --- Executes on selection change in FileTypeMenu.
 function FileTypeMenu_Callback(hObject, eventdata, handles)
+resProc=getappdata(handles.output,'ResProc');
+
+switch hObject.Value
+    case 1
+        resProc.CellsValuesFileFormat=1;
+    case 2
+        resProc.CellsValuesFileFormat=0;
+end
+
+setappdata(handles.output,'ResProc',resProc);
 % hObject    handle to FileTypeMenu (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -804,6 +893,7 @@ function FileTypeMenu_Callback(hObject, eventdata, handles)
 
 % --- Executes during object creation, after setting all properties.
 function FileTypeMenu_CreateFcn(hObject, eventdata, handles)
+
 % hObject    handle to FileTypeMenu (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
@@ -817,6 +907,20 @@ end
 
 % --- Executes on selection change in FigTypeMenu.
 function FigTypeMenu_Callback(hObject, eventdata, handles)
+resProc=getappdata(handles.output,'ResProc');
+
+switch hObject.Value
+    case 1
+        resProc.FigureFileFormat=1;
+    case 2
+        resProc.FigureFileFormat=2;
+    case 3
+        resProc.FigureFileFormat=3;
+    case 4
+        resProc.FigureFileFormat=4;
+end
+
+setappdata(handles.output,'ResProc',resProc);
 % hObject    handle to FigTypeMenu (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2056,7 +2160,7 @@ end
 
 % --- Executes on button press in Z0SourcePathButton.
 function Z0SourcePathButton_Callback(hObject, eventdata, handles)
-[file,path] = uigetfile('*.xlsx');
+[file,path] = uigetfile('*.txt');
 path=strcat(path,file);
 setappdata(handles.ReadZ0SourceButton,'Z0SourcePath',path);
 handles.Z0SourcePathEdit.String=path;
@@ -2106,8 +2210,8 @@ else
         z0Arr=z0Arr';
     end
     
-    if length(z0Arr(1,:))<cellCount
-        errordlg('Ошибка. Количество начальных состояний в файле меньше количества ячеек.','modal');
+    if length(z0Arr(1,:))<cellCount || (fieldType && length(z0Arr(:,1))==4)|| (~fieldType && length(z0Arr(:,1))==5)
+        errordlg('Ошибка. Количество начальных состояний в файле меньше количества ячеек, или данные в файле не подходят для инициализации Z0.','modal');
         setappdata(handles.output,'CurrCA',currCA);
     else
         valuesArr=[];
@@ -2119,16 +2223,18 @@ else
             valuesArr=arrayfun(@(re,im) complex(re,im),z0Arr(:,4),z0Arr(:,5));
             for i=1:cellCount
                 idxes=[idxes {z0Arr(i,1:3)}];
-                colors=[colors {[0 0 0]}];
             end
         else
             valuesArr=arrayfun(@(re,im) complex(re,im),z0Arr(:,3),z0Arr(:,4));
             for i=1:cellCount
                 idxes=[idxes {[z0Arr(i,1:2) 0]}];
-                colors=[colors {[0 0 0]}];
             end
         end
         valuesArr=valuesArr';
+        
+        colors=cell(1,cellCount);
+        colors(:)=num2cell([0 0 0],[1 2]);
+        
         fieldTypeArr=zeros(1,cellCount);
         fieldTypeArr(:)=fieldType;
         
@@ -2338,6 +2444,19 @@ else
     handles.BaseImagMenu.Enable='off';
     handles.UsersBaseImagEdit.Enable='off';
     handles.DefaultCB.Enable='off';
+    handles.SquareFieldRB.Enable='off';
+    handles.HexFieldRB.Enable='off';
+    handles.GorOrientRB.Enable='off';
+    handles.VertOrientRB.Enable='off';
+    handles.CompletedBordersRB.Enable='off';
+    handles.DeathLineBordersRB.Enable='off';
+    handles.ClosedBordersRB.Enable='off';
+    handles.BaseImagMenu.Enable='off';
+    handles.UsersBaseImagEdit.Enable='off';
+    handles.LambdaMenu.Enable='off';
+    handles.Z0SourcePathButton.Enable='off';
+    handles.ReadZ0SourceButton.Enable='off';
+    handles.SaveParamsButton.Enable='off';
 end
 % hObject    handle to SaveParamsButton (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -2355,6 +2474,19 @@ handles.BaseZEdit.Enable='on';
 handles.BaseImagMenu.Enable='on';
 handles.UsersBaseImagEdit.Enable='on';
 handles.DefaultCB.Enable='on';
+handles.SquareFieldRB.Enable='on';
+handles.HexFieldRB.Enable='on';
+handles.GorOrientRB.Enable='on';
+handles.VertOrientRB.Enable='on';
+handles.CompletedBordersRB.Enable='on';
+handles.DeathLineBordersRB.Enable='on';
+handles.ClosedBordersRB.Enable='on';
+handles.BaseImagMenu.Enable='on';
+handles.UsersBaseImagEdit.Enable='on';
+handles.LambdaMenu.Enable='on';
+handles.Z0SourcePathButton='on';
+handles.ReadZ0SourceButton='on';
+handles.SaveParamsButton.Enable='on';
 
 contParms = getappdata(handles.output,'ContParms');
 contParms.IsReady2Start=false;
@@ -2764,9 +2896,13 @@ if strcmp(get(hObject,'Tag'),'HexFieldRB')
     currCA.FieldType=1;
     ResultsProcessing.GetSetFieldOrient(1);
     handles.GorOrientRB.Value=1;
+    ResultsProcessing.GetSetCellOrient(2);
 else
     currCA.FieldType=0;
     ResultsProcessing.GetSetFieldOrient(0);
+    handles.GorOrientRB.Value=0;
+    handles.VertOrientRB.Value=0;
+    ResultsProcessing.GetSetCellOrient(0);
 end
 setappdata(handles.output,'CurrCA',currCA);
 
