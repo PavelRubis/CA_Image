@@ -22,7 +22,7 @@ function varargout = CA(varargin)
 
 % Edit the above text to modify the response to help CA
 
-% Last Modified by GUIDE v2.5 09-Apr-2020 15:11:51
+% Last Modified by GUIDE v2.5 18-Apr-2020 16:13:51
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -2450,20 +2450,22 @@ function SaveParamsButton_Callback(hObject, eventdata, handles)
 error=false;
 errorStr='Ошибки в текстовых полях: ';
 
+Nerror=false;
 if(isempty(regexp(handles.NFieldEdit.String,'^\d+$')))
+    Nerror=true;
     error=true;
     errorStr=strcat(errorStr,'N, ');
 end
 
 Muerror=false;
-if(isempty(regexp(handles.MiuReEdit.String,'^-?\d+(\.?)(?(1)\d+|)$')))
+if(isempty(regexp(handles.MiuReEdit.String,'^[-\+]?\d+(\.?)(?(1)\d+|)$')))
     error=true;
     Muerror=true;
     errorStr=strcat(errorStr,'Мю, ');
 end
 
 if(~Muerror)
-    if(isempty(regexp(handles.MiuImEdit.String,'^-?\d+(\.?)(?(1)\d+|)$')))
+    if(isempty(regexp(handles.MiuImEdit.String,'^[-\+]?\d+(\.?)(?(1)\d+|)$')))
         error=true;
         Muerror=true;
         errorStr=strcat(errorStr,'Мю, ');
@@ -2471,14 +2473,14 @@ if(~Muerror)
 end
 
 Mu0error=false;
-if(isempty(regexp(handles.Miu0ReEdit.String,'^-?\d+(\.?)(?(1)\d+|)$')))
+if(isempty(regexp(handles.Miu0ReEdit.String,'^[-\+]?\d+(\.?)(?(1)\d+|)$')))
     error=true;
     Mu0error=true;
     errorStr=strcat(errorStr,'Мю0, ');
 end
 
 if(~Mu0error)
-    if(isempty(regexp(handles.Miu0ImEdit.String,'^-?\d+(\.?)(?(1)\d+|)$')))
+    if(isempty(regexp(handles.Miu0ImEdit.String,'^[-\+]?\d+(\.?)(?(1)\d+|)$')))
         error=true;
         errorStr=strcat(errorStr,'Мю0, ');
     end
@@ -2486,9 +2488,36 @@ end
 
 currCA=getappdata(handles.output,'CurrCA');
 if isempty(currCA.Cells)
-     error=true;
-     regexprep(errorStr,', $','.');
-     errorStr=strcat(errorStr,' Не задана начальная конфигурация КА Z0.');
+    
+    DistributStart=str2double(handles.DistributStartEdit.String);
+    DistributStep=str2double(handles.DistributStepEdit.String);
+    DistributEnd=str2double(handles.DistributEndEdit.String);
+    
+    if isnan(DistributStart) || isreal(DistributStart) || isempty(regexp(handles.DistributStepEdit.String,'^\d+(\.?)(?(1)\d+|)$')) || isnan(DistributEnd) || isreal(DistributEnd)
+        error=true;
+        regexprep(errorStr,', $','. ');
+        errorStr=strcat(errorStr,' Не задана начальная конфигурация КА. Неправильный формат диапазона значений Z0. Задайте диапазон Z0 или загрузите данные из файла. ');
+    else
+        if ~Nerror
+            
+            ReRange=real(DistributStart):DistributStep:real(DistributEnd);
+            ImRange=imag(DistributStart):DistributStep:imag(DistributEnd);
+            rangeError=false;
+            rangeErrorStr='';
+            
+            [currCA,rangeError,rangeErrorStr] = Initializations.Z0RangeInit(ReRange, ImRange,str2double(handles.NFieldEdit.String),currCA,handles.DistributionTypeMenu.Value);
+            if rangeError
+                error=true;
+                regexprep(errorStr,', $','. ');
+                errorStr=strcat(errorStr,rangeErrorStr);
+            else
+                if ~error
+                    msgbox('Начальная конфигурация КА была успешно задана диапазоном.','modal');
+                end
+            end
+        end
+    end
+    
 end
 
 if error
@@ -2497,6 +2526,10 @@ if error
 else
     
     currCA.N=str2double(handles.NFieldEdit.String);
+    if currCA.N==1
+        N1Path=[real(currCA.Cells(1).z0);imag(currCA.Cells(1).z0)];
+        setappdata(handles.output,'N1Path',N1Path);
+    end
     
     MiuReStr=strcat(handles.MiuReEdit.String,'+');
     MiuImStr=strcat(handles.MiuImEdit.String,'i');
@@ -2621,21 +2654,24 @@ function InterButton_Callback(hObject, eventdata, handles)
 % --- Executes on button press in DefaultCB.
 function DefaultCB_Callback(hObject, eventdata, handles)
 if(hObject.Value==1)
-    handles.InitZ0Menu.Enable='on';
-    handles.Z0Edit1.Enable='on';
-    handles.Z0Edit2.Enable='on';
-    handles.Z0Edit3.Enable='on';
-    handles.InterKindMenu.Enable='on';
-    handles.InterButton.Enable='on';
-    handles.InterParamsTable.Enable='on';
+    handles.DistributionTypeMenu.Value=1;
+    handles.DistributStartEdit.String='-3-0.465i';
+    handles.DistributStepEdit.String='0.001';
+    handles.DistributEndEdit.String='-2.7-0.165i';
+    handles.Miu0ReEdit.String='0.25';
+    handles.Miu0ImEdit.String='0';
+    handles.MiuReEdit.String='1';
+    handles.MiuImEdit.String='0';
 else
-    handles.InitZ0Menu.Enable='off';
-    handles.Z0Edit1.Enable='off';
-    handles.Z0Edit2.Enable='off';
-    handles.Z0Edit3.Enable='off';
-    handles.InterKindMenu.Enable='off';
-    handles.InterButton.Enable='off';
-    handles.InterParamsTable.Enable='off';
+    handles.DistributionTypeMenu.Value=1;
+    handles.DistributStartEdit.String='';
+    handles.DistributStepEdit.String='';
+    handles.DistributEndEdit.String='';
+    handles.Miu0ReEdit.String='';
+    handles.Miu0ImEdit.String='';
+    handles.MiuReEdit.String='';
+    handles.MiuImEdit.String='';
+    
 end
 % hObject    handle to DefaultCB (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -3011,3 +3047,217 @@ else
     contParms.SingleOrMultipleCalc=0;
 end
 setappdata(handles.output,'ContParms',contParms);
+
+
+% --- Executes on selection change in DistributionTypeMenu.
+function DistributionTypeMenu_Callback(hObject, eventdata, handles)
+% hObject    handle to DistributionTypeMenu (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: contents = cellstr(get(hObject,'String')) returns DistributionTypeMenu contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from DistributionTypeMenu
+
+
+% --- Executes during object creation, after setting all properties.
+function DistributionTypeMenu_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to DistributionTypeMenu (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: popupmenu controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function DistributStartEdit_Callback(hObject, eventdata, handles)
+% hObject    handle to DistributStartEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of DistributStartEdit as text
+%        str2double(get(hObject,'String')) returns contents of DistributStartEdit as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function DistributStartEdit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to DistributStartEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function DistributStepEdit_Callback(hObject, eventdata, handles)
+% hObject    handle to DistributStepEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of DistributStepEdit as text
+%        str2double(get(hObject,'String')) returns contents of DistributStepEdit as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function DistributStepEdit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to DistributStepEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function DistributEndEdit_Callback(hObject, eventdata, handles)
+% hObject    handle to DistributEndEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of DistributEndEdit as text
+%        str2double(get(hObject,'String')) returns contents of DistributEndEdit as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function DistributEndEdit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to DistributEndEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function ParamStartEdit_Callback(hObject, eventdata, handles)
+% hObject    handle to ParamStartEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of ParamStartEdit as text
+%        str2double(get(hObject,'String')) returns contents of ParamStartEdit as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function ParamStartEdit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to ParamStartEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function ParamStepEdit_Callback(hObject, eventdata, handles)
+% hObject    handle to ParamStepEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of ParamStepEdit as text
+%        str2double(get(hObject,'String')) returns contents of ParamStepEdit as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function ParamStepEdit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to ParamStepEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function ParamEndEdit_Callback(hObject, eventdata, handles)
+% hObject    handle to ParamEndEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of ParamEndEdit as text
+%        str2double(get(hObject,'String')) returns contents of ParamEndEdit as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function ParamEndEdit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to ParamEndEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+% --- Executes on selection change in InterKindMenu.
+function popupmenu25_Callback(hObject, eventdata, handles)
+% hObject    handle to InterKindMenu (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: contents = cellstr(get(hObject,'String')) returns InterKindMenu contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from InterKindMenu
+
+
+% --- Executes during object creation, after setting all properties.
+function popupmenu25_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to InterKindMenu (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: popupmenu controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+% --- Executes on button press in InterButton.
+function pushbutton39_Callback(hObject, eventdata, handles)
+% hObject    handle to InterButton (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
+
+function ParamNameEdit_Callback(hObject, eventdata, handles)
+% hObject    handle to ParamNameEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of ParamNameEdit as text
+%        str2double(get(hObject,'String')) returns contents of ParamNameEdit as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function ParamNameEdit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to ParamNameEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
