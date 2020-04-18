@@ -47,12 +47,11 @@ end
 % --- Executes just before CA is made visible.
 function CA_OpeningFcn(hObject, eventdata, handles, varargin)
 
-CurrCA = CellularAutomat(0, 2, 1,@(z)(exp(i*z)),@(z_k)Miu0+sum(z_k), 0, 0, 0);
+CurrCA = CellularAutomat(0, 2, 1,@(z)(exp(i*z)),@(z_k)Miu0 + sum(z_k), 0, 0, 0);
 ContParms = ControlParams(1,0,0,0);
-ResProc = ResultsProcessing([],1,1,1);
+ResProc = ResultsProcessing(' ',1,1,1);
 ResultsProcessing.GetSetCellOrient(0);
 ResultsProcessing.GetSetFieldOrient(0);
-
 
 setappdata(hObject,'CurrCA',CurrCA);
 setappdata(hObject,'ContParms',ContParms);
@@ -93,14 +92,14 @@ function StartButton_Callback(hObject, eventdata, handles)
 contParms = getappdata(handles.output,'ContParms');
 resProc = getappdata(handles.output,'ResProc');
 
-if (~contParms.IsReady2Start) || ((isempty(resProc.ResPath) || ~ischar(resProc.ResPath))&& resProc.isSave) %проверка задан ли КА и директория сохранения резов
+if (~contParms.IsReady2Start) || (((strcmp(resProc.ResPath,' ')) || ~ischar(resProc.ResPath)) && resProc.isSave) %проверка задан ли КА и директория сохранения резов
     errorStr='Ошибка. ';
     
     if(~contParms.IsReady2Start) 
         errorStr='Ошибка. Конфигурация КА не задана полностью или не сохранена. ';
     end
     
-    if isempty(resProc.ResPath) || ~ischar(resProc.ResPath)
+    if strcmp(resProc.ResPath,' ') || ~ischar(resProc.ResPath)
         errorStr=strcat(errorStr,'Не задана директория сохранения результатов.');
     end
     setappdata(handles.output,'ResProc',resProc);
@@ -114,6 +113,51 @@ else
        ca = getappdata(handles.output,'CurrCA');
        %подготовка обоих функций
        MakeFuncsWithNums(ca)
+       itersCount=str2double(handles.IterCountEdit.String); %число итераций
+       
+       if length(ca.Cells)==1 %случай когда рассматривается одна ячейка/точка
+           hold on;
+           
+           N1Path = getappdata(handles.output,'N1Path');
+           Re=N1Path(1,:);
+           Im=N1Path(2,:);
+           
+           for i=1:itersCount
+               ca.Cells(1)=CellularAutomat.MakeIter(ca.Cells(1));
+               Re=[Re real(ca.Cells(1).zPath(end))];
+               Im=[Im imag(ca.Cells(1).zPath(end))];
+           end
+           
+           plot(Re,Im,'.','MarkerSize', 8);
+           xlabel('Re');
+           ylabel('Im');
+           
+           currN1Path=[Re;Im];
+           N1Path=[N1Path currN1Path];
+           
+           handles.CAField.YTick=[floor(min(N1Path(2,:))):ceil(max(N1Path(2,:)))];
+           handles.CAField.XTick=[floor(min(N1Path(1,:))):ceil(max(N1Path(1,:)))];
+           handles.CAField.XGrid='on';
+           handles.CAField.YGrid='on';
+           string_legend=(strcat('Траектория точки z_0=',num2str(ca.Cells(1).z0)));
+           legend(string_legend);
+           legend('show');
+           handles.CAField.FontSize=18;
+           handles.CAField.Legend.FontSize=18;
+           
+           contParms.IterCount=contParms.IterCount+1;
+           if resProc.isSave
+               SaveRes(resProc,ca,handles.CAField,contParms.IterCount);
+           end
+           
+           handles.ResetButton.Enable='on';
+           setappdata(handles.output,'CurrCA',ca);
+           setappdata(handles.output,'ContParms',contParms);
+           setappdata(handles.output,'N1Path',N1Path);
+           
+           return;
+           
+       end
        
        %нахождение соседей каждой ячейки
        for i=1:length(ca.Cells)
@@ -122,7 +166,6 @@ else
        
        cellArr=ca.Cells;
        ca_L=length(ca.Cells);
-       itersCount=str2double(handles.IterCountEdit.String); %число итераций
        
        %рассчет поля КА
        for i=1:itersCount
@@ -166,6 +209,23 @@ else
        
        %отрисовка поля
        arrayfun(@(cell) ResultsProcessing.DrawCell(cell),ca.Cells);
+       modulesArr=sort(modulesArr);
+       
+       if all(isinf(modulesArr))
+           colorbar('Ticks',[]);
+       else
+           indx=~isinf(modulesArr);
+           finitModulesArr=modulesArr(find(indx));
+           
+           indx=~isnan(finitModulesArr);
+           finitModulesArr=finitModulesArr(find(indx));
+           
+           if length(finitModulesArr) < 2
+               colorbar('Ticks',[]);
+           else
+               colorbar('Limits',[finitModulesArr(1) finitModulesArr(end)]);
+           end
+       end
        
        if resProc.isSave
            SaveRes(resProc,ca,handles.CAField,contParms.IterCount);
@@ -446,7 +506,7 @@ currCA=getappdata(handles.output,'CurrCA');
 switch hObject.Value
     
     case 1
-        currCA.Lambda = @(z_k)Miu0+sum(z_k);
+        currCA.Lambda = @(z_k)Miu0 + sum(z_k);
     case 2
         currCA.Lambda = @(z_k)Miu + Miu0*(abs(sum(z_k-Zbase)/(length(z_k))));
     case 3
@@ -738,12 +798,12 @@ set(gca,'ytick',[])
 ca = getappdata(handles.output,'CurrCA');
 contParms = getappdata(handles.output,'ContParms');
 
-ca.Cells=CACell(0,0,[0,0,0],[0 0 0],1,1);
+ca = CellularAutomat(ca.FieldType,ca.BordersType, ca.N ,ca.Base,ca.Lambda, ca.Zbase, ca.Miu0, ca.Miu);
+
 contParms.IsReady2Start=false;
 
 setappdata(handles.output,'CurrCA',ca);
 setappdata(handles.output,'ContParms',contParms);
-
 
 handles.MiuReEdit.Enable='on';
 handles.MiuImEdit.Enable='on';
@@ -2188,7 +2248,11 @@ else
     
     if(regexp(path,'\.txt$'))
         if fieldType
-            cellCount=N*(N-1)*3;
+            if N~=1
+                cellCount=N*(N-1)*3;
+            else
+                cellCount=1;
+            end
             z0Size=[5 cellCount];
             formatSpec = '%d %d %d %f %f\n';
         else
@@ -2210,8 +2274,8 @@ else
         z0Arr=z0Arr';
     end
     
-    if length(z0Arr(1,:))<cellCount || (fieldType && length(z0Arr(:,1))==4)|| (~fieldType && length(z0Arr(:,1))==5)
-        errordlg('Ошибка. Количество начальных состояний в файле меньше количества ячеек, или данные в файле не подходят для инициализации Z0.','modal');
+    if length(z0Arr(1,:))~=cellCount || (fieldType && length(z0Arr(:,1))==4)|| (~fieldType && length(z0Arr(:,1))==5)
+        errordlg('Ошибка. Количество начальных состояний в файле не соответствует заданному числу ячеек, или данные в файле не подходят для инициализации Z0.','modal');
         setappdata(handles.output,'CurrCA',currCA);
     else
         valuesArr=[];
@@ -2220,11 +2284,39 @@ else
         z0Arr=z0Arr';
         
         if fieldType
+            
+            if N==1
+                value=complex(z0Arr(1,4),z0Arr(1,5));
+                currCA.Cells=CACell(value, value, [0 1 1], [0 0 0], fieldType, 1);
+                
+                N1Path=[real(value);imag(value)];
+                setappdata(handles.output,'N1Path',N1Path);
+                
+                msgbox(strcat('Начальная конфигурация КА была успешно задана из файла',path),'modal');
+                currCA.N=N;
+                setappdata(handles.output,'CurrCA',currCA);
+                return;
+            end
+            
             valuesArr=arrayfun(@(re,im) complex(re,im),z0Arr(:,4),z0Arr(:,5));
             for i=1:cellCount
                 idxes=[idxes {z0Arr(i,1:3)}];
             end
         else
+            
+            if N==1
+                value=complex(z0Arr(1,3),z0Arr(1,4));
+                currCA.Cells=CACell(value, value, [0 1 1], [0 0 0], fieldType, 1);
+                
+                N1Path=[real(value);imag(value)];
+                setappdata(handles.output,'N1Path',N1Path);
+                
+                msgbox(strcat('Начальная конфигурация КА была успешно задана из файла',path),'modal');
+                currCA.N=N;
+                setappdata(handles.output,'CurrCA',currCA);
+                return;
+            end
+            
             valuesArr=arrayfun(@(re,im) complex(re,im),z0Arr(:,3),z0Arr(:,4));
             for i=1:cellCount
                 idxes=[idxes {[z0Arr(i,1:2) 0]}];
@@ -2393,7 +2485,7 @@ if(~Mu0error)
 end
 
 currCA=getappdata(handles.output,'CurrCA');
-if isempty(currCA.Cells) || length(currCA.Cells)==1
+if isempty(currCA.Cells)
      error=true;
      regexprep(errorStr,', $','.');
      errorStr=strcat(errorStr,' Не задана начальная конфигурация КА Z0.');

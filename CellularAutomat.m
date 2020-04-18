@@ -30,7 +30,7 @@ classdef CellularAutomat
        
        %метод рассчета состояния ячейки
        function out = MakeIter(CA_cell)
-           if length(CA_cell.CurrNeighbors)~=0
+           if ((length(CA_cell.CurrNeighbors)~=0) && (log(CA_cell.zPath(end))/log(10)<=15)) || (isequal(CA_cell.Indexes,[0 1 1]))
              
                z_last = CA_cell.zPath(end);
                [base,lambda] = CellularAutomat.GetSetFuncs;%получаем функции базового отображения и лямбды
@@ -46,6 +46,14 @@ classdef CellularAutomat
                    lambdaPart=lambda(neighborsZ,onesArr);% вычисление лямбды
                else
                    lambdaPart=lambda(neighborsZ);% вычисление лямбды
+               end
+               
+               if isnan(lambdaPart) && isequal(CA_cell.Indexes,[0 1 1])
+                   lambdaStr = func2str(lambda);
+                   lambdaStr = regexprep(lambdaStr,'\(z_k\)','()');
+                   lambdaStr = regexprep(lambdaStr,'\+\(.*','');
+                   lambda=str2func(lambdaStr);
+                   lambdaPart = lambda();
                end
                
                z_new=lambdaPart*basePart;
@@ -159,7 +167,7 @@ classdef CellularAutomat
            
            neibArrNumbs=find(logicNeib);
            if ~isempty(neibArrNumbs)
-               CA_cell.CurrNeighbors=[CA_cell.CurrNeighbors thisCA.Cells(neibArrNumbs(:))];
+               CA_cell.CurrNeighbors = thisCA.Cells(neibArrNumbs(:));
            end
            
            out = CA_cell;

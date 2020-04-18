@@ -10,8 +10,8 @@ compArr=compArr';
 Im=Im';
 Re=Re';
 
-fieldType=false;
-N=6;
+fieldType=true;
+N=5;
 
 coorditates=[];
 cellCount=0;
@@ -58,13 +58,13 @@ Re=Re(1:cellCount,:);
 Z0=[coorditates Re Im];
 Z0=Z0';
 
-fileID = fopen('sourceSquare.txt', 'w');
+fileID = fopen('sourceHex.txt', 'w');
 fprintf(fileID,formatSpec,Z0);
 fclose(fileID);
 
 
 M=[];
-fileID1 = fopen('sourceSquare.txt', 'r');
+fileID1 = fopen('sourceHex.txt', 'r');
 M=fscanf(fileID1,formatSpec,[4 cellCount]);%
 fclose(fileID1);
 M=M';
