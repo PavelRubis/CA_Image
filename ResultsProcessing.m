@@ -7,7 +7,7 @@ classdef ResultsProcessing
        SingleOrMultipleCalc logical =1 %одиночный или множественный рассчет
        ResPath (1,:) char %путь к сохраняемым результатам
        CellsValuesFileFormat logical % формат файла для записи значений ячеек (1-txt,0-xls)
-       FigureFileFormat {mustBeInteger, mustBeInRange(FigureFileFormat,[1,4])}% формат картинки поля
+       FigureFileFormat {mustBeInteger, mustBeInRange(FigureFileFormat,[1,3])}% формат картинки поля
    end
    
    methods
@@ -22,71 +22,90 @@ classdef ResultsProcessing
        end
        
        % будущий метод сохранения результатов
-       function SaveRes(obj, ca, fig,iter)
+       function resproc = SaveRes(obj, ca, fig,iter)
            
-           if obj.SingleOrMultipleCalc
-               ConfFileName=strcat('\Modeling ',datestr(clock));
-               ConfFileName=strcat(ConfFileName,'-CA-Conf.txt');
-               ConfFileName=strrep(ConfFileName,':','-');
-               ConfFileName=strcat(obj.ResPath,ConfFileName);
+           if obj.SingleOrMultipleCalc 
+               if obj.isSaveCA
+                   ConfFileName=strcat('\Modeling ',datestr(clock));
+                   ConfFileName=strcat(ConfFileName,'-CA-Conf.txt');
+                   ConfFileName=strrep(ConfFileName,':','-');
+                   ConfFileName=strcat(obj.ResPath,ConfFileName);
+                   
+                   fileID = fopen(ConfFileName, 'w');
+                   fprintf(fileID, strcat('Моделирование от  ',datestr(clock)));
+                   fprintf(fileID, '\n\nКонфигурация КА:\n\n');
                
-               fileID = fopen(ConfFileName, 'w');
-               fprintf(fileID, strcat('Моделирование от  ',datestr(clock)));
-               fprintf(fileID, '\n\nКонфигурация КА:\n\n');
+                   if ca.FieldType
+                       fprintf(fileID, 'Тип решетки поля: гексагональное\n');
+                   else
+                       fprintf(fileID, 'Тип решетки поля: квадратное\n');
+                   end
+                   
+                   switch ca.BordersType
+                       case 1
+                           fprintf(fileID, 'Тип границ поля: "линия смерти"\n');
+                       case 2
+                           fprintf(fileID, 'Тип границ поля: замыкание границ\n');
+                       case 3
+                           fprintf(fileID, 'Тип границ поля: закрытые границы\n');
+                   end
+                   
+                   fprintf(fileID, 'Ребро N=%d\n',ca.N);
                
-               if ca.FieldType
-                   fprintf(fileID, 'Тип решетки поля: гексагональное\n');
-               else
-                   fprintf(fileID, 'Тип решетки поля: квадратное\n');
+                   fprintf(fileID, strcat('Базовое отображение: ',func2str(ca.Base)));
+                   fprintf(fileID, strcat('\nЗависимость параметра лямбда: ',func2str(ca.Lambda)));
+                   fprintf(fileID, '\nПараметр Мю=%f %fi\n',real(ca.Miu),imag(ca.Miu));
+                   fprintf(fileID, 'Параметр Мю0=%f %fi\n',real(ca.Miu0),imag(ca.Miu0));
+                   fprintf(fileID, 'Итерация Iter=%f\n',iter);
+                   fclose(fileID);
+               
+                   Z=[];
+                   for i=1:length(ca.Cells)
+                       idx=cast(ca.Cells(i).Indexes,'double');
+                       Z=[Z ; [idx real(ca.Cells(i).zPath(end)) imag(ca.Cells(i).zPath(end))]];
+                   end
+                   Z=Z';
+                   ZFileName=strrep(ConfFileName,'-CA-Conf','-Z');
+                   fileID1 = fopen(ZFileName, 'w');
+                   if ca.FieldType
+                       formatSpec='%d %d %d %f %f\n';
+                   else
+                       formatSpec='%d %d %f %f\n';
+                   end
+                   intf(fileID1,formatSpec,Z);
+                   fclose(fileID1);
                end
                
-               switch ca.BordersType
-                   case 1
-                       fprintf(fileID, 'Тип границ поля: "линия смерти"\n');
-                   case 2
-                       fprintf(fileID, 'Тип границ поля: замыкание границ\n');
-                   case 3
-                       fprintf(fileID, 'Тип границ поля: закрытые границы\n');
+               if obj.isSaveFig
+                   set(fig,'Units','pixel');
+                   rect=fig.Position;
+                   rect=rect-10;
+                   drect=fig.TightInset;
+                   
+                   rect([1 2])=-drect([1 2])-2;
+                   rect([3 4])= rect([3 4])+drect([3 4])+2;
+                   photo=getframe(fig,rect);
+                   [photo,cmp]=frame2im(photo);
+                   photoName=strcat(obj.ResPath,'\CAField');
+                   
+                   switch obj.FigureFileFormat
+                       case 1
+                           h = figure;
+                           h.Visible='off';
+                           h.CurrentAxes = copyobj(fig,h);
+                           saveas(h,strcat(photoName,'.fig'));
+                           h.Visible='on';
+                           
+                           delete(h);
+                       case 2
+                           imwrite(photo,jet(256),strcat(photoName,'.png'));
+                       case 3
+                           imwrite(photo,strcat(photoName,'.jpg'),'jpg','Quality',100);
+                   end
+                   set(fig,'Units','normalized');
                end
-               
-               fprintf(fileID, 'Ребро N=%d\n',ca.N);
-               
-               fprintf(fileID, strcat('Базовое отображение: ',func2str(ca.Base)));
-               fprintf(fileID, strcat('\nЗависимость параметра лямбда: ',func2str(ca.Lambda)));
-               fprintf(fileID, '\nПараметр Мю=%f %fi\n',real(ca.Miu),imag(ca.Miu));
-               fprintf(fileID, 'Параметр Мю0=%f %fi\n',real(ca.Miu0),imag(ca.Miu0));
-               fprintf(fileID, 'Итерация Iter=%f\n',iter);
-               fclose(fileID);
-               
-               Z=[];
-               for i=1:length(ca.Cells)
-                   idx=cast(ca.Cells(i).Indexes,'double');
-                   Z=[Z ; [idx real(ca.Cells(i).zPath(end)) imag(ca.Cells(i).zPath(end))]];
-               end
-               Z=Z';
-               ZFileName=strrep(ConfFileName,'-CA-Conf','-Z');
-               fileID1 = fopen(ZFileName, 'w');
-               if ca.FieldType
-                   formatSpec='%d %d %d %f %f\n';
-               else
-                   formatSpec='%d %d %f %f\n';
-               end
-               fprintf(fileID1,formatSpec,Z);
-               fclose(fileID1);
-               
            end
-           
-%            switch obj.FigureFileFormat
-%                case 1
-%                    savefig('CAField.fig');
-%                case 2
-%                    saveas(fig,'CAField.png')
-%                case 3
-%                    saveas(fig,'CAField.jpg')
-%                case 4
-%                    saveas(fig,'CAField.pdf')
-%            end
-           
+           resproc=obj;
        end
        
    end

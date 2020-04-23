@@ -110,6 +110,7 @@ else
     if isempty(regexp(handles.IterCountEdit.String,'^\d+$')) || str2double(handles.IterCountEdit.String)<1 %проверка задано ли число итераций
         errordlg('Ошибка в поле числа итераций.','modal');
     else
+        
        ca = getappdata(handles.output,'CurrCA');
        %подготовка обоих функций
        MakeFuncsWithNums(ca)
@@ -146,14 +147,18 @@ else
            handles.CAField.Legend.FontSize=18;
            
            contParms.IterCount=contParms.IterCount+1;
+           
+           ResultsProcessing.GetSetCellOrient
            if resProc.isSave
-               SaveRes(resProc,ca,handles.CAField,contParms.IterCount);
+               resProc=SaveRes(resProc,ca,handles.CAField,contParms.IterCount);
            end
+           ResultsProcessing.GetSetCellOrient
            
            handles.ResetButton.Enable='on';
            setappdata(handles.output,'CurrCA',ca);
            setappdata(handles.output,'ContParms',contParms);
            setappdata(handles.output,'N1Path',N1Path);
+           setappdata(handles.output,'ResProc',resProc);
            
            return;
            
@@ -227,13 +232,16 @@ else
            end
        end
        
+       ResultsProcessing.GetSetCellOrient
        if resProc.isSave
-           SaveRes(resProc,ca,handles.CAField,contParms.IterCount);
+           resProc=SaveRes(resProc,ca,handles.CAField,contParms.IterCount);
        end
+       ResultsProcessing.GetSetCellOrient
       
        setappdata(handles.output,'CurrCA',ca);
        contParms.IterCount=contParms.IterCount+1;
        setappdata(handles.output,'ContParms',contParms);
+       setappdata(handles.output,'ResProc',resProc);
     end
 end
 
@@ -976,8 +984,6 @@ switch hObject.Value
         resProc.FigureFileFormat=2;
     case 3
         resProc.FigureFileFormat=3;
-    case 4
-        resProc.FigureFileFormat=4;
 end
 
 setappdata(handles.output,'ResProc',resProc);
