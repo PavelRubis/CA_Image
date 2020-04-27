@@ -22,7 +22,7 @@ classdef ResultsProcessing
        end
        
        % будущий метод сохранения результатов
-       function resproc = SaveRes(obj, ca, fig,iter)
+       function resproc = SaveRes(obj, ca, fig,contParms,Res)
            
            if obj.SingleOrMultipleCalc 
                if obj.isSaveCA
@@ -32,7 +32,7 @@ classdef ResultsProcessing
                    ConfFileName=strcat(obj.ResPath,ConfFileName);
                    
                    fileID = fopen(ConfFileName, 'w');
-                   fprintf(fileID, strcat('Моделирование от  ',datestr(clock)));
+                   fprintf(fileID, strcat('Одиночное Моделирование от  ',datestr(clock)));
                    fprintf(fileID, '\n\nКонфигурация КА:\n\n');
                
                    if ca.FieldType
@@ -56,7 +56,7 @@ classdef ResultsProcessing
                    fprintf(fileID, strcat('\nЗависимость параметра лямбда: ',func2str(ca.Lambda)));
                    fprintf(fileID, '\nПараметр Мю=%f %fi\n',real(ca.Miu),imag(ca.Miu));
                    fprintf(fileID, 'Параметр Мю0=%f %fi\n',real(ca.Miu0),imag(ca.Miu0));
-                   fprintf(fileID, 'Итерация Iter=%f\n',iter);
+                   fprintf(fileID, 'Итерация Iter=%f\n',contParms.IterCount);
                    fclose(fileID);
                
                    Z=[];
@@ -72,38 +72,101 @@ classdef ResultsProcessing
                    else
                        formatSpec='%d %d %f %f\n';
                    end
-                   intf(fileID1,formatSpec,Z);
+                   fprintf(fileID1,formatSpec,Z);
                    fclose(fileID1);
                end
                
-               if obj.isSaveFig
-                   set(fig,'Units','pixel');
-                   rect=fig.Position;
-                   rect=rect-10;
-                   drect=fig.TightInset;
+           else
+               if obj.isSaveCA
+                   ConfFileName=strcat('\Modeling ',datestr(clock));
+                   ConfFileName=strcat(ConfFileName,'-CA-Conf.txt');
+                   ConfFileName=strrep(ConfFileName,':','-');
+                   ConfFileName=strcat(obj.ResPath,ConfFileName);
                    
-                   rect([1 2])=-drect([1 2])-2;
-                   rect([3 4])= rect([3 4])+drect([3 4])+2;
-                   photo=getframe(fig,rect);
-                   [photo,cmp]=frame2im(photo);
-                   photoName=strcat(obj.ResPath,'\CAField');
-                   
-                   switch obj.FigureFileFormat
-                       case 1
-                           h = figure;
-                           h.Visible='off';
-                           h.CurrentAxes = copyobj(fig,h);
-                           saveas(h,strcat(photoName,'.fig'));
-                           h.Visible='on';
-                           
-                           delete(h);
-                       case 2
-                           imwrite(photo,jet(256),strcat(photoName,'.png'));
-                       case 3
-                           imwrite(photo,strcat(photoName,'.jpg'),'jpg','Quality',100);
+                   fileID = fopen(ConfFileName, 'w');
+                   fprintf(fileID, strcat('Множественное Моделирование от  ',datestr(clock)));
+                   fprintf(fileID, '\n\nКонфигурация КА:\n\n');
+               
+                   if ca.FieldType
+                       fprintf(fileID, 'Тип решетки поля: гексагональное\n');
+                   else
+                       fprintf(fileID, 'Тип решетки поля: квадратное\n');
                    end
-                   set(fig,'Units','normalized');
+                   
+                   switch ca.BordersType
+                       case 1
+                           fprintf(fileID, 'Тип границ поля: "линия смерти"\n');
+                       case 2
+                           fprintf(fileID, 'Тип границ поля: замыкание границ\n');
+                       case 3
+                           fprintf(fileID, 'Тип границ поля: закрытые границы\n');
+                   end
+                   fprintf(fileID, strcat('Базовое отображение: ',func2str(ca.Base)));
+                   fprintf(fileID, strcat('\nЗависимость параметра лямбда: ',func2str(ca.Lambda)));
+                   fprintf(fileID, '\nКоличество итераций Iter=%f\n',contParms.IterCount);
+                   
+                   fprintf(fileID, strcat('\nНазвание параметра окна: ',contParms.WindowParamName));
+                   
+                   if any(strcmp(contParms.WindowParamName,{'Z0' 'Z' 'z0' 'z'}))
+                       fprintf(fileID, '\nРебро N=%d\n',ca.N);
+                       fprintf(fileID, 'Параметр Мю=%f %fi\n',real(ca.Miu),imag(ca.Miu));
+                       fprintf(fileID, 'Параметр Мю0=%f %fi\n',real(ca.Miu0),imag(ca.Miu0));
+                       fclose(fileID);
+                       
+                       Z=[];
+                       for i=1:length(ca.Cells)
+                           idx=cast(ca.Cells(i).Indexes,'double');
+                           Z=[Z ; [idx real(ca.Cells(i).zPath) imag(ca.Cells(i).zPath)]];
+                       end
+                       ZFileName=strrep(ConfFileName,'-CA-Conf','-Z');
+                       dlmwrite(ZFileName,Z,'delimiter','\t');
+                   
+                   else
+                       paramStart=complex(contParms.ReRangeWindow(1),contParms.ImRangeWindow(1));
+                       paramStep=complex(contParms.ReRangeWindow(2)-contParms.ReRangeWindow(1),contParms.ImRangeWindow(2)-contParms.ImRangeWindow(1));
+                       paramEnd=complex(contParms.ReRangeWindow(end),contParms.ImRangeWindow(end));
+                       
+                       paramStartSrt=strcat(num2str(paramStart),' : ');
+                       paramEndSrt=strcat(' : ',num2str(paramEnd));
+                       paramSrt=strcat(paramStartSrt,num2str(paramStep));
+                       paramSrt=strcat(paramSrt,paramEndSrt);
+                       
+                       fprintf(fileID, strcat('\nДиапазон параметра: ',paramSrt));
+                       
+                       fclose(fileID);
+                       ResFileName=strrep(ConfFileName,'-CA-Conf','-Res');
+                       dlmwrite(ResFileName,Res,'delimiter','\t');
+                   end
                end
+
+           end
+           if obj.isSaveFig
+               set(fig,'Units','pixel');
+               rect=fig.Position;
+               rect=rect-10;
+               drect=fig.TightInset;
+                   
+               rect([1 2])=-drect([1 2])-2;
+               rect([3 4])= rect([3 4])+drect([3 4])+2;
+               photo=getframe(fig,rect);
+               [photo,cmp]=frame2im(photo);
+               photoName=strcat(obj.ResPath,'\CAField');
+                   
+               switch obj.FigureFileFormat
+                   case 1
+                       h = figure;
+                       h.Visible='off';
+                       h.CurrentAxes = copyobj(fig,h);
+                       saveas(h,strcat(photoName,'.fig'));
+                       h.Visible='on';
+                           
+                       delete(h);
+                   case 2
+                       imwrite(photo,jet(256),strcat(photoName,'.png'));
+                   case 3
+                       imwrite(photo,strcat(photoName,'.jpg'),'jpg','Quality',100);
+               end
+               set(fig,'Units','normalized');
            end
            resproc=obj;
        end

@@ -7,6 +7,8 @@ classdef CACell
       CurrNeighbors(1,:) CACell % массив соседей €чейки на текущей итерации
       IsExternal logical = false % €вл€етс€ ли €чейка внешней
       Color(1,3) double {mustBeNumeric, mustBeInRange(Color,[0,1])} % цвет дл€ отрисовки €чейки на поле
+      
+      fstep double = 0
    end
    
 
@@ -49,6 +51,15 @@ classdef CACell
            end
        end
        
+
+       
+   end
+   
+   methods(Static)
+       function obj = SetZ0(obj,value)
+           obj.z0=value;
+           obj.zPath=value;
+       end
    end
    
 end
