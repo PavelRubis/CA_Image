@@ -1,8 +1,8 @@
 clear; clc;
 format long;
 
-Re=-3:0.001:-2.7;
-Im=-0.465:0.001:-0.165;
+Re=0:0.001:2;
+Im=0:0.001:2;
 Re=Re(randperm(length(Re)));
 Im=Im(randperm(length(Im)));
 compArr=arrayfun(@(re,im) complex(re,im),Re,Im);

@@ -69,46 +69,15 @@ classdef CellularAutomat
            out = CA_cell;
        end
        
-       function [z_new fStepNew,fCodeNew]= MakeMultipleCalcIter(base, lambda,z_old,fStepOld,fCodeOld)
-           if fCodeOld==0
+       %метод мультирасчета
+       function [z_new fStepNew]= MakeMultipleCalcIter(base,z_old,fStepOld)
+           if log(z_old)/log(10)<15
                base=str2func(base);
-               lambda=str2func(lambda);
-               basePart=base(z_old);
-               if regexp(func2str(lambda),'^@\(z_k,n\)')
-                   lambdaStr = func2str(lambda);
-                   lambdaStr = regexprep(lambdaStr,'\(z_k\)','()');
-                   lambdaStr = regexprep(lambdaStr,'\+\(.*','');
-                   lambda=str2func(lambdaStr);
-                   lambdaPart = lambda();
-               else
-                   lambdaPart=lambda(z_old);
-               end
-               if isnan(lambdaPart)
-                   lambdaStr = func2str(lambda);
-                   lambdaStr = regexprep(lambdaStr,'\(z_k\)','()');
-                   lambdaStr = regexprep(lambdaStr,'\+\(.*','');
-                   lambda=str2func(lambdaStr);
-                   lambdaPart = lambda();
-               end
-           
-               z_new=lambdaPart*basePart;
-           
-               if log(z_old)/log(10)>=15
-                   fStepNew=fStepOld;
-                   fCodeNew=-1;
-               else
-                   if  abs(z_old-z_new)<1e-5
-                       fStepNew=fStepOld;
-                       fCodeNew=1;
-                   else
-                       fStepNew=fStepOld+1;
-                       fCodeNew=0;
-                   end
-               end
+               z_new=base(z_old);
+               fStepNew=fStepOld+1;
            else
                z_new=z_old;
                fStepNew=fStepOld;
-               fCodeNew=fCodeOld;
            end
        end
        
@@ -229,7 +198,8 @@ classdef CellularAutomat
            
            MiuStr=strcat('(',num2str(thisCA.Miu));
            MiuStr=strcat(MiuStr,')');
-           baseFuncStr=strrep(func2str(thisCA.Base),'c',MiuStr);
+           baseFuncStr=strrep(func2str(thisCA.Base),'Miu',MiuStr);
+           baseFuncStr=strrep(baseFuncStr,'c',MiuStr);
            
            Miu0Str=strcat('(',num2str(thisCA.Miu0));
            Miu0Str=strcat(Miu0Str,')');
@@ -246,43 +216,32 @@ classdef CellularAutomat
            CellularAutomat.GetSetFuncs(baseFunc,lambdaFunc);
            
        end
-       
-       function [BaseFuncStrs, LambdaFuncStrs, WindowParam] = MakeFuncsWithNumsForMultipleCalc(ca,contParms)
-           WindowParam=arrayfun(@(re,im) complex(re,im),contParms.ReRangeWindow,contParms.ImRangeWindow);
+       %метод создани€ окна и матрицы функций базы
+       function [BaseFuncStrs, WindowParam] = MakeFuncsWithNumsForMultipleCalc(ca,contParms)
+           [X,Y]=meshgrid(contParms.ReRangeWindow,contParms.ImRangeWindow);
+           WindowParam=X+i*Y;
            switch contParms.WindowParamName
+               case {'Z0' 'Z' 'z0' 'z'} % в случае окна по Z0 создание матрицы функций базы,с вставкой одного значени€ ћю
                    
-               case {'Miu','Mu','ћю'}
+                   MiuStr=strcat('(',num2str(ca.Miu));
+                   MiuStr=strcat(MiuStr,')');
+                   baseFuncStr=strrep(func2str(ca.Base),'Miu',MiuStr);
+                   baseFuncStr=strrep(baseFuncStr,'c',MiuStr);
+                   
+                   baseFuncStrs=cell(size(WindowParam));
+                   baseFuncStrs(:)={baseFuncStr};
+                   
+               case {'Miu','Mu','ћю'} % в случае окна по ћю создание матрицы функций базы, где множитель каждой функции - соответствующее значение ћю из диапазона
                    paramsStrs = arrayfun(@(param){strcat('(',num2str(param))},WindowParam);
                    paramsStrs = arrayfun(@(param){strcat(cell2mat(param),')')},paramsStrs);
                    
-                   lambdaFuncStrs=cell(1,length(WindowParam));
-                   lambdaFuncStrs(:)={func2str(ca.Lambda)};
-                   
-                   Miu0=zeros(1,length(WindowParam));
-                   Miu0(:)=ca.Miu0;
-                   Miu0Strs=cell(1,length(WindowParam));
-                   Miu0Strs = arrayfun(@(mui0){strcat('(',num2str(mui0))},Miu0);
-                   Miu0Strs = arrayfun(@(mui0){strcat(cell2mat(mui0),')')},Miu0Strs);
-                   lambdaFuncStrs = arrayfun(@(lambda,mui0)strrep(cell2mat(lambda),'Miu0',mui0),lambdaFuncStrs,Miu0Strs);
-                   
-                   zBase=zeros(1,length(WindowParam));
-                   zBase(:)=ca.Zbase;
-                   zBaseStrs=cell(1,length(WindowParam));
-                   zBaseStrs = arrayfun(@(zbase){strcat('(',num2str(zbase))},zBase);
-                   zBaseStrs = arrayfun(@(zbase){strcat(cell2mat(zbase),')')},zBaseStrs);
-                   lambdaFuncStrs = arrayfun(@(lambda,zbase)strrep(cell2mat(lambda),'Zbase',zbase),lambdaFuncStrs,zBaseStrs);
-                   
-                   lambdaFuncStrs = arrayfun(@(lambda,param)strrep(cell2mat(lambda),'Miu',param),lambdaFuncStrs,paramsStrs);
-                   lambdaFuncStrs = arrayfun(@(lambda,param)strrep(cell2mat(lambda),'c',param),lambdaFuncStrs,paramsStrs);
-                   
-                   baseFuncStrs=cell(1,length(WindowParam));
+                   baseFuncStrs=cell(size(WindowParam));
                    baseFuncStrs(:)={func2str(ca.Base)};
                    baseFuncStrs = arrayfun(@(base,param)strrep(cell2mat(base),'Miu',param),baseFuncStrs,paramsStrs);
                    baseFuncStrs = arrayfun(@(base,param)strrep(cell2mat(base),'c',param),baseFuncStrs,paramsStrs);
            end
            
            BaseFuncStrs=baseFuncStrs;
-           LambdaFuncStrs=lambdaFuncStrs;
        end
 
     end
