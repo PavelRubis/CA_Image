@@ -48,12 +48,8 @@ classdef CellularAutomat
                    lambdaPart=lambda(neighborsZ);% вычисление л€мбды
                end
                
-               if isnan(lambdaPart) && isequal(CA_cell.Indexes,[0 1 1])
-                   lambdaStr = func2str(lambda);
-                   lambdaStr = regexprep(lambdaStr,'\(z_k\)','()');
-                   lambdaStr = regexprep(lambdaStr,'\+\(.*','');
-                   lambda=str2func(lambdaStr);
-                   lambdaPart = lambda();
+               if isequal(CA_cell.Indexes,[0 1 1])
+                   lambdaPart = 1;
                end
                
                z_new=lambdaPart*basePart;
@@ -67,18 +63,6 @@ classdef CellularAutomat
                
            end
            out = CA_cell;
-       end
-       
-       %метод мультирасчета
-       function [z_new fStepNew]= MakeMultipleCalcIter(base,z_old,fStepOld)
-           if log(z_old)/log(10)<15
-               base=str2func(base);
-               z_new=base(z_old);
-               fStepNew=fStepOld+1;
-           else
-               z_new=z_old;
-               fStepNew=fStepOld;
-           end
        end
        
        function out = ComplexModule(compNum)
@@ -215,33 +199,6 @@ classdef CellularAutomat
            
            CellularAutomat.GetSetFuncs(baseFunc,lambdaFunc);
            
-       end
-       %метод создани€ окна и матрицы функций базы
-       function [BaseFuncStrs, WindowParam] = MakeFuncsWithNumsForMultipleCalc(ca,contParms)
-           [X,Y]=meshgrid(contParms.ReRangeWindow,contParms.ImRangeWindow);
-           WindowParam=X+i*Y;
-           switch contParms.WindowParamName
-               case {'Z0' 'Z' 'z0' 'z'} % в случае окна по Z0 создание матрицы функций базы,с вставкой одного значени€ ћю
-                   
-                   MiuStr=strcat('(',num2str(ca.Miu));
-                   MiuStr=strcat(MiuStr,')');
-                   baseFuncStr=strrep(func2str(ca.Base),'Miu',MiuStr);
-                   baseFuncStr=strrep(baseFuncStr,'c',MiuStr);
-                   
-                   baseFuncStrs=cell(size(WindowParam));
-                   baseFuncStrs(:)={baseFuncStr};
-                   
-               case {'Miu','Mu','ћю'} % в случае окна по ћю создание матрицы функций базы, где множитель каждой функции - соответствующее значение ћю из диапазона
-                   paramsStrs = arrayfun(@(param){strcat('(',num2str(param))},WindowParam);
-                   paramsStrs = arrayfun(@(param){strcat(cell2mat(param),')')},paramsStrs);
-                   
-                   baseFuncStrs=cell(size(WindowParam));
-                   baseFuncStrs(:)={func2str(ca.Base)};
-                   baseFuncStrs = arrayfun(@(base,param)strrep(cell2mat(base),'Miu',param),baseFuncStrs,paramsStrs);
-                   baseFuncStrs = arrayfun(@(base,param)strrep(cell2mat(base),'c',param),baseFuncStrs,paramsStrs);
-           end
-           
-           BaseFuncStrs=baseFuncStrs;
        end
 
     end

@@ -22,7 +22,7 @@ function varargout = CA(varargin)
 
 % Edit the above text to modify the response to help CA
 
-% Last Modified by GUIDE v2.5 18-Apr-2020 16:13:51
+% Last Modified by GUIDE v2.5 06-May-2020 19:31:54
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -120,20 +120,52 @@ else
            contParms.IterCount=itersCount;
            
            %создание окна и матрицы функций базы
-           [BaseFuncStrs, WindowParam] = MakeFuncsWithNumsForMultipleCalc(ca,contParms);
+           [BaseFuncStr, WindowParam] = ControlParams.MakeFuncsWithNumsForMultipleCalc(ca,contParms);
+           fStepOld=zeros(size(WindowParam));
+           %мультирассчет через циклы
+           
+           len=size(WindowParam);
+           zParam=false;
            if any(strcmp(contParms.WindowParamName,{'Z0' 'Z' 'z0' 'z'}))
                z_Old=WindowParam;
+               zParam=true;
            else
-               z_Old=zeros(size(WindowParam));
+               z_Old=zeros(len);
            end
-           fStepOld=zeros(size(WindowParam));
+           fStepNew=zeros(len);
+           z_Old_1=Inf(len);
+           z_New=z_Old;
+           
+%            profile on;
+           for k=1:len(1)
+               for l=1:len(2)
+                   for it=1:itersCount
+                       [z_New(k,l) fStepNew(k,l)] = ControlParams.MakeMultipleCalcIter(BaseFuncStr,WindowParam(k,l),z_Old(k,l),z_Old_1(k,l),fStepOld(k,l),zParam);
+                       z_Old_1(k,l)= z_Old(k,l);
+                       z_Old(k,l)=z_New(k,l);
+                       if zParam
+                           WindowParam(k,l)=z_New(k,l);
+                       end
+                       fStepOld(k,l)=fStepNew(k,l);
+                   end
+               end
+           end
+%            profile viewer;
            
            %мультирассчет через arrayfun
-           for i=1:itersCount
-               [z_New fStepNew] = arrayfun(@(base,z_old,fstep)CellularAutomat.MakeMultipleCalcIter(cell2mat(base),z_old,fstep),BaseFuncStrs,z_Old,fStepOld);
-               z_Old=z_New;
-               fStepOld=fStepNew;
-           end
+%            profile on;
+%            ZParam=zeros(len);
+%            ZParam(:)=zParam;
+%            for i=1:itersCount
+%                [z_New fStepNew] = arrayfun(@(baseFuncStr,windowParam,z_old,z_old_1,fstep,z_param)ControlParams.MakeMultipleCalcIter(baseFuncStr,windowParam,z_old,z_old_1,fstep,z_param),BaseFuncStr,WindowParam,z_Old,z_Old_1,fStepOld,ZParam);
+%                z_Old_1= z_Old;
+%                if zParam
+%                    WindowParam=z_New;
+%                end
+%                z_Old=z_New;
+%                fStepOld=fStepNew;
+%            end
+%            profile viewer;
            zRes=z_New;
            
            fcodeIndicate=zeros(size(WindowParam));
@@ -161,32 +193,35 @@ else
            colorbar;
            grid on;    
            
-           funcStr=strrep(func2str(ca.Base),'z','z_{t}');
+           funcStr=strrep('@(z)(1+ \mu*abs(z-eq))*exp(i*z)','z','z_{t}');
            funcStr=strrep(funcStr,'@(z_{t})','z_{t+1}=');
-           string_legend=funcStr;
+           funcStr=strrep(funcStr,'eq','z^{*}');
+           string_title=funcStr;
            if any(strcmp(contParms.WindowParamName,{'Z0' 'Z' 'z0' 'z'}))
-               xlabel('Re(z^{0})');
-               ylabel('Im(z^{0})');
-               string_legend=strcat(string_legend,'  \mu_0=');
-               string_legend=strcat(string_legend,num2str(ca.Miu0));
+               xlabel('Re(z(t))');
+               ylabel('Im(z(t))');
+               string_title=strcat(string_title,'  \mu=');
+               string_title=strcat(string_title,num2str(ca.Miu));
            else
-               string_legend=strcat(string_legend,'  z_0=0');
+               string_title=strcat(string_title,'  z_0=0');
                xlabelStr='Re(';
                xlabelStr=strcat(xlabelStr,contParms.WindowParamName);
-               xlabelStr=strcat(xlabelStr,'^{0})');
+               xlabelStr=strcat(xlabelStr,')');
                 
                ylabelStr='Im(';
                ylabelStr=strcat(ylabelStr,contParms.WindowParamName);
-               ylabelStr=strcat(ylabelStr,'^{0})');
+               ylabelStr=strcat(ylabelStr,')');
                
                xlabel(xlabelStr);
                ylabel(ylabelStr);
            end
+           string_title=strcat(string_title,'  z^{*}=');
+           string_title=strcat(string_title,num2str(complex(0.576412723031435,0.374699020737117)));
            
-           legend(string_legend);
-           legend('show');
-           handles.CAField.FontSize=14;
-           handles.CAField.Legend.FontSize=10;
+           title(handles.CAField,strcat('\fontsize{16}',string_title));
+%          legend(string_legend);
+%          legend('show');
+           handles.CAField.FontSize=11;
            
            
            if resProc.isSave
@@ -216,10 +251,10 @@ else
                Im=[Im imag(ca.Cells(1).zPath(end))];
            end
            
-           ms=16;
+           ms=18;
            clrmp=colormap(jet(length(Re)));
            for i=1:length(Re)
-               plot(Re(i),Im(i),'.','MarkerSize', ms,'Color',clrmp(i,:));
+               plot(Re(i),Im(i),'o','MarkerSize', ms,'Color',clrmp(i,:));
                if ms~=2
                    ms=ms-2;
                end
@@ -231,16 +266,23 @@ else
            currN1Path=[Re;Im];
            N1Path=[N1Path currN1Path];
            
-           handles.CAField.YTick=[floor(min(N1Path(2,:))):ceil(max(N1Path(2,:)))];
-           handles.CAField.XTick=[floor(min(N1Path(1,:))):ceil(max(N1Path(1,:)))];
+           
+           handles.CAField.YTick=[min(N1Path(2,:)):(abs(max(N1Path(2,:))-min(N1Path(2,:)))/length(Re))*0.2*length(Re):max(N1Path(2,:))];
+           handles.CAField.XTick=[min(N1Path(1,:)):(abs(max(N1Path(1,:))-min(N1Path(1,:)))/length(Re))*0.2*length(Re):max(N1Path(1,:))];
+           
            handles.CAField.XGrid='on';
            handles.CAField.YGrid='on';
            string_legend=(strcat('Траектория точки z_0=',num2str(ca.Cells(1).z0)));
            legend(string_legend);
            legend('show');
-           handles.CAField.FontSize=18;
-           handles.CAField.Legend.FontSize=18;
            
+           clrbr = colorbar('Ticks',[0,0.2,0.4,0.6,0.8,1],...
+           'TickLabels',{0,floor(length(Re)*0.2),floor(length(Re)*0.4),floor(length(Re)*0.6),floor(length(Re)*0.8),length(Re)-1});
+           clrbr.Label.String = 'Число итераций';
+       
+           handles.CAField.FontSize=14;
+           handles.CAField.Legend.FontSize=14;
+           zoom on;
            contParms.IterCount=contParms.IterCount+1;
            
            ResultsProcessing.GetSetCellOrient
@@ -2393,7 +2435,7 @@ else
                 value=complex(z0Arr(1,4),z0Arr(1,5));
                 currCA.Cells=CACell(value, value, [0 1 1], [0 0 0], fieldType, 1);
                 
-                N1Path=[real(value);imag(value)];
+                N1Path=[real(currCA.Cells(1).z0);imag(currCA.Cells(1).z0)];
                 setappdata(handles.output,'N1Path',N1Path);
                 
                 msgbox(strcat('Начальная конфигурация КА была успешно задана из файла',path),'modal');
@@ -2415,7 +2457,7 @@ else
                 value=complex(z0Arr(1,3),z0Arr(1,4));
                 currCA.Cells=CACell(value, value, [0 1 1], [0 0 0], fieldType, 1);
                 
-                N1Path=[real(value);imag(value)];
+                N1Path=[real(currCA.Cells(1).z0);imag(currCA.Cells(1).z0)];
                 setappdata(handles.output,'N1Path',N1Path);
                 
                 msgbox(strcat('Начальная конфигурация КА была успешно задана из файла',path),'modal');
@@ -2518,6 +2560,7 @@ else
     MiuStr=strcat(MiuStr,')');
     
     FbaseStr=strrep(func2str(currCA.Base),'c',MiuStr);
+    FbaseStr=strrep(FbaseStr,'Miu',MiuStr);
     Fbase=str2func(FbaseStr);
     
     mapz_zero=@(z) abs(Fbase(z)-z);
@@ -2662,19 +2705,21 @@ if isempty(currCA.Cells) || (~contParms.IsReady2Start && ~fileWasRead)
             else
                 ReRange=real(ParamStart):real(ParamStep):real(ParamEnd);
                 ImRange=imag(ParamStart):imag(ParamStep):imag(ParamEnd);
-                if length(ReRange)~=length(ImRange)
-                    error=true;
-                    regexprep(errorStr,', $','. ');
-                    errorStr=strcat(errorStr,' Несовпадение длин реальной и мнимой частей диапазона значений параметра "окна". ');
-                else
-                    ParamCellCount=length(ReRange);
-                    currCA.N=2;
-                end
+                ParamCellCount=length(ReRange);
+                currCA.N=2;
+%                 if length(ReRange)~=length(ImRange)
+%                     error=true;
+%                     regexprep(errorStr,', $','. ');
+%                     errorStr=strcat(errorStr,' Несовпадение длин реальной и мнимой частей диапазона значений параметра "окна". ');
+%                 else
+%                     ParamCellCount=length(ReRange);
+%                     currCA.N=2;
+%                 end
             end
             
             if ~error
-                contParms.ReRangeWindow=ReRange(:,1:ParamCellCount);
-                contParms.ImRangeWindow=ImRange(:,1:ParamCellCount);
+                contParms.ReRangeWindow=ReRange;
+                contParms.ImRangeWindow=ImRange;
                 msgbox('Начальная конфигурация КА была успешно задана диапазоном параметра "окна".','modal');
             end
             
@@ -3500,3 +3545,73 @@ function ParamNameEdit_CreateFcn(hObject, eventdata, handles)
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
+
+
+
+function edit129_Callback(hObject, eventdata, handles)
+% hObject    handle to ParamStartEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of ParamStartEdit as text
+%        str2double(get(hObject,'String')) returns contents of ParamStartEdit as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function edit129_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to ParamStartEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function edit137_Callback(hObject, eventdata, handles)
+% hObject    handle to edit137 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of edit137 as text
+%        str2double(get(hObject,'String')) returns contents of edit137 as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function edit137_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to edit137 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function edit138_Callback(hObject, eventdata, handles)
+% hObject    handle to edit138 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of edit138 as text
+%        str2double(get(hObject,'String')) returns contents of edit138 as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function edit138_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to edit138 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+       
