@@ -8,7 +8,6 @@ classdef ControlParams %класс параметров управления
        ImRangeWindow(1,:) double % массив мнимых значений параметра "окна" 
        WindowParamName(1,:) char % название параметра "окна" 
        IsReady2Start logical = false% задан ли КА
-       MultiCalcFuncs (1,:) function_handle % функции мультирасчета
    end
    
    methods
@@ -29,25 +28,63 @@ classdef ControlParams %класс параметров управления
     
    methods(Static)
        
-       %метод мультирасчета
-       function [z_new fStepNew]= MakeMultipleCalcIter(base,windowParam,z_old,z_old_1,fStepOld,zParam)
-           if log(z_old)/(2.302585092994046)<15 && abs(z_old_1-z_old)>=1e-5
-               if zParam
-                   z_new=base(windowParam);
-%                    z_new=base{1}(windowParam);
-               else
-                   z_new=base(windowParam,z_old);
-%                    z_new=base{1}(windowParam,z_old);
-               end
-               fStepNew=fStepOld+1;
-           else
-               z_new=z_old;
-               fStepNew=fStepOld;
+      % метод get-set для статической переменной функции мультирасчета
+       function out = GetSetMultiCalcFunc(func)
+           persistent MultiCalcFunc;
+           if nargin==1
+               MultiCalcFunc = func;
            end
+           out = MultiCalcFunc;
        end
        
+       %метод мультирасчета
+       function [z_New fStepLast delta] = MakeMultipleCalcIter(windowParam,z_Old,z_Old_1,itersCount,zParam)
+           persistent func;
+           if (isempty(func))
+               func=ControlParams.GetSetMultiCalcFunc;
+           end
+           fStepLast=0;
+           while(fStepLast~=itersCount)
+                       
+               if log(z_Old)/(2.302585092994046)>=15 || abs(z_Old_1-z_Old)<1e-5
+                   break;
+               else
+                   if zParam
+                       z_New=func(windowParam);
+                   else
+                       z_New=func(windowParam,z_Old);
+                   end
+                   fStepLast=fStepLast+1;
+               end
+               z_Old_1 = z_Old;
+               z_Old=z_New;
+               if zParam
+                   windowParam=z_New;
+               end
+               
+           end
+           delta=abs(z_Old_1-z_Old);
+           func=[];
+       end
+%        function [z_new fStepNew]= MakeMultipleCalcIter(windowParam,z_old,z_old_1,fStepOld,zParam)
+%            if log(z_old)/(2.302585092994046)<15 && abs(z_old_1-z_old)>=1e-5
+%                func=ControlParams.GetSetMultiCalcFunc;
+%                if zParam
+%                    z_new=func(windowParam);
+% %                    z_new=base{1}(windowParam);
+%                else
+%                    z_new=func(windowParam,z_old);
+% %                    z_new=base{1}(windowParam,z_old);
+%                end
+%                fStepNew=fStepOld+1;
+%            else
+%                z_new=z_old;
+%                fStepNew=fStepOld;
+%            end
+%        end
+       
        %метод создания окна и матрицы функций базы
-       function [BaseFuncStrs, WindowParam] = MakeFuncsWithNumsForMultipleCalc(ca,contParms)
+       function [WindowParam] = MakeFuncsWithNumsForMultipleCalc(ca,contParms)
            [X,Y]=meshgrid(contParms.ReRangeWindow,contParms.ImRangeWindow);
            WindowParam=X+i*Y;
            switch contParms.WindowParamName
@@ -92,9 +129,10 @@ classdef ControlParams %класс параметров управления
 %                    baseFuncStrs = arrayfun(@(base){str2func(cell2mat(base))},baseFuncStrs);
 %                    profile viewer;
            end
+           ControlParams.GetSetMultiCalcFunc(baseFuncStr);
+%            BaseFuncStr=baseFuncStr;
 %            baseFuncStrs=cell(size(WindowParam));
 %            baseFuncStrs(:)={baseFuncStr};
-           BaseFuncStrs=baseFuncStr;
        end
    end
 

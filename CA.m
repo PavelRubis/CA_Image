@@ -120,57 +120,69 @@ else
            contParms.IterCount=itersCount;
            
            %создание окна и матрицы функций базы
-           [BaseFuncStr, WindowParam] = ControlParams.MakeFuncsWithNumsForMultipleCalc(ca,contParms);
-           fStepOld=zeros(size(WindowParam));
-           %мультирассчет через циклы
+           [WindowParam] = ControlParams.MakeFuncsWithNumsForMultipleCalc(ca,contParms);
+
            
            len=size(WindowParam);
            zParam=false;
            if any(strcmp(contParms.WindowParamName,{'Z0' 'Z' 'z0' 'z'}))
-               z_Old=WindowParam;
+               z_New=WindowParam;
                zParam=true;
            else
-               z_Old=zeros(len);
+               z_New=zeros(len);
            end
            fStepNew=zeros(len);
-           z_Old_1=Inf(len);
-           z_New=z_Old;
-           
+           Delta=zeros(len);
+           %мультирассчет через циклы
+%            func=ControlParams.GetSetMultiCalcFunc;
 %            profile on;
-           for k=1:len(1)
-               for l=1:len(2)
-                   for it=1:itersCount
-                       [z_New(k,l) fStepNew(k,l)] = ControlParams.MakeMultipleCalcIter(BaseFuncStr,WindowParam(k,l),z_Old(k,l),z_Old_1(k,l),fStepOld(k,l),zParam);
-                       z_Old_1(k,l)= z_Old(k,l);
-                       z_Old(k,l)=z_New(k,l);
-                       if zParam
-                           WindowParam(k,l)=z_New(k,l);
-                       end
-                       fStepOld(k,l)=fStepNew(k,l);
-                   end
-               end
-           end
-%            profile viewer;
-           
-           %мультирассчет через arrayfun
-%            profile on;
-%            ZParam=zeros(len);
-%            ZParam(:)=zParam;
-%            for i=1:itersCount
-%                [z_New fStepNew] = arrayfun(@(baseFuncStr,windowParam,z_old,z_old_1,fstep,z_param)ControlParams.MakeMultipleCalcIter(baseFuncStr,windowParam,z_old,z_old_1,fstep,z_param),BaseFuncStr,WindowParam,z_Old,z_Old_1,fStepOld,ZParam);
-%                z_Old_1= z_Old;
-%                if zParam
-%                    WindowParam=z_New;
+%            for k=1:len(1)
+%                for l=1:len(2)
+%                    z_Old_1=Inf;
+%                    z_Old=0;
+%                    fStep=0;
+%                    while(fStep~=itersCount)
+%                        
+%                        if log(z_Old)/(2.302585092994046)>=15 || abs(z_Old_1-z_Old)<1e-5
+%                            Delta(k,l)=abs(z_Old_1-z_Old);
+%                            fStepNew(k,l)=fStep;
+%                            break;
+%                        else
+%                            if zParam
+%                                z_New(k,l)=func(WindowParam(k,l));
+%                            else
+%                                z_New(k,l)=func(WindowParam(k,l),z_Old);
+%                            end
+%                            fStep=fStep+1;
+%                        end
+%                        z_Old_1 = z_Old;
+%                        z_Old=z_New(k,l);
+%                        if zParam
+%                            WindowParam(k,l)=z_New(k,l);
+%                        end
+%                    end
 %                end
-%                z_Old=z_New;
-%                fStepOld=fStepNew;
 %            end
 %            profile viewer;
+           
+           ZParam=zeros(len);
+           ZParam(:)=zParam;
+           Z_Old_1=Inf(len);
+           Z_Old=zeros(len);
+           FStep=zeros(len);
+           ItersCount=zeros(len);
+           ItersCount(:)=itersCount;
+           
+           profile on;
+           %мультирассчет через arrayfun
+           [z_New fStepNew Delta] = arrayfun(@(windowParam,z_Old,z_Old_1,itersCount,zParam)ControlParams.MakeMultipleCalcIter(windowParam,z_Old,z_Old_1,itersCount,zParam),WindowParam,Z_Old,Z_Old_1,ItersCount,ZParam);
+           profile viewer;
+           
            zRes=z_New;
            
            fcodeIndicate=zeros(size(WindowParam));
            Fcode=zeros(size(WindowParam));
-           fcodeIndicate=arrayfun(@(z_new,z_old)abs(z_new-z_old)<1e-5,z_New,z_Old);
+           fcodeIndicate=arrayfun(@(delta)delta<1e-5,Delta);
            Fcode(find(fcodeIndicate))=1;
            fcodeIndicate=arrayfun(@(z)(log(z)/log(10)>15) || isnan(z) || isinf(z),z_New);
            Fcode(find(fcodeIndicate))=-1;
