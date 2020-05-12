@@ -22,7 +22,7 @@ function varargout = CA(varargin)
 
 % Edit the above text to modify the response to help CA
 
-% Last Modified by GUIDE v2.5 06-May-2020 19:31:54
+% Last Modified by GUIDE v2.5 10-May-2020 18:49:57
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -108,9 +108,11 @@ if (~contParms.IsReady2Start) || (((strcmp(resProc.ResPath,' ')) || ~ischar(resP
     
     errordlg(errorStr,'modal');
 else
-    if isempty(regexp(handles.IterCountEdit.String,'^\d+$')) || str2double(handles.IterCountEdit.String)<1 %проверка задано ли число итераций
-        errordlg('Ошибка в поле числа итераций.','modal');
+    if isempty(regexp(handles.IterCountEdit.String,'^\d+$')) || str2double(handles.IterCountEdit.String)<1 || isempty(regexp(handles.InfValueEdit.String,'^\d+$')) || str2double(handles.InfValueEdit.String)<1 || isempty(regexp(handles.ConvergValueEdit.String,'^\d+$')) || str2double(handles.ConvergValueEdit.String)<1 %проверка задано ли число итераций и точность
+        errordlg('Ошибка в поле числа итераций и(или) в полях точности вычислений.','modal');
     else
+       ControlParams.GetSetPrecisionParms([str2double(handles.InfValueEdit.String) str2double(strcat('1e-',handles.ConvergValueEdit.String))]);
+        
        ca = getappdata(handles.output,'CurrCA');
        
        handles.CancelParamsButton.Enable='off';
@@ -125,14 +127,18 @@ else
            
            len=size(WindowParam);
            zParam=false;
+           Z_Old=[];
            if any(strcmp(contParms.WindowParamName,{'Z0' 'Z' 'z0' 'z'}))
                z_New=WindowParam;
                zParam=true;
            else
                z_New=zeros(len);
+               z_New(:)=contParms.SingleParamValue;
+               Z_Old=z_New;
            end
            fStepNew=zeros(len);
            Delta=zeros(len);
+           
            %мультирассчет через циклы
 %            func=ControlParams.GetSetMultiCalcFunc;
 %            profile on;
@@ -168,7 +174,9 @@ else
            ZParam=zeros(len);
            ZParam(:)=zParam;
            Z_Old_1=Inf(len);
-           Z_Old=zeros(len);
+           if isempty(Z_Old)
+               Z_Old=zeros(len);
+           end
            FStep=zeros(len);
            ItersCount=zeros(len);
            ItersCount(:)=itersCount;
@@ -179,21 +187,24 @@ else
            profile viewer;
            
            zRes=z_New;
-           
+           PrecisionParms = ControlParams.GetSetPrecisionParms;
            fcodeIndicate=zeros(size(WindowParam));
            Fcode=zeros(size(WindowParam));
-           fcodeIndicate=arrayfun(@(delta)delta<1e-5,Delta);
+           fcodeIndicate=arrayfun(@(delta)delta<PrecisionParms(2),Delta);
            Fcode(find(fcodeIndicate))=1;
-           fcodeIndicate=arrayfun(@(z)(log(z)/log(10)>15) || isnan(z) || isinf(z),z_New);
+           minAttr = min(fStepNew(find(fcodeIndicate)));
+           posSteps=unique(fStepNew(find(fcodeIndicate)));
+           fcodeIndicate=arrayfun(@(z)(log(z)/log(10)>PrecisionParms(1)) || isnan(z) || isinf(z),z_New);
            Fcode(find(fcodeIndicate))=-1;
+           negSteps=unique(fStepNew(find(fcodeIndicate)));
            
-           if all(Fcode==-1)
-               clmp = flipud(gray(128));
+           if ~any(Fcode==1)
+               clmp = flipud(gray(max(negSteps)*10));
            else
-               if all(Fcode==1)
-                   clmp = flipud(parula(128));
+               if ~any(Fcode==-1)
+                   clmp = flipud(parula((max(posSteps)-mod(max(posSteps),10))*10));
                else
-                   clmp = [flipud(gray(128));flipud(parula(128))];
+                   clmp = [flipud(gray(max(negSteps)*10));flipud(parula((max(posSteps)-mod(max(posSteps),10))*10))];
                end
            end
            
@@ -202,7 +213,16 @@ else
            [Re,Im]=meshgrid(contParms.ReRangeWindow,contParms.ImRangeWindow);
            contourf(Re, Im, (fStepNew.*Fcode), 'LineStyle', 'none');
            
-           colorbar;
+           clrbr = colorbar;
+           
+           ticks=clrbr.Ticks;
+           posTicks=ticks(find(ticks>0));
+%            if(any(posTicks<minAttr))
+%                posTicks(1)=[];
+%                negTicks=unique(fStepNew(find(fcodeIndicate)))*(-1);
+%                negTicks=min(negTicks):posTicks(2)-posTicks(1):max(negTicks);
+%                clrbr.Ticks=[negTicks posTicks];
+%            end
            grid on;    
            
            funcStr=strrep('@(z)(1+ \mu*abs(z-eq))*exp(i*z)','z','z_{t}');
@@ -2548,26 +2568,14 @@ end
 function CountBaseZButton_Callback(hObject, eventdata, handles)
 
 Muerror=false;
-if(isempty(regexp(handles.MiuReEdit.String,'^-?\d+(\.?)(?(1)\d+|)$')))
-    Muerror=true;
-end
-
-if(~Muerror)
-    if(isempty(regexp(handles.MiuReEdit.String,'^-?\d+(\.?)(?(1)\d+|)$')))
-        Muerror=true;
-    end
-end
-
-if(Muerror)
+if(isempty(regexp(handles.MiuEdit.String,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]?\d+(\.)?(?(4)\d+|)(?(3)|i))?$')))
     errordlg('Ошибка. Недопустимое значение параметра Мю.','modal');
 else
-    MiuReStr=strcat(handles.MiuReEdit.String,'+');
-    MiuImStr=strcat(handles.MiuImEdit.String,'i');
-    MiuStr=strcat(MiuReStr,MiuImStr);
     
     currCA=getappdata(handles.output,'CurrCA');
-    currCA.Miu = str2double(MiuStr);
+    currCA.Miu = str2double(handles.MiuEdit.String);
     
+    MiuStr=num2str(currCA.Miu);
     MiuStr=strcat('(',MiuStr);
     MiuStr=strcat(MiuStr,')');
     
@@ -2618,6 +2626,7 @@ function SaveParamsButton_Callback(hObject, eventdata, handles)
 error=false;
 errorStr='Ошибки в текстовых полях: ';
 contParms = getappdata(handles.output,'ContParms');
+
 if contParms.SingleOrMultipleCalc
     Nerror=false;
     if(isempty(regexp(handles.NFieldEdit.String,'^\d+$')))
@@ -2627,45 +2636,42 @@ if contParms.SingleOrMultipleCalc
     end
 else
     ParamNameerror=false;
-    if ~any(strcmp(handles.ParamNameEdit.String,{'Z0' 'Z' 'z0' 'z' 'Miu' 'Mu' 'Мю'}))
+    if handles.ParamNameMenu.Value == handles.SingleParamNameMenu.Value
         error=true;
         ParamNameerror=true;
-        errorStr=strcat(errorStr,'Название параметра "окна", ');
+        errorStr=strcat(errorStr,'совпадение одиночного и мульти-параметров, ');
     end
     newN=0;
     ParamCellCount=0;
+    
+    if(isempty(regexp(handles.SingleParamValueEdit.String,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]?\d+(\.)?(?(4)\d+|)(?(3)|i))?$')))
+        error=true;
+        errorStr=strcat(errorStr,'Одиночный параметр, ');
+    end
 end
 
 Muerror=false;
-if contParms.SingleOrMultipleCalc ||(~contParms.SingleOrMultipleCalc && any(strcmp(handles.ParamNameEdit.String,{'Z0' 'Z' 'z0' 'z'})))
-    if(isempty(regexp(handles.MiuReEdit.String,'^[-\+]?\d+(\.?)(?(1)\d+|)$')))
-        error=true;
-        Muerror=true;
+if(isempty(regexp(handles.MiuEdit.String,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]?\d+(\.)?(?(4)\d+|)(?(3)|i))?$')))
+    error=true;
         errorStr=strcat(errorStr,'Мю, ');
-    end
-    
-    if(~Muerror)
-        if(isempty(regexp(handles.MiuImEdit.String,'^[-\+]?\d+(\.?)(?(1)\d+|)$')))
-            error=true;
-            Muerror=true;
-            errorStr=strcat(errorStr,'Мю, ');
-        end
-    end
-    
-    Mu0error=false;
-    if(isempty(regexp(handles.Miu0ReEdit.String,'^[-\+]?\d+(\.?)(?(1)\d+|)$')))
-        error=true;
-        Mu0error=true;
-        errorStr=strcat(errorStr,'Мю0, ');
-    end
-    
-    if(~Mu0error)
-        if(isempty(regexp(handles.Miu0ImEdit.String,'^[-\+]?\d+(\.?)(?(1)\d+|)$')))
-            error=true;
-            errorStr=strcat(errorStr,'Мю0, ');
-        end
-    end
 end
+
+if(isempty(regexp(handles.Miu0Edit.String,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]?\d+(\.)?(?(4)\d+|)(?(3)|i))?$')))
+    error=true;
+    errorStr=strcat(errorStr,'Мю0, ');
+end
+
+% if contParms.SingleOrMultipleCalc ||(~contParms.SingleOrMultipleCalc && handles.ParamNameMenu.Value==1)
+%     if(isempty(regexp(handles.MiuEdit.String,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]?\d+(\.)?(?(4)\d+|)(?(3)|i))?$')))
+%         error=true;
+%         errorStr=strcat(errorStr,'Мю, ');
+%     end
+%     
+%     if(isempty(regexp(handles.Miu0Edit.String,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]?\d+(\.)?(?(4)\d+|)(?(3)|i))?$')))
+%         error=true;
+%         errorStr=strcat(errorStr,'Мю0, ');
+%     end
+% end
 
 
 currCA=getappdata(handles.output,'CurrCA');
@@ -2749,7 +2755,20 @@ else
     if contParms.SingleOrMultipleCalc
         currCA.N=str2double(handles.NFieldEdit.String);
     else
-        contParms.WindowParamName=handles.ParamNameEdit.String;
+        contParms.SingleParamValue=str2double(handles.SingleParamValueEdit.String);
+        switch handles.ParamNameMenu.Value
+            case 1
+                contParms.WindowParamName='z0';
+            case 2
+                contParms.WindowParamName='Miu0';
+        end
+        
+        switch handles.SingleParamNameMenu.Value
+            case 1
+                contParms.SingleParamName='z0';
+            case 2
+                contParms.SingleParamName='Miu0';
+        end
     end
     
     if currCA.N==1
@@ -2757,10 +2776,8 @@ else
         setappdata(handles.output,'N1Path',N1Path);
     end
     
-    MiuReStr=strcat(handles.MiuReEdit.String,'+');
-    MiuImStr=strcat(handles.MiuImEdit.String,'i');
-    MiuStr=strcat(MiuReStr,MiuImStr);
-    currCA.Miu=str2double(MiuStr);
+    currCA.Miu=str2double(handles.MiuEdit.String);
+    MiuStr=handles.MiuEdit.String;
     
     MiuStr=strcat('(',MiuStr);
     MiuStr=strcat(MiuStr,')');
@@ -2776,20 +2793,17 @@ else
     currCA.Zbase=complex(zeq(1),zeq(2));
     handles.BaseZEdit.String=num2str(currCA.Zbase);
     
-    Miu0ReStr=strcat(handles.Miu0ReEdit.String,'+');
-    Miu0ImStr=strcat(handles.Miu0ImEdit.String,'i');
-    Miu0Str=strcat(Miu0ReStr,Miu0ImStr);
-    currCA.Miu0=str2double(Miu0Str);
+    currCA.Miu0=str2double(handles.Miu0Edit.String);
     
     setappdata(handles.output,'CurrCA',currCA);
     
     contParms.IsReady2Start=true;
     setappdata(handles.output,'ContParms',contParms);
-    
-    handles.MiuReEdit.Enable='off';
-    handles.MiuImEdit.Enable='off';
-    handles.Miu0ReEdit.Enable='off';
-    handles.Miu0ImEdit.Enable='off';
+%     
+%     handles.MiuReEdit.Enable='off';
+%     handles.MiuImEdit.Enable='off';
+%     handles.Miu0ReEdit.Enable='off';
+%     handles.Miu0ImEdit.Enable='off';
     handles.NFieldEdit.Enable='off';
     handles.BaseZEdit.Enable='off';
     handles.BaseImagMenu.Enable='off';
@@ -2819,10 +2833,10 @@ end
 
 % --- Executes on button press in CancelParamsButton.
 function CancelParamsButton_Callback(hObject, eventdata, handles)
-handles.MiuReEdit.Enable='on';
-handles.MiuImEdit.Enable='on';
-handles.Miu0ReEdit.Enable='on';
-handles.Miu0ImEdit.Enable='on';
+% handles.MiuReEdit.Enable='on';
+% handles.MiuImEdit.Enable='on';
+% handles.Miu0ReEdit.Enable='on';
+% handles.Miu0ImEdit.Enable='on';
 handles.NFieldEdit.Enable='on';
 handles.BaseZEdit.Enable='on';
 handles.BaseImagMenu.Enable='on';
@@ -2891,19 +2905,23 @@ if(contParms.SingleOrMultipleCalc)
         handles.DistributStartEdit.String='-3-0.465i';
         handles.DistributStepEdit.String='0.001';
         handles.DistributEndEdit.String='-2.7-0.165i';
-        handles.Miu0ImEdit.String='0.25';
-        handles.Miu0ReEdit.String='0';
-        handles.MiuReEdit.String='1';
-        handles.MiuImEdit.String='0';
+        handles.MiuEdit.String='1';
+        handles.Miu0Edit.String='0.25i';
+%         handles.Miu0ImEdit.String='0.25';
+%         handles.Miu0ReEdit.String='0';
+%         handles.MiuReEdit.String='1';
+%         handles.MiuImEdit.String='0';
     else
         handles.DistributionTypeMenu.Value=1;
         handles.DistributStartEdit.String='';
         handles.DistributStepEdit.String='';
         handles.DistributEndEdit.String='';
-        handles.Miu0ReEdit.String='';
-        handles.Miu0ImEdit.String='';
-        handles.MiuReEdit.String='';
-        handles.MiuImEdit.String='';
+        handles.MiuEdit.String='';
+        handles.Miu0Edit.String='';
+%         handles.Miu0ReEdit.String='';
+%         handles.Miu0ImEdit.String='';
+%         handles.MiuReEdit.String='';
+%         handles.MiuImEdit.String='';
     end
 else
     if hObject.Value==1
@@ -2911,19 +2929,23 @@ else
         handles.ParamStartEdit.String='1+1i';
         handles.ParamStepEdit.String='0.01+0.01i';
         handles.ParamEndEdit.String='2+2i';
-        handles.Miu0ImEdit.String='0.25';
-        handles.Miu0ReEdit.String='0';
-        handles.MiuReEdit.String='1';
-        handles.MiuImEdit.String='0';
+        handles.MiuEdit.String='1';
+        handles.Miu0Edit.String='0.25i';
+%         handles.Miu0ImEdit.String='0.25';
+%         handles.Miu0ReEdit.String='0';
+%         handles.MiuReEdit.String='1';
+%         handles.MiuImEdit.String='0';
     else
         handles.ParamNameEdit.String='';
         handles.ParamStartEdit.String='';
         handles.ParamStepEdit.String='';
         handles.ParamEndEdit.String='';
-        handles.Miu0ReEdit.String='';
-        handles.Miu0ImEdit.String='';
-        handles.MiuReEdit.String='';
-        handles.MiuImEdit.String='';
+        handles.MiuEdit.String='';
+        handles.Miu0Edit.String='';
+%         handles.Miu0ReEdit.String='';
+%         handles.Miu0ImEdit.String='';
+%         handles.MiuReEdit.String='';
+%         handles.MiuImEdit.String='';
     end
 end
 % hObject    handle to DefaultCB (see GCBO)
@@ -3303,7 +3325,10 @@ if strcmp(get(hObject,'Tag'),'SingleCalcRB')
     handles.ParamStartEdit.Enable='off';
     handles.ParamStepEdit.Enable='off';
     handles.ParamEndEdit.Enable='off';
-    handles.ParamNameEdit.String='';
+    handles.SingleParamNameMenu.Enable='off';
+    handles.SingleParamValueEdit.Enable='off';
+    handles.ParamNameMenu.Enable='off';
+    handles.SingleParamValueEdit.String='';
     handles.ParamStartEdit.String='';
     handles.ParamStepEdit.String='';
     handles.ParamEndEdit.String='';
@@ -3334,7 +3359,9 @@ else
     handles.DistributStepEdit.String='';
     handles.DistributEndEdit.String='';
     
-    handles.ParamNameEdit.Enable='on';
+    handles.SingleParamNameMenu.Enable='on';
+    handles.SingleParamValueEdit.Enable='on';
+    handles.ParamNameMenu.Enable='on';
     handles.ParamStartEdit.Enable='on';
     handles.ParamStepEdit.Enable='on';
     handles.ParamEndEdit.Enable='on';
@@ -3627,3 +3654,185 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
     set(hObject,'BackgroundColor','white');
 end
        
+
+
+% --- Executes on button press in SaveAllModelParamsB.
+function SaveAllModelParamsB_Callback(hObject, eventdata, handles)
+% hObject    handle to SaveAllModelParamsB (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
+% --------------------------------------------------------------------
+function FileMenuItem_Callback(hObject, eventdata, handles)
+% hObject    handle to FileMenuItem (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
+% --------------------------------------------------------------------
+function ReadModelingParmsFrmFile_Callback(hObject, eventdata, handles)
+% hObject    handle to ReadModelingParmsFrmFile (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
+
+function ConvergValueEdit_Callback(hObject, eventdata, handles)
+% hObject    handle to ConvergValueEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of ConvergValueEdit as text
+%        str2double(get(hObject,'String')) returns contents of ConvergValueEdit as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function ConvergValueEdit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to ConvergValueEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function InfValueEdit_Callback(hObject, eventdata, handles)
+% hObject    handle to InfValueEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of InfValueEdit as text
+%        str2double(get(hObject,'String')) returns contents of InfValueEdit as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function InfValueEdit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to InfValueEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function MiuEdit_Callback(hObject, eventdata, handles)
+% hObject    handle to MiuEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of MiuEdit as text
+%        str2double(get(hObject,'String')) returns contents of MiuEdit as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function MiuEdit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to MiuEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function Miu0Edit_Callback(hObject, eventdata, handles)
+% hObject    handle to Miu0Edit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of Miu0Edit as text
+%        str2double(get(hObject,'String')) returns contents of Miu0Edit as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function Miu0Edit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to Miu0Edit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+% --- Executes on selection change in SingleParamNameMenu.
+function SingleParamNameMenu_Callback(hObject, eventdata, handles)
+% hObject    handle to SingleParamNameMenu (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: contents = cellstr(get(hObject,'String')) returns SingleParamNameMenu contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from SingleParamNameMenu
+
+
+% --- Executes during object creation, after setting all properties.
+function SingleParamNameMenu_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to SingleParamNameMenu (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: popupmenu controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function SingleParamValueEdit_Callback(hObject, eventdata, handles)
+% hObject    handle to SingleParamValueEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of SingleParamValueEdit as text
+%        str2double(get(hObject,'String')) returns contents of SingleParamValueEdit as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function SingleParamValueEdit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to SingleParamValueEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+% --- Executes on selection change in ParamNameMenu.
+function ParamNameMenu_Callback(hObject, eventdata, handles)
+% hObject    handle to ParamNameMenu (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: contents = cellstr(get(hObject,'String')) returns ParamNameMenu contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from ParamNameMenu
+
+
+% --- Executes during object creation, after setting all properties.
+function ParamNameMenu_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to ParamNameMenu (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: popupmenu controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end

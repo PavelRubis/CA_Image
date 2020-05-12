@@ -30,7 +30,13 @@ classdef CellularAutomat
        
        %метод рассчета состо€ни€ €чейки
        function out = MakeIter(CA_cell)
-           if  (length(CA_cell.CurrNeighbors)~=0 && log(CA_cell.zPath(end))/log(10)<=15 && ~isnan(CA_cell.zPath(end))) || isequal(CA_cell.Indexes,[0 1 1])
+           
+           persistent PrecisionParms;
+           if isempty(PrecisionParms)
+              PrecisionParms = ControlParams.GetSetPrecisionParms;
+           end
+           
+           if  (length(CA_cell.CurrNeighbors)~=0 && log(CA_cell.zPath(end))/log(10)<=PrecisionParms(1) && ~isnan(CA_cell.zPath(end))) || isequal(CA_cell.Indexes,[0 1 1])
              
                z_last = CA_cell.zPath(end);
                [base,lambda] = CellularAutomat.GetSetFuncs;%получаем функции базового отображени€ и л€мбды
@@ -55,7 +61,7 @@ classdef CellularAutomat
                z_new=lambdaPart*basePart;
                CA_cell.zPath=[CA_cell.zPath z_new];
                
-               if (abs(CA_cell.zPath(end)-CA_cell.zPath(end-1))<1e-5)
+               if (abs(CA_cell.zPath(end)-CA_cell.zPath(end-1))<PrecisionParms(2))
                    CA_cell.fstep=CA_cell.fstep;
                else
                    CA_cell.fstep=CA_cell.fstep+1;

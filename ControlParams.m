@@ -8,6 +8,8 @@ classdef ControlParams %класс параметров управления
        ImRangeWindow(1,:) double % массив мнимых значений параметра "окна" 
        WindowParamName(1,:) char % название параметра "окна" 
        IsReady2Start logical = false% задан ли КА
+       SingleParamName(1,:) char % название одиночного параметра 
+       SingleParamValue double % значение одиночного параметра 
    end
    
    methods
@@ -37,16 +39,26 @@ classdef ControlParams %класс параметров управления
            out = MultiCalcFunc;
        end
        
+       
+      % метод get-set для статической переменной функции мультирасчета
+       function out = GetSetPrecisionParms(parms)
+           persistent PrecisionParms;
+           if nargin==1
+               PrecisionParms = parms;
+           end
+           out = PrecisionParms;
+       end
+       
        %метод мультирасчета
        function [z_New fStepLast delta] = MakeMultipleCalcIter(windowParam,z_Old,z_Old_1,itersCount,zParam)
-           persistent func;
-           if (isempty(func))
-               func=ControlParams.GetSetMultiCalcFunc;
-           end
+           
+           PrecisionParms = ControlParams.GetSetPrecisionParms;
+           func=ControlParams.GetSetMultiCalcFunc;
+           
            fStepLast=0;
            while(fStepLast~=itersCount)
                        
-               if log(z_Old)/(2.302585092994046)>=15 || abs(z_Old_1-z_Old)<1e-5
+               if log(z_Old)/(2.302585092994046)>=PrecisionParms(1) || abs(z_Old_1-z_Old)<PrecisionParms(2)
                    break;
                else
                    if zParam
@@ -64,8 +76,8 @@ classdef ControlParams %класс параметров управления
                
            end
            delta=abs(z_Old_1-z_Old);
-           func=[];
        end
+       
 %        function [z_new fStepNew]= MakeMultipleCalcIter(windowParam,z_old,z_old_1,fStepOld,zParam)
 %            if log(z_old)/(2.302585092994046)<15 && abs(z_old_1-z_old)>=1e-5
 %                func=ControlParams.GetSetMultiCalcFunc;
@@ -90,14 +102,15 @@ classdef ControlParams %класс параметров управления
            switch contParms.WindowParamName
                case {'Z0' 'Z' 'z0' 'z'} % в случае окна по Z0 создание матрицы функций базы,с вставкой одного значения Мю
                    
-                   MiuStr=strcat('(',num2str(ca.Miu));
-                   MiuStr=strcat(MiuStr,')');
+                   SingleParamStr=strcat('(',num2str(contParms.SingleParamValue));
+                   SingleParamStr=strcat(SingleParamStr,')');
                    
                    zBaseStr=strcat('(',num2str(0.576412723031435+i*0.374699020737117));
                    zBaseStr=strcat(zBaseStr,')');
                    
-                   baseFuncStr=strrep(func2str(@(z)(1+ Miu*abs(z-eq))*exp(i*z)),'Miu',MiuStr);
-                   baseFuncStr=strrep(baseFuncStr,'c',MiuStr);
+                   baseFuncStr=strrep(func2str(@(z)(1+ Miu*abs(z-eq))*exp(i*z)), contParms.SingleParamName,SingleParamStr);
+                   baseFuncStr=strrep(baseFuncStr,'c',SingleParamStr);
+                   baseFuncStr=strrep(baseFuncStr,'Miu',SingleParamStr);
                    baseFuncStr=strrep(baseFuncStr,'eq',zBaseStr);
                    
                    baseFuncStr=str2func(baseFuncStr);
@@ -105,7 +118,7 @@ classdef ControlParams %класс параметров управления
 %                    baseFuncStrs=cell(size(WindowParam));
 %                    baseFuncStrs(:)={baseFuncStr};
                    
-               case {'Miu','Mu','Мю'} % в случае окна по Мю создание матрицы функций базы, где множитель каждой функции - соответствующее значение Мю из диапазона
+               case {'Miu0','Mu0','Мю0'} % в случае окна по Мю создание матрицы функций базы, где множитель каждой функции - соответствующее значение Мю из диапазона
 %                    profile on;
 %                    paramsStrs = arrayfun(@(param){strcat('(',num2str(param))},WindowParam);
 %                    paramsStrs = arrayfun(@(param){strcat(cell2mat(param),')')},paramsStrs);
