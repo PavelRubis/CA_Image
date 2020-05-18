@@ -122,14 +122,14 @@ else
            contParms.IterCount=itersCount;
            
            %создание окна и матрицы функций базы
-           [WindowParam] = ControlParams.MakeFuncsWithNumsForMultipleCalc(ca,contParms);
+           [WindowParam contParms] = ControlParams.MakeFuncsWithNumsForMultipleCalc(ca,contParms);
 
-           
            len=size(WindowParam);
            zParam=false;
            Z_Old=[];
            if any(strcmp(contParms.WindowParamName,{'Z0' 'Z' 'z0' 'z'}))
                z_New=WindowParam;
+               Z_Old=z_New;
                zParam=true;
            else
                z_New=zeros(len);
@@ -180,62 +180,89 @@ else
            FStep=zeros(len);
            ItersCount=zeros(len);
            ItersCount(:)=itersCount;
+           Pathes=cell(len);
            
            profile on;
            %мультирассчет через arrayfun
-           [z_New fStepNew Delta] = arrayfun(@(windowParam,z_Old,z_Old_1,itersCount,zParam)ControlParams.MakeMultipleCalcIter(windowParam,z_Old,z_Old_1,itersCount,zParam),WindowParam,Z_Old,Z_Old_1,ItersCount,ZParam);
+           [z_New fStepNew Pathes] = arrayfun(@ControlParams.MakeMultipleCalcIter,WindowParam,Z_Old,Z_Old_1,ItersCount,ZParam);
            profile viewer;
            
            zRes=z_New;
            PrecisionParms = ControlParams.GetSetPrecisionParms;
-           fcodeIndicate=zeros(size(WindowParam));
-           Fcode=zeros(size(WindowParam));
-           fcodeIndicate=arrayfun(@(delta)delta<PrecisionParms(2),Delta);
-           Fcode(find(fcodeIndicate))=1;
-           minAttr = min(fStepNew(find(fcodeIndicate)));
-           posSteps=unique(fStepNew(find(fcodeIndicate)));
-           fcodeIndicate=arrayfun(@(z)(log(z)/log(10)>PrecisionParms(1)) || isnan(z) || isinf(z),z_New);
-           Fcode(find(fcodeIndicate))=-1;
-           negSteps=unique(fStepNew(find(fcodeIndicate)));
+           fcodeIndicate=zeros(len);
+           Fcode=zeros(len);
+           Periods=zeros(len);
+           Iters=zeros(len);
            
-           if ~any(Fcode==1)
-               clmp = flipud(gray(max(negSteps)*10));
-           else
-               if ~any(Fcode==-1)
-                   clmp = flipud(parula((max(posSteps)-mod(max(posSteps),10))*10));
+           [Fcode,Iters,Periods]=arrayfun(@ControlParams.CheckConvergence,Pathes);
+           contParms.Periods=Periods;
+           contParms.LastIters=Iters;
+           fcodeIndicate=find(Fcode==1);
+           if isempty(fcodeIndicate)
+               fcodeIndicate=find(Fcode>=1);
+           end
+           posSteps=unique(fStepNew(fcodeIndicate));
+           fcodeIndicate=find(Fcode==-1);
+           negSteps=unique(fStepNew(fcodeIndicate));
+           
+           maxPosSteps=zeros(len);
+           minNegStep=min(negSteps);
+           if ~isempty(posSteps)
+               maxPosSteps(:)=max(posSteps);%+(10-mod(max(posSteps),10));
+               
+               chaosCodeIndicate=find(Fcode==2);
+               fStepNew(chaosCodeIndicate)=max(negSteps)+1;
+               
+               periodCodeIndicate=find(Fcode==3);
+               fStepNew(periodCodeIndicate)=maxPosSteps(periodCodeIndicate)+Periods(periodCodeIndicate);
+               
+               if~isempty(negSteps)
+                   clmp = [flipud(gray(max(negSteps)));flipud(winter(floor((max(negSteps)*((max(posSteps)+2)/max(negSteps))))))];%(max(posSteps)-mod(max(posSteps),10))
                else
-                   clmp = [flipud(gray(max(negSteps)*10));flipud(parula((max(posSteps)-mod(max(posSteps),10))*10))];
+                   clmp = flipud(winter(floor((max(posSteps)-mod(max(posSteps),10)))));
+               end
+               
+               if ~isempty(chaosCodeIndicate)
+                   clmp=[spring(1); clmp];
+                   Fcode(chaosCodeIndicate)=-1;
+               end
+               if ~isempty(periodCodeIndicate)
+                    clmp=[clmp; autumn(max(Periods(periodCodeIndicate)))];
+%                    clmp=[clmp; autumn(length(unique(Periods(periodCodeIndicate))))];
+                   Fcode(periodCodeIndicate)=1;
+               end
+           else
+               if~isempty(negSteps)
+                   clmp = flipud(gray(max(negSteps)));
                end
            end
            
            colormap(clmp);
                
            [Re,Im]=meshgrid(contParms.ReRangeWindow,contParms.ImRangeWindow);
-           contourf(Re, Im, (fStepNew.*Fcode), 'LineStyle', 'none');
+           pcolor(Re, Im, (fStepNew.*Fcode));
            
+           shading flat;
            clrbr = colorbar;
+           clrbr.Limits
+           zoom on;
+%            clrbr =  colorbar('Limits',[-minNegStep maxPosSteps(1,1)+15]);
            
-           ticks=clrbr.Ticks;
-           posTicks=ticks(find(ticks>0));
-%            if(any(posTicks<minAttr))
-%                posTicks(1)=[];
-%                negTicks=unique(fStepNew(find(fcodeIndicate)))*(-1);
-%                negTicks=min(negTicks):posTicks(2)-posTicks(1):max(negTicks);
-%                clrbr.Ticks=[negTicks posTicks];
-%            end
-           grid on;    
-           
-           funcStr=strrep('@(z)(1+ \mu*abs(z-eq))*exp(i*z)','z','z_{t}');
-           funcStr=strrep(funcStr,'@(z_{t})','z_{t+1}=');
-           funcStr=strrep(funcStr,'eq','z^{*}');
-           string_title=funcStr;
+%            funcStr=strrep('@(z)(1+ \mu*abs(z-eq))*exp(i*z)','z','z_{t}');
+           string_title= func2str(contParms.ImageFunc);
            if any(strcmp(contParms.WindowParamName,{'Z0' 'Z' 'z0' 'z'}))
+               string_title=strrep(string_title,'z','z_{t}');
+               string_title=strrep(string_title,'eq','z^{*}');
+               string_title=strrep(string_title,'@(z_{t})','z_{t+1}=');
+               string_title=strrep(string_title,'Miu','\mu');
                xlabel('Re(z(t))');
                ylabel('Im(z(t))');
                string_title=strcat(string_title,'  \mu=');
                string_title=strcat(string_title,num2str(ca.Miu));
            else
-               string_title=strcat(string_title,'  z_0=0');
+               string_title=strrep(string_title,'@(Miu,z)','\mu_{t+1}=');
+               string_title=strrep(string_title,'Miu','\mu_{t}');
+               string_title=strcat(string_title,'  z=0');
                xlabelStr='Re(';
                xlabelStr=strcat(xlabelStr,contParms.WindowParamName);
                xlabelStr=strcat(xlabelStr,')');
@@ -247,8 +274,10 @@ else
                xlabel(xlabelStr);
                ylabel(ylabelStr);
            end
-           string_title=strcat(string_title,'  z^{*}=');
-           string_title=strcat(string_title,num2str(complex(0.576412723031435,0.374699020737117)));
+           if contains(string_title,'z^{*}')
+               string_title=strcat(string_title,'  z^{*}=');
+               string_title=strcat(string_title,num2str(complex(0.576412723031435,0.374699020737117)));
+           end
            
            title(handles.CAField,strcat('\fontsize{16}',string_title));
 %          legend(string_legend);
@@ -319,7 +348,7 @@ else
            
            ResultsProcessing.GetSetCellOrient
            if resProc.isSave
-               resProc=SaveRes(resProc,ca,handles.CAField,contParms,[]);
+               resProc=SaveRes(resProc,ca,handles.CAField,contParms,N1Path);
            end
            ResultsProcessing.GetSetCellOrient
            
@@ -2760,14 +2789,14 @@ else
             case 1
                 contParms.WindowParamName='z0';
             case 2
-                contParms.WindowParamName='Miu0';
+                contParms.WindowParamName='Miu';
         end
         
         switch handles.SingleParamNameMenu.Value
             case 1
                 contParms.SingleParamName='z0';
             case 2
-                contParms.SingleParamName='Miu0';
+                contParms.SingleParamName='Miu';
         end
     end
     
