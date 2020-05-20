@@ -3,14 +3,13 @@ classdef ControlParams %класс параметров управления
    properties
        IterCount {mustBeInteger, mustBePositive} %количество итераций
        SingleOrMultipleCalc logical %одиночный или множественный рассчет
-       IsPaused logical = false % закончен ли один из этапов множественного рассчета
        ReRangeWindow(1,:) double % массив действительных значений параметра "окна" 
        ImRangeWindow(1,:) double % массив мнимых значений параметра "окна" 
        WindowParamName(1,:) char % название параметра "окна" 
        IsReady2Start logical = false% задан ли КА
        SingleParamName(1,:) char % название одиночного параметра 
        SingleParamValue double % значение одиночного параметра 
-       ImageFunc function_handle % отображение
+       ImageFunc function_handle % отображение для множественного расчета
        
        Periods (:,:) double % значения периодов 
        LastIters (:,:) double  % последняя итерация

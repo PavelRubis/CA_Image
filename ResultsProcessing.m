@@ -21,7 +21,7 @@ classdef ResultsProcessing
            end
        end
        
-       % будущий метод сохранения результатов
+       %метод сохранения результатов
        function resproc = SaveRes(obj, ca, fig,contParms,Res)
            
            if obj.SingleOrMultipleCalc 
@@ -162,6 +162,78 @@ classdef ResultsProcessing
                set(fig,'Units','normalized');
            end
            resproc=obj;
+       end
+       
+       function [filename] = SaveParms(obj, ca, contParms,param)
+           ConfFileName=strcat('\Modeling-Params ',datestr(clock));
+           ConfFileName=strcat(ConfFileName,'.txt');
+           ConfFileName=strrep(ConfFileName,':','-');
+           ConfFileName=strcat(obj.ResPath,ConfFileName);
+           if obj.SingleOrMultipleCalc
+               if ca.N~=1
+                   fileID = fopen(ConfFileName, 'w');
+                   fprintf(fileID, '1\n');
+                   fprintf(fileID, strcat(num2str(ca.FieldType),'\n'));
+                   fprintf(fileID, strcat(num2str(ca.BordersType),'\n'));
+                   fprintf(fileID, strcat(num2str(ResultsProcessing.GetSetCellOrient),'\n'));
+                   fprintf(fileID, strcat(num2str(ca.N),'\n'));
+                   fprintf(fileID, strcat(func2str(ca.Base),'\n'));
+                   fprintf(fileID, strcat(func2str(ca.Lambda),'\n'));
+                   
+                   fprintf(fileID, strcat(num2str(ca.Zbase),'\n'));
+                   fprintf(fileID, strcat(num2str(ca.Miu0),'\n'));
+                   fprintf(fileID, strcat(num2str(ca.Miu),'\n'));
+                   
+                   if ~ischar(param)
+                       fprintf(fileID, strcat(num2str(param),'\n'));
+                       paramStart=complex(contParms.ReRangeWindow(1),contParms.ImRangeWindow(1));
+                       paramStep=(contParms.ReRangeWindow(2)-contParms.ReRangeWindow(1));
+                       paramEnd=complex(contParms.ReRangeWindow(end),contParms.ImRangeWindow(end));
+                       
+                       paramStartSrt=strcat(num2str(paramStart),' :');
+                       paramEndSrt=strcat(' :',num2str(paramEnd));
+                       paramSrt=strcat(paramStartSrt,num2str(paramStep));
+                       paramSrt=strcat(paramSrt,paramEndSrt);
+                       
+                       fprintf(fileID, strcat(paramSrt,'\n'));
+                       fclose(fileID);
+                   else
+                       fclose(fileID);
+                       dlmwrite(ConfFileName,param,'-append','delimiter','');
+                   end
+                   fileID = fopen(ConfFileName, 'a');
+                   PrecisionParms = ControlParams.GetSetPrecisionParms;
+                   fprintf(fileID, strcat(num2str(PrecisionParms(1)),'\n'));
+                   fprintf(fileID, strcat(num2str(PrecisionParms(2)),'\n'));
+                   fclose(fileID);
+               end
+               
+           else
+               fileID = fopen(ConfFileName, 'w');
+               fprintf(fileID, '0\n');
+               fprintf(fileID, strcat(num2str(ca.Miu),'\n'));
+               fprintf(fileID, strcat(num2str(ca.Zbase),'\n'));
+               fprintf(fileID, strcat(contParms.SingleParamName,'\n'));
+               fprintf(fileID, strcat(num2str(contParms.SingleParamValue),'\n'));
+               fprintf(fileID, strcat(func2str(contParms.ImageFunc),'\n'));
+               fprintf(fileID, strcat(num2str(contParms.WindowParamName),'\n'));
+               
+               paramStart=complex(contParms.ReRangeWindow(1),contParms.ImRangeWindow(1));
+               paramStep=complex(contParms.ReRangeWindow(2)-contParms.ReRangeWindow(1),contParms.ImRangeWindow(2)-contParms.ImRangeWindow(1));
+               paramEnd=complex(contParms.ReRangeWindow(end),contParms.ImRangeWindow(end));
+                    
+               paramStartSrt=strcat(num2str(paramStart),' :');
+               paramEndSrt=strcat(' :',num2str(paramEnd));
+               paramSrt=strcat(paramStartSrt,num2str(paramStep));
+               paramSrt=strcat(paramSrt,paramEndSrt);
+               fprintf(fileID,strcat(paramSrt,'\n'));
+               PrecisionParms = ControlParams.GetSetPrecisionParms;
+               
+               fprintf(fileID, strcat(num2str(PrecisionParms(1)),'\n'));
+               fprintf(fileID, strcat(num2str(PrecisionParms(2)),'\n'));
+               fclose(fileID);
+           end
+           filename=ConfFileName;
        end
        
    end

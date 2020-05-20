@@ -292,7 +292,7 @@ else
            setappdata(handles.output,'CurrCA',ca);
            setappdata(handles.output,'ContParms',contParms);
            setappdata(handles.output,'ResProc',resProc);
-           
+           handles.SaveAllModelParamsB.Enable='on';
            return;
        end
        %подготовка обоих функций
@@ -357,7 +357,7 @@ else
            setappdata(handles.output,'ContParms',contParms);
            setappdata(handles.output,'N1Path',N1Path);
            setappdata(handles.output,'ResProc',resProc);
-           
+           handles.SaveAllModelParamsB.Enable='on';
            return;
            
        end
@@ -440,6 +440,7 @@ else
        contParms.IterCount=contParms.IterCount+1;
        setappdata(handles.output,'ContParms',contParms);
        setappdata(handles.output,'ResProc',resProc);
+       handles.SaveAllModelParamsB.Enable='on';
     end
 end
 
@@ -1003,14 +1004,20 @@ set(gca,'ytick',[])
 
 ca = getappdata(handles.output,'CurrCA');
 contParms = getappdata(handles.output,'ContParms');
+FileWasRead=getappdata(handles.output,'FileWasRead');
 
 ca = CellularAutomat(ca.FieldType,ca.BordersType, ca.N ,ca.Base,ca.Lambda, ca.Zbase, ca.Miu0, ca.Miu);
 
 contParms.IsReady2Start=false;
 
+FileWasRead=false;
+
 setappdata(handles.output,'CurrCA',ca);
 setappdata(handles.output,'ContParms',contParms);
+setappdata(handles.output,'FileWasRead',FileWasRead);
 
+
+handles.SaveAllModelParamsB.Enable='off';
 handles.MiuReEdit.Enable='on';
 handles.MiuImEdit.Enable='on';
 handles.Miu0ReEdit.Enable='on';
@@ -2429,7 +2436,6 @@ end
 function Z0SourcePathButton_Callback(hObject, eventdata, handles)
 [file,path] = uigetfile('*.txt');
 path=strcat(path,file);
-setappdata(handles.ReadZ0SourceButton,'Z0SourcePath',path);
 handles.Z0SourcePathEdit.String=path;
 
 % hObject    handle to Z0SourcePathButton (see GCBO)
@@ -2440,11 +2446,10 @@ handles.Z0SourcePathEdit.String=path;
 
 % --- Executes on button press in ReadZ0SourceButton.
 function ReadZ0SourceButton_Callback(hObject, eventdata, handles)
-path=getappdata(hObject,'Z0SourcePath');
-if(isempty(regexp(handles.NFieldEdit.String,'^\d+(\.?)(?(1)\d+|)$')) || isempty(path) || ~ischar(path))
+if(isempty(regexp(handles.NFieldEdit.String,'^\d+(\.?)(?(1)\d+|)$')) || isempty(handles.Z0SourcePathEdit.String) || ~ischar(handles.Z0SourcePathEdit.String))
     errordlg('Ошибка. Недопустимое для задания начальной конфигурации значение ребра поля N, или неверный путь к файлу','modal');
 else
-    path=getappdata(hObject,'Z0SourcePath');
+    path=handles.Z0SourcePathEdit.String;
     
     N=str2double(handles.NFieldEdit.String);
     currCA=getappdata(handles.output,'CurrCA');
@@ -3687,6 +3692,33 @@ end
 
 % --- Executes on button press in SaveAllModelParamsB.
 function SaveAllModelParamsB_Callback(hObject, eventdata, handles)
+
+if isempty(handles.SaveResPathEdit.String) || ~ischar(handles.SaveResPathEdit.String) || length(handles.SaveResPathEdit.String)==1
+     errordlg('Ошибка. Не задана директория сохранения результатов.');
+    return;
+end
+ResProc=getappdata(handles.output,'ResProc');
+ResProc.ResPath=handles.SaveResPathEdit.String;
+CurrCA=getappdata(handles.output,'CurrCA');
+ContParms=getappdata(handles.output,'ContParms');
+FileWasRead=getappdata(handles.output,'FileWasRead');
+param=[];
+if ContParms.SingleOrMultipleCalc
+    if FileWasRead
+        param=handles.Z0SourcePathEdit.String;
+    else
+        distrStart=str2double(handles.DistributStartEdit.String);
+        distrStep=str2double(handles.DistributStepEdit.String);
+        distrEnd=str2double(handles.DistributEndEdit.String);
+        ContParms.ReRangeWindow=real(distrStart):distrStep:real(distrEnd);
+        ContParms.ImRangeWindow=imag(distrStart):distrStep:imag(distrEnd);
+        param=handles.DistributionTypeMenu.Value;
+    end
+end
+
+fn = SaveParms(ResProc, CurrCA, ContParms,param);
+msgbox(strcat('Параметры моделирования были успешно сохранены в файл ',fn),'modal');
+
 % hObject    handle to SaveAllModelParamsB (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3701,6 +3733,159 @@ function FileMenuItem_Callback(hObject, eventdata, handles)
 
 % --------------------------------------------------------------------
 function ReadModelingParmsFrmFile_Callback(hObject, eventdata, handles)
+[file,path] = uigetfile('*.txt');
+path=strcat(path,file);
+if file==0
+    return;
+end
+
+fileID = fopen(path, 'r');
+data = textscan(fileID,'%s');
+data=data{1,1};
+if cell2mat(data(1))=='1'
+    if length(data)~=16 && length(data)~=13
+        fclose(fileID);
+        errordlg('Ошибка. Неправильный формат данных в файле.','modal');
+        return;
+    end
+    ResProc=getappdata(handles.output,'ResProc');
+    CurrCA=getappdata(handles.output,'CurrCA');
+    ContParms=getappdata(handles.output,'ContParms');
+    ContParms.SingleOrMultipleCalc=1;
+    
+    handles.SingleCalcRB.Value=1;
+    CalcGroup_SelectionChangedFcn(handles.SingleCalcRB, [], handles)
+    
+    CurrCA.FieldType=str2double(cell2mat(data(2)));
+    ResultsProcessing.GetSetFieldOrient(CurrCA.FieldType);
+    if CurrCA.FieldType
+        handles.HexFieldRB.Value=1;
+    else
+        handles.SquareFieldRB.Value=1;
+    end
+    
+    CurrCA.BordersType=str2double(cell2mat(data(3)));
+    switch  CurrCA.BordersType
+        case 1
+            handles.DeathLineBordersRB.Value=1;
+        case 2
+            handles.CompletedBordersRB.Value=1;
+        case 3
+            handles.ClosedBordersRB.Value=1;
+    end
+    
+    ResultsProcessing.GetSetCellOrient(str2double(cell2mat(data(4))));
+    switch ResultsProcessing.GetSetCellOrient
+        case 0
+            handles.InvisibleRB.Value=1;
+        case 1
+            handles.VertOrientRB.Value=1;
+        case 2
+            handles.GorOrientRB.Value=1;
+    end
+    CurrCA.N=str2double(cell2mat(data(5)));
+    handles.NFieldEdit.String=num2str(CurrCA.N);
+    
+    CurrCA.Base=str2func(cell2mat(data(6)));
+    switch func2str(CurrCA.Base)
+        case '@(z)Miu*(exp(i*z))'
+            handles.BaseImagMenu.Value=1;
+        case '@(z)(z^2+c)'
+            handles.BaseImagMenu.Value=2;
+        otherwise
+            handles.UsersBaseImagEdit.String=strrep(func2str(CurrCA.Base),'@(z)','');
+    end
+    
+    CurrCA.Lambda=str2func(cell2mat(data(7)));
+    switch func2str(CurrCA.Lambda)
+        case '@(z_k)Miu0+sum(z_k)'
+            handles.LambdaMenu.Value=1;
+        case '@(z_k)Miu+Miu0*(abs(sum(z_k-Zbase)/(length(z_k))))'
+            handles.LambdaMenu.Value=2;
+        case '@(z_k,n)Miu+Miu0*abs(sum(arrayfun(@(z_n,o)o*z_n ,z_k,n)))'
+            handles.LambdaMenu.Value=3;
+        case '@(z_k)Miu+Miu0*(sum(z_k-Zbase)/(length(z_k)))'
+            handles.LambdaMenu.Value=4;
+    end
+    
+    CurrCA.Zbase=str2double(cell2mat(data(8)));
+    handles.BaseZEdit.String=num2str(CurrCA.Zbase);
+    
+    CurrCA.Miu0=str2double(cell2mat(data(9)));
+    handles.Miu0Edit.String=num2str(CurrCA.Miu0);
+    
+    CurrCA.Miu=str2double(cell2mat(data(10)));
+    handles.MiuEdit.String=num2str(CurrCA.Miu);
+    if length(cell2mat(data(11)))>1
+        handles.Z0SourcePathEdit.String=cell2mat(data(11));
+        handles.InfValueEdit.String=cell2mat(data(12));
+        handles.ConvergValueEdit.String=strrep(cell2mat(data(13)),'1e-','');
+    else
+        handles.DistributionTypeMenu.Value=str2double(cell2mat(data(11)));
+        handles.DistributStartEdit.String=strrep(cell2mat(data(12)),':','');
+        handles.DistributStepEdit.String=strrep(cell2mat(data(13)),':','');
+        handles.DistributEndEdit.String=strrep(cell2mat(data(14)),':','');
+        handles.InfValueEdit.String=cell2mat(data(15));
+        handles.ConvergValueEdit.String=strrep(cell2mat(data(16)),'1e-','');
+    end
+
+else
+    if cell2mat(data(1))=='0'
+        if  length(data)~=12
+            fclose(fileID);
+            errordlg('Ошибка. Неправильный формат данных в файле.','modal');
+            return;
+        end
+        ResProc=getappdata(handles.output,'ResProc');
+        CurrCA=getappdata(handles.output,'CurrCA');
+        ContParms=getappdata(handles.output,'ContParms');
+        ContParms.SingleOrMultipleCalc=0;
+        
+        handles.MultipleCalcRB.Value=1;
+        CalcGroup_SelectionChangedFcn(handles.MultipleCalcRB, [], handles)
+        
+        CurrCA.Miu=str2double(cell2mat(data(2)));
+        handles.MiuEdit.String=num2str(CurrCA.Miu);
+        
+        CurrCA.Zbase=str2double(cell2mat(data(3)));
+        handles.BaseZEdit.String=num2str(CurrCA.Zbase);
+        
+        ContParms.SingleParamName=cell2mat(data(4));
+        switch ContParms.SingleParamName
+            case 'z0'
+                handles.SingleParamNameMenu.Value=1;
+            case 'Miu'
+                handles.SingleParamNameMenu.Value=2;
+        end
+        ContParms.SingleParamValue=str2double(cell2mat(data(5)));
+        handles.SingleParamValueEdit.String=cell2mat(data(5));
+        
+        ContParms.ImageFunc=str2func(cell2mat(data(6)));
+        
+        ContParms.WindowParamName=cell2mat(data(7));
+        switch ContParms.WindowParamName
+            case 'z0'
+                handles.ParamNameMenu.Value=1;
+            case 'Miu'
+                handles.ParamNameMenu.Value=2;
+        end
+        
+        handles.ParamStartEdit.String=strrep(cell2mat(data(8)),':','');
+        handles.ParamStepEdit.String=strrep(cell2mat(data(9)),':','');
+        handles.ParamEndEdit.String=strrep(cell2mat(data(10)),':','');
+        handles.InfValueEdit.String=cell2mat(data(11));
+        handles.ConvergValueEdit.String=strrep(cell2mat(data(12)),'1e-','');
+    else
+        errordlg('Ошибка. Неправильный формат данных в файле.','modal');
+        return;
+    end
+end
+
+setappdata(handles.output,'CurrCA',CurrCA);
+setappdata(handles.output,'ContParms',ContParms);
+setappdata(handles.output,'ResProc',ResProc);
+fclose(fileID);
+
 % hObject    handle to ReadModelingParmsFrmFile (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
