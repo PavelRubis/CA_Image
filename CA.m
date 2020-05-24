@@ -22,7 +22,7 @@ function varargout = CA(varargin)
 
 % Edit the above text to modify the response to help CA
 
-% Last Modified by GUIDE v2.5 10-May-2020 18:49:57
+% Last Modified by GUIDE v2.5 20-May-2020 13:46:18
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -49,7 +49,7 @@ function CA_OpeningFcn(hObject, eventdata, handles, varargin)
 
 CurrCA = CellularAutomat(0, 2, 1,@(z)Miu*(exp(i*z)),@(z_k)Miu0 + sum(z_k), 0, 0, 0);
 ContParms = ControlParams(1,1,0,0,' ');
-ResProc = ResultsProcessing(' ',1,1,1);
+ResProc = ResultsProcessing(' ',1,1);
 ResultsProcessing.GetSetCellOrient(0);
 ResultsProcessing.GetSetFieldOrient(0);
 FileWasRead=false;
@@ -109,7 +109,7 @@ if (~contParms.IsReady2Start) || (((strcmp(resProc.ResPath,' ')) || ~ischar(resP
     errordlg(errorStr,'modal');
 else
     if isempty(regexp(handles.IterCountEdit.String,'^\d+$')) || str2double(handles.IterCountEdit.String)<1 || isempty(regexp(handles.InfValueEdit.String,'^\d+$')) || str2double(handles.InfValueEdit.String)<1 || isempty(regexp(handles.ConvergValueEdit.String,'^\d+$')) || str2double(handles.ConvergValueEdit.String)<1 %проверка задано ли число итераций и точность
-        errordlg('Ошибка в поле числа итераций и(или) в полях точности вычислений.','modal');
+        errordlg('Ошибка в поле числа итераций и(или) в полях точности вычислений и максимального периода.','modal');
     else
        ControlParams.GetSetPrecisionParms([str2double(handles.InfValueEdit.String) str2double(strcat('1e-',handles.ConvergValueEdit.String))]);
         
@@ -118,8 +118,14 @@ else
        handles.CancelParamsButton.Enable='off';
        if ~contParms.SingleOrMultipleCalc% в случае мультирассчета
            
+           if  isempty(regexp(handles.MaxPeriodEdit.String,'^\d+$'))
+               errordlg('Ошибка в поле максимального периода.','modal');
+               return;
+           end
+           
            itersCount=str2double(handles.IterCountEdit.String); %число итераций
            contParms.IterCount=itersCount;
+           ControlParams.GetSetMaxPeriod(str2double(handles.MaxPeriodEdit.String));
            
            %создание окна и матрицы функций базы
            [WindowParam contParms] = ControlParams.MakeFuncsWithNumsForMultipleCalc(ca,contParms);
@@ -198,12 +204,19 @@ else
            contParms.Periods=Periods;
            contParms.LastIters=Iters;
            fcodeIndicate=find(Fcode==1);
-           if isempty(fcodeIndicate)
-               fcodeIndicate=find(Fcode>=1);
-           end
+%            if isempty(fcodeIndicate)
+%                fcodeIndicate=find(Fcode>=1);
+%            end
            posSteps=unique(fStepNew(fcodeIndicate));
            fcodeIndicate=find(Fcode==-1);
            negSteps=unique(fStepNew(fcodeIndicate));
+           
+           
+           chaosCodeIndicate=find(Fcode==2);
+           fStepNew(chaosCodeIndicate)=-1;
+               
+           periodCodeIndicate=find(Fcode==3);
+           fStepNew(periodCodeIndicate)=Periods(periodCodeIndicate);
            
            maxPosSteps=zeros(len);
            minNegStep=min(negSteps);
@@ -222,19 +235,20 @@ else
                    clmp = flipud(winter(floor((max(posSteps)-mod(max(posSteps),10)))));
                end
                
-               if ~isempty(chaosCodeIndicate)
-                   clmp=[spring(1); clmp];
-                   Fcode(chaosCodeIndicate)=-1;
-               end
-               if ~isempty(periodCodeIndicate)
-                    clmp=[clmp; autumn(max(Periods(periodCodeIndicate)))];
-%                    clmp=[clmp; autumn(length(unique(Periods(periodCodeIndicate))))];
-                   Fcode(periodCodeIndicate)=1;
-               end
            else
                if~isempty(negSteps)
                    clmp = flipud(gray(max(negSteps)));
                end
+           end
+           
+           if ~isempty(chaosCodeIndicate)
+               clmp=[spring(1); clmp];
+               Fcode(chaosCodeIndicate)=-1;
+           end
+           
+           if ~isempty(periodCodeIndicate)
+               clmp=[clmp; autumn(max(Periods(periodCodeIndicate)))];
+               Fcode(periodCodeIndicate)=1;
            end
            
            colormap(clmp);
@@ -244,36 +258,52 @@ else
            
            shading flat;
            clrbr = colorbar;
-           clrbr.Limits
+           if ~isempty(periodCodeIndicate)
+               lim = clrbr.Limits;
+               ticks=clrbr.Ticks;
+               ticksDelta=ticks(2)-ticks(1);
+               
+               if lim(2)>max(posSteps)+ticksDelta/5
+                   ticks=ticks(find(ticks<=max(posSteps)));
+                   ticks=[ticks max(posSteps)+ticksDelta/5:ticksDelta/5:lim(2)];
+                   clrbr.Ticks=ticks;
+                   
+                   lables=clrbr.TickLabels';
+                   lables=arrayfun(@(num)str2double(cell2mat(num)),lables);
+                   newLables=[lables(find(lables<=max(posSteps))) (lables(find(lables>max(posSteps)))-max(posSteps))];
+                   clrbr.TickLabels={newLables};
+               end
+               
+           end
            zoom on;
 %            clrbr =  colorbar('Limits',[-minNegStep maxPosSteps(1,1)+15]);
            
 %            funcStr=strrep('@(z)(1+ \mu*abs(z-eq))*exp(i*z)','z','z_{t}');
            string_title= func2str(contParms.ImageFunc);
+           string_title=strrep(string_title,'z','z_{t}');
+           string_title=strrep(string_title,'*','\cdot');
            if any(strcmp(contParms.WindowParamName,{'Z0' 'Z' 'z0' 'z'}))
-               string_title=strrep(string_title,'z','z_{t}');
-               string_title=strrep(string_title,'eq','z^{*}');
                string_title=strrep(string_title,'@(z_{t})','z_{t+1}=');
-               string_title=strrep(string_title,'Miu','\mu');
+               string_title=strrep(string_title,'Miu','\lambda');
                xlabel('Re(z(t))');
                ylabel('Im(z(t))');
-               string_title=strcat(string_title,'  \mu=');
-               string_title=strcat(string_title,num2str(ca.Miu));
+               string_title=strcat(string_title,'  \lambda=');
+               string_title=strcat(string_title,num2str(contParms.SingleParamValue));
            else
-               string_title=strrep(string_title,'@(Miu,z)','\mu_{t+1}=');
-               string_title=strrep(string_title,'Miu','\mu_{t}');
-               string_title=strcat(string_title,'  z=0');
-               xlabelStr='Re(';
-               xlabelStr=strcat(xlabelStr,contParms.WindowParamName);
+               string_title=strrep(string_title,'@(Miu,z_{t})','z_{t+1}=');
+               string_title=strrep(string_title,'Miu','\lambda');
+               string_title=strcat(string_title,'  z=');
+               string_title=strcat(string_title,num2str(contParms.SingleParamValue));
+               xlabelStr='Re(\lambda';
                xlabelStr=strcat(xlabelStr,')');
                 
-               ylabelStr='Im(';
-               ylabelStr=strcat(ylabelStr,contParms.WindowParamName);
+               ylabelStr='Im(\lambda';
                ylabelStr=strcat(ylabelStr,')');
                
                xlabel(xlabelStr);
                ylabel(ylabelStr);
            end
+           string_title=strrep(string_title,'eq','z^{*}');
            if contains(string_title,'z^{*}')
                string_title=strcat(string_title,'  z^{*}=');
                string_title=strcat(string_title,num2str(complex(0.576412723031435,0.374699020737117)));
@@ -709,20 +739,37 @@ end
 % --- Executes on selection change in LambdaMenu.
 function LambdaMenu_Callback(hObject, eventdata, handles)
 currCA=getappdata(handles.output,'CurrCA');
-
+contParms = getappdata(handles.output,'ContParms');
 switch hObject.Value
     
     case 1
-        currCA.Lambda = @(z_k)Miu0 + sum(z_k);
+        if contParms.SingleOrMultipleCalc
+            currCA.Lambda = @(z_k)Miu0 + sum(z_k);
+        else
+            contParms.ImageFunc=@(z)(Miu)*exp(i*z);
+        end
     case 2
-        currCA.Lambda = @(z_k)Miu + Miu0*(abs(sum(z_k-Zbase)/(length(z_k))));
+        if contParms.SingleOrMultipleCalc
+            currCA.Lambda = @(z_k)Miu + Miu0*(abs(sum(z_k-Zbase)/(length(z_k))));
+        else
+            contParms.ImageFunc=@(z)(1+Miu)*exp(i*z);
+        end
     case 3
-        currCA.Lambda = @(z_k,n)Miu + Miu0*abs(sum(arrayfun(@(z_n,o)o*z_n ,z_k,n)));
+        if contParms.SingleOrMultipleCalc
+            currCA.Lambda = @(z_k,n)Miu + Miu0*abs(sum(arrayfun(@(z_n,o)o*z_n ,z_k,n)));
+        else
+            contParms.ImageFunc=@(z)(1+Miu*abs(z-eq))*exp(i*z);
+        end
     case 4
-        currCA.Lambda = @(z_k)Miu + Miu0*(sum(z_k-Zbase)/(length(z_k)));
+        if contParms.SingleOrMultipleCalc
+            currCA.Lambda = @(z_k)Miu + Miu0*(sum(z_k-Zbase)/(length(z_k)));
+        else
+            contParms.ImageFunc=@(z)(1+Miu*(z-eq))*exp(i*z);
+        end
 end
 
 setappdata(handles.output,'CurrCA',currCA);
+setappdata(handles.output,'ContParms',contParms);
         
 % hObject    handle to LambdaMenu (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -3353,8 +3400,9 @@ contParms=getappdata(handles.output,'ContParms');
 resProc=getappdata(handles.output,'ResProc');
 if strcmp(get(hObject,'Tag'),'SingleCalcRB')
     contParms.SingleOrMultipleCalc=1;
-    resProc.SingleOrMultipleCalc=1;
     
+    handles.LambdaMenu.String= {'Сумма состояний соседей' ; 'Нормированный модуль суммы (состояние соседа-z*)' ; 'Модуль суммы состояний соседей с переменным знаком' ; 'Нормированная сумма (состояние соседа-z*)'};
+    handles.MaxPeriodEdit.Enable='off';
     handles.ParamNameEdit.Enable='off';
     handles.ParamStartEdit.Enable='off';
     handles.ParamStepEdit.Enable='off';
@@ -3366,6 +3414,7 @@ if strcmp(get(hObject,'Tag'),'SingleCalcRB')
     handles.ParamStartEdit.String='';
     handles.ParamStepEdit.String='';
     handles.ParamEndEdit.String='';
+    handles.MaxPeriodEdit.String='';
     
     handles.NFieldEdit.Enable='on';
     handles.DistributionTypeMenu.Enable='on';
@@ -3377,8 +3426,9 @@ if strcmp(get(hObject,'Tag'),'SingleCalcRB')
     handles.CountBaseZButton.Enable='on';
 else
     contParms.SingleOrMultipleCalc=0;
-    resProc.SingleOrMultipleCalc=0;
     
+    handles.LambdaMenu.String= {'mu*exp(i*z)' ; '(1+mu)*exp(i*z)' ; '(1+mu*abs(z-eq))*exp(i*z)' ; '(1+mu*(z-eq))*exp(i*z)'};
+    handles.MaxPeriodEdit.Enable='on';
     handles.NFieldEdit.Enable='off';
     handles.DistributionTypeMenu.Enable='off';
     handles.DistributStartEdit.Enable='off';
@@ -4046,6 +4096,29 @@ function ParamNameMenu_CreateFcn(hObject, eventdata, handles)
 % handles    empty - handles not created until after all CreateFcns called
 
 % Hint: popupmenu controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function MaxPeriodEdit_Callback(hObject, eventdata, handles)
+% hObject    handle to MaxPeriodEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of MaxPeriodEdit as text
+%        str2double(get(hObject,'String')) returns contents of MaxPeriodEdit as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function MaxPeriodEdit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to MaxPeriodEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
 %       See ISPC and COMPUTER.
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');

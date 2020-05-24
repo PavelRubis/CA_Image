@@ -4,7 +4,6 @@ classdef ResultsProcessing
        isSave logical =0% сохраняем ли результаты
        isSaveCA logical =0% сохраняем ли КА
        isSaveFig logical =0% сохраняем ли фигуру
-       SingleOrMultipleCalc logical =1 %одиночный или множественный рассчет
        ResPath (1,:) char %путь к сохраняемым результатам
        CellsValuesFileFormat logical % формат файла для записи значений ячеек (1-txt,0-xls)
        FigureFileFormat {mustBeInteger, mustBeInRange(FigureFileFormat,[1,3])}% формат картинки поля
@@ -12,19 +11,18 @@ classdef ResultsProcessing
    
    methods
        %конструктор
-       function obj = ResultsProcessing(resPath, cellsValuesFileFormat, figureFileFormat, singleOrMultipleCalc)
+       function obj = ResultsProcessing(resPath, cellsValuesFileFormat, figureFileFormat)
            if nargin
                obj.ResPath=resPath;
                obj.CellsValuesFileFormat=cellsValuesFileFormat;
                obj.FigureFileFormat=figureFileFormat;
-               obj.SingleOrMultipleCalc=singleOrMultipleCalc;
            end
        end
        
        %метод сохранения результатов
        function resproc = SaveRes(obj, ca, fig,contParms,Res)
            
-           if obj.SingleOrMultipleCalc 
+           if contParms.SingleOrMultipleCalc 
                if obj.isSaveCA
                    ConfFileName=strcat('\Modeling ',datestr(clock));
                    ConfFileName=strcat(ConfFileName,'-CA-Conf.txt');
@@ -117,7 +115,7 @@ classdef ResultsProcessing
                    WindowParam=X+i*Y;
                    len = size(WindowParam);
                    resArr=cell(len);
-                   resArr=arrayfun(@(re,im,p,n){[re im p n]},real(WindowParam),imag(real(WindowParam)),contParms.Periods,contParms.LastIters);
+                   resArr=arrayfun(@(re,im,p,n){[re im p n]},real(WindowParam),imag(WindowParam),contParms.Periods,contParms.LastIters);
 
                    resArr = cell2mat(resArr);
                    resLen=size(resArr);
@@ -169,7 +167,7 @@ classdef ResultsProcessing
            ConfFileName=strcat(ConfFileName,'.txt');
            ConfFileName=strrep(ConfFileName,':','-');
            ConfFileName=strcat(obj.ResPath,ConfFileName);
-           if obj.SingleOrMultipleCalc
+           if contParms.SingleOrMultipleCalc
                if ca.N~=1
                    fileID = fopen(ConfFileName, 'w');
                    fprintf(fileID, '1\n');

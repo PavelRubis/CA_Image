@@ -52,6 +52,15 @@ classdef ControlParams %класс параметров управления
            out = PrecisionParms;
        end
        
+      % метод get-set для статической переменной максимального периода в мультирасчете)
+       function out = GetSetMaxPeriod(mp)
+           persistent MaxPeriod;
+           if nargin==1
+               MaxPeriod = mp;
+           end
+           out = MaxPeriod;
+       end
+       
        %метод мультирасчета
        function [z_New fStepLast path] = MakeMultipleCalcIter(windowParam,z_Old,z_Old_1,itersCount,zParam)
            
@@ -84,23 +93,6 @@ classdef ControlParams %класс параметров управления
 %            delta=abs(z_Old_1-z_Old);
        end
        
-%        function [z_new fStepNew]= MakeMultipleCalcIter(windowParam,z_old,z_old_1,fStepOld,zParam)
-%            if log(z_old)/(2.302585092994046)<15 && abs(z_old_1-z_old)>=1e-5
-%                func=ControlParams.GetSetMultiCalcFunc;
-%                if zParam
-%                    z_new=func(windowParam);
-% %                    z_new=base{1}(windowParam);
-%                else
-%                    z_new=func(windowParam,z_old);
-% %                    z_new=base{1}(windowParam,z_old);
-%                end
-%                fStepNew=fStepOld+1;
-%            else
-%                z_new=z_old;
-%                fStepNew=fStepOld;
-%            end
-%        end
-       
        %метод создания окна и матрицы функций базы
        function [WindowParam ContParms] = MakeFuncsWithNumsForMultipleCalc(ca,contParms)
            format long;
@@ -113,14 +105,10 @@ classdef ControlParams %класс параметров управления
                    SingleParamStr=strcat(SingleParamStr,')');
                    
                    zBaseStr=strcat('(',num2str(ca.Zbase));
-%                    zBaseStr=strcat('(',num2str(0.576412723031435+i*0.374699020737117));
-%                    z=-2.989980000000000 - i*0.456820000000000;
-%                    z=0.576412723031435+i*0.374699020737117;
-%                    zBaseStr=strcat('(',num2str(z));
                    zBaseStr=strcat(zBaseStr,')');
                    
-                   contParms.ImageFunc=@(z)(1+ Miu*abs(z-eq))*exp(i*z);
-                   baseFuncStr=strrep(func2str(@(z)(1+ Miu*abs(z-eq))*exp(i*z)), contParms.SingleParamName,SingleParamStr);
+                   contParms.ImageFunc=str2func(strrep(func2str(contParms.ImageFunc),'@(Miu,z)','@(z)'));
+                   baseFuncStr=strrep(func2str(contParms.ImageFunc), contParms.SingleParamName,SingleParamStr);
                    baseFuncStr=strrep(baseFuncStr,'c',SingleParamStr);
                    baseFuncStr=strrep(baseFuncStr,'Miu',SingleParamStr);
                    baseFuncStr=strrep(baseFuncStr,'eq',zBaseStr);
@@ -136,7 +124,8 @@ classdef ControlParams %класс параметров управления
 %                    paramsStrs = arrayfun(@(param){strcat(cell2mat(param),')')},paramsStrs);
                    
 %                    baseFuncStr=func2str(@(Miu,z)(1+ Miu*abs(z-eq))*exp(i*z));
-                   baseFuncStr=func2str(@(Miu,z)Miu*exp(i*z));
+                   baseFuncStr=func2str(contParms.ImageFunc);
+                   baseFuncStr=strrep(baseFuncStr,'@(z)','@(Miu,z)');
                    contParms.ImageFunc=str2func(baseFuncStr);
                    zBaseStr=strcat('(',num2str(ca.Zbase));
 %                    z=-2.989980000000000 - 0.456820000000000i;
@@ -170,13 +159,14 @@ classdef ControlParams %класс параметров управления
            
            fCodeNew=[];
            PrecisionParms=ControlParams.GetSetPrecisionParms;
+           MaxPeriod=ControlParams.GetSetMaxPeriod;
            
            path=cell2mat(path);
            path=path(find(path));
            if (log(path(end))/log(10)>PrecisionParms(1)) || isnan(path(end)) || isinf(path(end)) %бесконечность
                fCodeNew=-1;
                iter=length(path);
-               period=Inf;
+               period=0;
                return;
            end
            
@@ -191,7 +181,10 @@ classdef ControlParams %класс параметров управления
            end
            
            %период
-           for p=2:30
+           for p=2:MaxPeriod
+               if p>=length(path)
+                   break;
+               end
                k=p+1:length(path);
                prd = abs(path(k)-path(k-p)) < PrecisionParms(2);
                if any(prd)
@@ -210,7 +203,7 @@ classdef ControlParams %класс параметров управления
            
            fCodeNew=2;
            iter=length(path);
-           period=0;
+           period=Inf;
        end
        
    end
