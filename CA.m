@@ -22,7 +22,7 @@ function varargout = CA(varargin)
 
 % Edit the above text to modify the response to help CA
 
-% Last Modified by GUIDE v2.5 20-May-2020 13:46:18
+% Last Modified by GUIDE v2.5 25-May-2020 14:58:51
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -47,8 +47,8 @@ end
 % --- Executes just before CA is made visible.
 function CA_OpeningFcn(hObject, eventdata, handles, varargin)
 
-CurrCA = CellularAutomat(0, 2, 1,@(z)Miu*(exp(i*z)),@(z_k)Miu0 + sum(z_k), 0, 0, 0);
-ContParms = ControlParams(1,1,0,0,' ');
+CurrCA = CellularAutomat(0, 2, 1,@(z)(exp(i*z)),@(z_k)Miu0 + sum(z_k), 0, 0, 0);
+ContParms = ControlParams(1,1,0,0,' ',@(z)(Miu+Miu0)*exp(i*z));
 ResProc = ResultsProcessing(' ',1,1);
 ResultsProcessing.GetSetCellOrient(0);
 ResultsProcessing.GetSetFieldOrient(0);
@@ -128,7 +128,7 @@ else
            ControlParams.GetSetMaxPeriod(str2double(handles.MaxPeriodEdit.String));
            
            %создание окна и матрицы функций базы
-           [WindowParam contParms] = ControlParams.MakeFuncsWithNumsForMultipleCalc(ca,contParms);
+           [WindowParam contParms z_eqArr] = ControlParams.MakeFuncsWithNumsForMultipleCalc(ca,contParms);
 
            len=size(WindowParam);
            zParam=false;
@@ -139,7 +139,7 @@ else
                zParam=true;
            else
                z_New=zeros(len);
-               z_New(:)=contParms.SingleParamValue;
+               z_New(:)=str2double(handles.z0Edit.String);
                Z_Old=z_New;
            end
            fStepNew=zeros(len);
@@ -190,7 +190,7 @@ else
            
            profile on;
            %мультирассчет через arrayfun
-           [z_New fStepNew Pathes] = arrayfun(@ControlParams.MakeMultipleCalcIter,WindowParam,Z_Old,Z_Old_1,ItersCount,ZParam);
+           [z_New fStepNew Pathes] = arrayfun(@ControlParams.MakeMultipleCalcIter,WindowParam,Z_Old,Z_Old_1,ItersCount,ZParam,z_eqArr);
            profile viewer;
            
            zRes=z_New;
@@ -287,13 +287,13 @@ else
                string_title=strrep(string_title,'Miu','\lambda');
                xlabel('Re(z(t))');
                ylabel('Im(z(t))');
-               string_title=strcat(string_title,'  \lambda=');
-               string_title=strcat(string_title,num2str(contParms.SingleParamValue));
+%                string_title=strcat(string_title,'  \lambda=');
+%                string_title=strcat(string_title,num2str(contParms.SingleParamValue));
            else
                string_title=strrep(string_title,'@(Miu,z_{t})','z_{t+1}=');
                string_title=strrep(string_title,'Miu','\lambda');
-               string_title=strcat(string_title,'  z=');
-               string_title=strcat(string_title,num2str(contParms.SingleParamValue));
+%                string_title=strcat(string_title,'  z=');
+%                string_title=strcat(string_title,num2str(contParms.SingleParamValue));
                xlabelStr='Re(\lambda';
                xlabelStr=strcat(xlabelStr,')');
                 
@@ -331,21 +331,55 @@ else
        
        if length(ca.Cells)==1 %случай когда рассматривается одна ячейка/точка
            hold on;
-           
            N1Path = getappdata(handles.output,'N1Path');
-           Re=N1Path(1,:);
-           Im=N1Path(2,:);
            
+           persistent msg;
+           persistent fCode;
+           if isempty(fCode)
+               fCode=2;
+           end
+           if length(N1Path)==1 && fCode~=2
+               msgbox(msg,'modal');
+               return;
+           else
+               msg='';
+           end
+
+           len=length(N1Path(1,:));
+           N1Path=[N1Path zeros(2,itersCount)];
            for i=1:itersCount
                ca.Cells(1)=CellularAutomat.MakeIter(ca.Cells(1));
-               Re=[Re real(ca.Cells(1).zPath(end))];
-               Im=[Im imag(ca.Cells(1).zPath(end))];
+               N1Path(1,i+len)=real(ca.Cells(1).zPath(end));
+               N1Path(2,i+len)=imag(ca.Cells(1).zPath(end));
+               path=complex(N1Path(1,:),N1Path(2,:));
+               [fCode iter period] = ControlParams.CheckConvergence(path);
+               if fCode~=2
+                   str=strcat('Точка ',num2str(ca.Cells(1).z0));
+                   switch fCode
+                       case -1
+                           str=strcat(str,' уходит в бесконечность на итерации ');
+                           str=strcat(str,'  ');
+                           msg=strcat(str,num2str(iter));
+                       case 1
+                           str=strcat(str,' сходится к аттрактору на итерации ');
+                           str=strcat(str,'  ');
+                           msg=strcat(str,num2str(iter));
+                       otherwise
+                           str=strcat(str,' имеет период, ');
+                           strcat(str,period)
+                           str=strcat(str,' найденный на итерации ');
+                           str=strcat(str,'  ');
+                           msg=strcat(str,num2str(iter));
+                   end
+                   break;
+               end
            end
-           
-           ms=18;
-           clrmp=colormap(jet(length(Re)));
-           for i=1:length(Re)
-               plot(Re(i),Im(i),'o','MarkerSize', ms,'Color',clrmp(i,:));
+               
+           N1Path=N1Path(:,1:iter);
+           ms=20;
+           clrmp=colormap(jet(length(N1Path)));
+           for i=1:length(N1Path)
+               plot(N1Path(1,i),N1Path(2,i),'o','MarkerSize', ms,'Color',clrmp(i,:));
                if ms~=2
                    ms=ms-2;
                end
@@ -354,12 +388,8 @@ else
            xlabel('Re');
            ylabel('Im');
            
-           currN1Path=[Re;Im];
-           N1Path=[N1Path currN1Path];
-           
-           
-           handles.CAField.YTick=[min(N1Path(2,:)):(abs(max(N1Path(2,:))-min(N1Path(2,:)))/length(Re))*0.2*length(Re):max(N1Path(2,:))];
-           handles.CAField.XTick=[min(N1Path(1,:)):(abs(max(N1Path(1,:))-min(N1Path(1,:)))/length(Re))*0.2*length(Re):max(N1Path(1,:))];
+           handles.CAField.YTick=[min(N1Path(2,:)):(abs(max(N1Path(2,:))-min(N1Path(2,:)))/length(N1Path))*0.2*length(N1Path):max(N1Path(2,:))];
+           handles.CAField.XTick=[min(N1Path(1,:)):(abs(max(N1Path(1,:))-min(N1Path(1,:)))/length(N1Path))*0.2*length(N1Path):max(N1Path(1,:))];
            
            handles.CAField.XGrid='on';
            handles.CAField.YGrid='on';
@@ -368,13 +398,15 @@ else
            legend('show');
            
            clrbr = colorbar('Ticks',[0,0.2,0.4,0.6,0.8,1],...
-           'TickLabels',{0,floor(length(Re)*0.2),floor(length(Re)*0.4),floor(length(Re)*0.6),floor(length(Re)*0.8),length(Re)-1});
+           'TickLabels',{0,floor(length(N1Path)*0.2),floor(length(N1Path)*0.4),floor(length(N1Path)*0.6),floor(length(N1Path)*0.8),length(N1Path)-1});
            clrbr.Label.String = 'Число итераций';
        
            handles.CAField.FontSize=14;
            handles.CAField.Legend.FontSize=14;
            zoom on;
            contParms.IterCount=contParms.IterCount+1;
+           contParms.LastIters=length(N1Path);
+           contParms.Periods=period;
            
            ResultsProcessing.GetSetCellOrient
            if resProc.isSave
@@ -388,6 +420,9 @@ else
            setappdata(handles.output,'N1Path',N1Path);
            setappdata(handles.output,'ResProc',resProc);
            handles.SaveAllModelParamsB.Enable='on';
+           if ~isempty(msg)
+               msgbox(msg,'modal');
+           end
            return;
            
        end
@@ -460,11 +495,9 @@ else
            end
        end
        
-       ResultsProcessing.GetSetCellOrient
        if resProc.isSave
            resProc=SaveRes(resProc,ca,handles.CAField,contParms,[]);
        end
-       ResultsProcessing.GetSetCellOrient
       
        setappdata(handles.output,'CurrCA',ca);
        contParms.IterCount=contParms.IterCount+1;
@@ -746,25 +779,31 @@ switch hObject.Value
         if contParms.SingleOrMultipleCalc
             currCA.Lambda = @(z_k)Miu0 + sum(z_k);
         else
-            contParms.ImageFunc=@(z)(Miu)*exp(i*z);
+            contParms.ImageFunc=@(z)(Miu+z)*exp(i*z);
         end
     case 2
         if contParms.SingleOrMultipleCalc
             currCA.Lambda = @(z_k)Miu + Miu0*(abs(sum(z_k-Zbase)/(length(z_k))));
         else
-            contParms.ImageFunc=@(z)(1+Miu)*exp(i*z);
+            contParms.ImageFunc=@(z)(Miu+(Miu0*abs(z-(eq))))*exp(i*z);
         end
     case 3
         if contParms.SingleOrMultipleCalc
             currCA.Lambda = @(z_k,n)Miu + Miu0*abs(sum(arrayfun(@(z_n,o)o*z_n ,z_k,n)));
         else
-            contParms.ImageFunc=@(z)(1+Miu*abs(z-eq))*exp(i*z);
+            contParms.ImageFunc=@(z)(Miu+(Miu0*abs(z)))*exp(i*z);
         end
     case 4
         if contParms.SingleOrMultipleCalc
             currCA.Lambda = @(z_k)Miu + Miu0*(sum(z_k-Zbase)/(length(z_k)));
         else
-            contParms.ImageFunc=@(z)(1+Miu*(z-eq))*exp(i*z);
+            contParms.ImageFunc=@(z)(Miu+(Miu0*(z-(eq))))*exp(i*z);
+        end
+    case 5
+        if contParms.SingleOrMultipleCalc
+            currCA.Lambda = @(z_k)(Miu + Miu0);
+        else
+            contParms.ImageFunc=@(z)(Miu+Miu0)*exp(i*z);
         end
 end
 
@@ -1052,16 +1091,20 @@ set(gca,'ytick',[])
 ca = getappdata(handles.output,'CurrCA');
 contParms = getappdata(handles.output,'ContParms');
 FileWasRead=getappdata(handles.output,'FileWasRead');
+N1Path = getappdata(handles.output,'N1Path');
 
 ca = CellularAutomat(ca.FieldType,ca.BordersType, ca.N ,ca.Base,ca.Lambda, ca.Zbase, ca.Miu0, ca.Miu);
 
 contParms.IsReady2Start=false;
+
+N1Path=[];
 
 FileWasRead=false;
 
 setappdata(handles.output,'CurrCA',ca);
 setappdata(handles.output,'ContParms',contParms);
 setappdata(handles.output,'FileWasRead',FileWasRead);
+setappdata(handles.output,'N1Path',N1Path);
 
 
 handles.SaveAllModelParamsB.Enable='off';
@@ -2508,7 +2551,7 @@ else
     if(regexp(path,'\.txt$'))
         if fieldType
             if N~=1
-                cellCount=N*(N-1)*3;
+                cellCount=N*(N-1)*3+1;
             else
                 cellCount=1;
             end
@@ -2525,7 +2568,7 @@ else
 
     else
         if fieldType
-            cellCount=N*(N-1)*3;
+            cellCount=N*(N-1)*3+1;
         else
             cellCount=N*N;
         end
@@ -2649,7 +2692,7 @@ end
 function CountBaseZButton_Callback(hObject, eventdata, handles)
 
 Muerror=false;
-if(isempty(regexp(handles.MiuEdit.String,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]?\d+(\.)?(?(4)\d+|)(?(3)|i))?$')))
+if(isempty(regexp(handles.MiuEdit.String,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?[-\+]?\d+(\.)?(?(4)\d+|)(?(3)|i)$')))
     errordlg('Ошибка. Недопустимое значение параметра Мю.','modal');
 else
     
@@ -2716,30 +2759,40 @@ if contParms.SingleOrMultipleCalc
         errorStr=strcat(errorStr,'N, ');
     end
 else
-    ParamNameerror=false;
-    if handles.ParamNameMenu.Value == handles.SingleParamNameMenu.Value
-        error=true;
-        ParamNameerror=true;
-        errorStr=strcat(errorStr,'совпадение одиночного и мульти-параметров, ');
-    end
-    newN=0;
-    ParamCellCount=0;
-    
-    if(isempty(regexp(handles.SingleParamValueEdit.String,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]?\d+(\.)?(?(4)\d+|)(?(3)|i))?$')))
-        error=true;
-        errorStr=strcat(errorStr,'Одиночный параметр, ');
-    end
+%     ParamNameerror=false;
+%     if handles.ParamNameMenu.Value == handles.SingleParamNameMenu.Value
+%         error=true;
+%         ParamNameerror=true;
+%         errorStr=strcat(errorStr,'совпадение одиночного и мульти-параметров, ');
+%     end
+%     newN=0;
+%     ParamCellCount=0;
+%     
+%     if(isempty(regexp(handles.SingleParamValueEdit.String,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?[-\+]?\d+(\.)?(?(4)\d+|)(?(3)|i)$')))
+%         error=true;
+%         errorStr=strcat(errorStr,'Одиночный параметр, ');
+%     end
 end
 
-Muerror=false;
-if(isempty(regexp(handles.MiuEdit.String,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]?\d+(\.)?(?(4)\d+|)(?(3)|i))?$')))
+%regexp('-0.58755665+5.45i','^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]?\d+(?<dot>\.)?(?(dot)\d+|)(?(3)|i))?$')
+numErrors=[0 0 0];
+num=0;
+if(isempty(regexp(handles.MiuEdit.String,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?[-\+]?\d+(\.)?(?(4)\d+|)(?(3)|i)$')))
     error=true;
-        errorStr=strcat(errorStr,'Мю, ');
+    errorStr=strcat(errorStr,'Мю, ');
+    numErrors(1)=true;
 end
 
-if(isempty(regexp(handles.Miu0Edit.String,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]?\d+(\.)?(?(4)\d+|)(?(3)|i))?$')))
+if(isempty(regexp(handles.Miu0Edit.String,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?[-\+]?\d+(\.)?(?(4)\d+|)(?(3)|i)$')))
     error=true;
     errorStr=strcat(errorStr,'Мю0, ');
+    numErrors(2)=true;
+end
+
+if(isempty(regexp(handles.z0Edit.String,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?[-\+]?\d+(\.)?(?(4)\d+|)(?(3)|i)$')))
+%     error=true;
+%     errorStr=strcat(errorStr,'z0, ');
+    numErrors(3)=true;
 end
 
 % if contParms.SingleOrMultipleCalc ||(~contParms.SingleOrMultipleCalc && handles.ParamNameMenu.Value==1)
@@ -2764,7 +2817,7 @@ if isempty(currCA.Cells) || (~contParms.IsReady2Start && ~fileWasRead)
         DistributStep=str2double(handles.DistributStepEdit.String);
         DistributEnd=str2double(handles.DistributEndEdit.String);
     
-        if isnan(DistributStart) || isreal(DistributStart) || isempty(regexp(handles.DistributStepEdit.String,'^\d+(\.?)(?(1)\d+|)$')) || isnan(DistributEnd) || isreal(DistributEnd)
+        if (isnan(DistributStart) || isreal(DistributStart) || isempty(regexp(handles.DistributStepEdit.String,'^\d+(\.?)(?(1)\d+|)$')) || isnan(DistributEnd) || isreal(DistributEnd)) && str2double(handles.NFieldEdit.String)~=1
             error=true;
             regexprep(errorStr,', $','. ');
             errorStr=strcat(errorStr,' Не задана начальная конфигурация КА. Неправильный формат диапазона значений Z0. Задайте диапазон Z0 или загрузите данные из файла. ');
@@ -2775,14 +2828,40 @@ if isempty(currCA.Cells) || (~contParms.IsReady2Start && ~fileWasRead)
                 rangeError=false;
                 rangeErrorStr='';
                 
-                [currCA,rangeError,rangeErrorStr] = Initializations.Z0RangeInit(ReRange, ImRange,str2double(handles.NFieldEdit.String),currCA,handles.DistributionTypeMenu.Value);
+                if str2double(handles.NFieldEdit.String)==1 && ~isempty(handles.z0Edit.String)
+                    if(isempty(regexp(handles.z0Edit.String,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?[-\+]?\d+(\.)?(?(4)\d+|)(?(3)|i)$')))
+                        error=true;
+                        rangeError=true;
+                        errorStr=strcat(errorStr,'z0, ');
+                    else
+                        ReRange=real(str2double(handles.z0Edit.String));
+                        ImRange=imag(str2double(handles.z0Edit.String));
+                    end
+                end
+                
+                if ~rangeError
+                    [currCA,rangeError,rangeErrorStr] = Initializations.Z0RangeInit(ReRange, ImRange,str2double(handles.NFieldEdit.String),currCA,handles.DistributionTypeMenu.Value);
+                end
+                
                 if rangeError
                     error=true;
                     regexprep(errorStr,', $','. ');
                     errorStr=strcat(errorStr,rangeErrorStr);
                 else
                     if ~error
-                        msgbox('Начальная конфигурация КА была успешно задана диапазоном.','modal');
+                        paramStart=complex(ReRange(1),ImRange(1));
+                        if str2double(handles.NFieldEdit.String)~=1
+                            paramStep=complex(ReRange(2)-ReRange(1),ImRange(2)-ImRange(1));
+                        else
+                            paramStep=1;
+                        end
+                        paramEnd=complex(ReRange(end),ImRange(end));
+                        paramStartSrt=strcat(num2str(paramStart),' :');
+                        paramEndSrt=strcat(' :',num2str(paramEnd));
+                        paramSrt=strcat(paramStartSrt,num2str(paramStep));
+                        paramSrt=strcat(paramSrt,paramEndSrt);
+                        paramSrt=strcat('  ',paramSrt);
+                        msgbox(strcat('Начальная конфигурация КА была успешно задана диапазоном',paramSrt),'modal');
                     end
                     
                 end
@@ -2792,37 +2871,71 @@ if isempty(currCA.Cells) || (~contParms.IsReady2Start && ~fileWasRead)
         end
         
     else
-        if ~ParamNameerror
-            ParamStart=str2double(handles.ParamStartEdit.String);
-            ParamStep=str2double(handles.ParamStepEdit.String);
-            ParamEnd=str2double(handles.ParamEndEdit.String);
+        if isempty(regexp(handles.ParamReDeltaEdit.String,'^\d+(?<dot>\.?)(?(dot)\d+|)$')) || isempty(regexp(handles.ParamImDeltaEdit.String,'^\d+(?<dot>\.?)(?(dot)\d+|)$')) || isempty(regexp(handles.ParamRePointsEdit.String,'^\d+$')) || isempty(regexp(handles.ParamImPointsEdit.String,'^\d+$'))
+            error=true;
+            regexprep(errorStr,', $','. ');
+            errorStr=strcat(errorStr,' Неправильный формат диапазона параметра "окна". ');
+        else
+            switch handles.ParamNameMenu.Value
+                case 1
+                    num=1;
+                    CenterPointStr=handles.z0Edit.String;
+                case 2
+                    num=2;
+                    CenterPointStr=handles.MiuEdit.String;
+            end
             
-            if isnan(ParamStart) || isreal(ParamStart) || isnan(ParamStep) || isreal(ParamStep) || isnan(ParamEnd) || isreal(ParamEnd)
-                error=true;
-                regexprep(errorStr,', $','. ');
-                errorStr=strcat(errorStr,' Неправильный формат диапазона значений параметра "окна". ');
-            else
-                ReRange=real(ParamStart):real(ParamStep):real(ParamEnd);
-                ImRange=imag(ParamStart):imag(ParamStep):imag(ParamEnd);
-                ParamCellCount=length(ReRange);
+            if ~(numErrors(num))
+                ReDelta=str2double(handles.ParamReDeltaEdit.String);
+                ImDelta=str2double(handles.ParamImDeltaEdit.String);
+                ReStep=(ReDelta*2)/str2double(handles.ParamRePointsEdit.String);
+                ImStep=(ImDelta*2)/str2double(handles.ParamImPointsEdit.String);
+                ReCenter=real(str2double(CenterPointStr));
+                ImCenter=imag(str2double(CenterPointStr));
+                
+                ReRange=(ReCenter-ReDelta):ReStep:(ReCenter+ReDelta);
+                ImRange=(ImCenter-ImDelta):ImStep:(ImCenter+ImDelta);
                 currCA.N=2;
-%                 if length(ReRange)~=length(ImRange)
-%                     error=true;
-%                     regexprep(errorStr,', $','. ');
-%                     errorStr=strcat(errorStr,' Несовпадение длин реальной и мнимой частей диапазона значений параметра "окна". ');
-%                 else
-%                     ParamCellCount=length(ReRange);
-%                     currCA.N=2;
-%                 end
             end
             
             if ~error
                 contParms.ReRangeWindow=ReRange;
                 contParms.ImRangeWindow=ImRange;
+                contParms.WindowCenterValue=complex(ReCenter,ImCenter);
                 msgbox('Начальная конфигурация КА была успешно задана диапазоном параметра "окна".','modal');
             end
-            
         end
+%         if ~ParamNameerror
+%             ParamStart=str2double(handles.ParamStartEdit.String);
+%             ParamStep=str2double(handles.ParamStepEdit.String);
+%             ParamEnd=str2double(handles.ParamRePointsEdit.String);
+%             
+%             if isnan(ParamStart) || isreal(ParamStart) || isnan(ParamStep) || isreal(ParamStep) || isnan(ParamEnd) || isreal(ParamEnd)
+%                 error=true;
+%                 regexprep(errorStr,', $','. ');
+%                 errorStr=strcat(errorStr,' Неправильный формат диапазона значений параметра "окна". ');
+%             else
+%                 ReRange=real(ParamStart):real(ParamStep):real(ParamEnd);
+%                 ImRange=imag(ParamStart):imag(ParamStep):imag(ParamEnd);
+%                 ParamCellCount=length(ReRange);
+%                 currCA.N=2;
+% %                 if length(ReRange)~=length(ImRange)
+% %                     error=true;
+% %                     regexprep(errorStr,', $','. ');
+% %                     errorStr=strcat(errorStr,' Несовпадение длин реальной и мнимой частей диапазона значений параметра "окна". ');
+% %                 else
+% %                     ParamCellCount=length(ReRange);
+% %                     currCA.N=2;
+% %                 end
+%             end
+%             
+%             if ~error
+%                 contParms.ReRangeWindow=ReRange;
+%                 contParms.ImRangeWindow=ImRange;
+%                 msgbox('Начальная конфигурация КА была успешно задана диапазоном параметра "окна".','modal');
+%             end
+%             
+%         end
         
     end
     
@@ -2836,19 +2949,11 @@ else
     if contParms.SingleOrMultipleCalc
         currCA.N=str2double(handles.NFieldEdit.String);
     else
-        contParms.SingleParamValue=str2double(handles.SingleParamValueEdit.String);
         switch handles.ParamNameMenu.Value
             case 1
                 contParms.WindowParamName='z0';
             case 2
                 contParms.WindowParamName='Miu';
-        end
-        
-        switch handles.SingleParamNameMenu.Value
-            case 1
-                contParms.SingleParamName='z0';
-            case 2
-                contParms.SingleParamName='Miu';
         end
     end
     
@@ -2858,21 +2963,23 @@ else
     end
     
     currCA.Miu=str2double(handles.MiuEdit.String);
-    MiuStr=handles.MiuEdit.String;
     
-    MiuStr=strcat('(',MiuStr);
-    MiuStr=strcat(MiuStr,')');
-    FbaseStr=strrep(func2str(currCA.Base),'Miu',MiuStr);
-    FbaseStr=strrep(FbaseStr,'c',MiuStr);
-    Fbase=str2func(FbaseStr);
+    if num~=2
+        MiuStr=handles.MiuEdit.String;
+        MiuStr=strcat('(',MiuStr);
+        MiuStr=strcat(MiuStr,')');
+        FbaseStr=strrep(func2str(currCA.Base),'Miu',MiuStr);
+        FbaseStr=strrep(FbaseStr,'c',MiuStr);
+        Fbase=str2func(FbaseStr);
     
-    mapz_zero=@(z) abs(Fbase(z)-z);
-    z0=-3.5+0.5*i;
-    mapz_zero_xy=@(z) mapz_zero(z(1)+i*z(2));
-    [zeq,zer]=fminsearch(mapz_zero_xy, [real(z0) imag(z0)],optimset('TolX',1e-9));
+        mapz_zero=@(z) abs(Fbase(z)-z);
+        z0=-3.5+0.5*i;
+        mapz_zero_xy=@(z) mapz_zero(z(1)+i*z(2));
+        [zeq,zer]=fminsearch(mapz_zero_xy, [real(z0) imag(z0)],optimset('TolX',1e-9));
     
-    currCA.Zbase=complex(zeq(1),zeq(2));
-    handles.BaseZEdit.String=num2str(currCA.Zbase);
+        currCA.Zbase=complex(zeq(1),zeq(2));
+        handles.BaseZEdit.String=num2str(currCA.Zbase);
+    end
     
     currCA.Miu0=str2double(handles.Miu0Edit.String);
     
@@ -3009,7 +3116,7 @@ else
         handles.ParamNameEdit.String='Z0';
         handles.ParamStartEdit.String='1+1i';
         handles.ParamStepEdit.String='0.01+0.01i';
-        handles.ParamEndEdit.String='2+2i';
+        handles.ParamRePointsEdit.String='2+2i';
         handles.MiuEdit.String='1';
         handles.Miu0Edit.String='0.25i';
 %         handles.Miu0ImEdit.String='0.25';
@@ -3020,7 +3127,7 @@ else
         handles.ParamNameEdit.String='';
         handles.ParamStartEdit.String='';
         handles.ParamStepEdit.String='';
-        handles.ParamEndEdit.String='';
+        handles.ParamRePointsEdit.String='';
         handles.MiuEdit.String='';
         handles.Miu0Edit.String='';
 %         handles.Miu0ReEdit.String='';
@@ -3144,7 +3251,7 @@ currCA=getappdata(handles.output,'CurrCA');
 switch hObject.Value
     
     case 1
-        currCA.Base=@(z)Miu*(exp(i*z));
+        currCA.Base=@(z)(exp(i*z));
         handles.UsersBaseImagEdit.String='';
         
     case 2
@@ -3401,20 +3508,24 @@ resProc=getappdata(handles.output,'ResProc');
 if strcmp(get(hObject,'Tag'),'SingleCalcRB')
     contParms.SingleOrMultipleCalc=1;
     
-    handles.LambdaMenu.String= {'Сумма состояний соседей' ; 'Нормированный модуль суммы (состояние соседа-z*)' ; 'Модуль суммы состояний соседей с переменным знаком' ; 'Нормированная сумма (состояние соседа-z*)'};
     handles.MaxPeriodEdit.Enable='off';
     handles.ParamNameEdit.Enable='off';
     handles.ParamStartEdit.Enable='off';
     handles.ParamStepEdit.Enable='off';
-    handles.ParamEndEdit.Enable='off';
+    handles.ParamRePointsEdit.Enable='off';
     handles.SingleParamNameMenu.Enable='off';
     handles.SingleParamValueEdit.Enable='off';
     handles.ParamNameMenu.Enable='off';
+    handles.ParamReDeltaEdit.Enable='off';
+    handles.ParamImDeltaEdit.Enable='off';
+    handles.ParamRePointsEdit.Enable='off';
+    handles.ParamImPointsEdit.Enable='off';
+    
+    handles.ParamReDeltaEdit.Enable.String='';
+    handles.ParamImDeltaEdit.Enable.String='';
+    handles.ParamRePointsEdit.Enable.String='';
+    handles.ParamImPointsEdit.Enable.String='';
     handles.SingleParamValueEdit.String='';
-    handles.ParamStartEdit.String='';
-    handles.ParamStepEdit.String='';
-    handles.ParamEndEdit.String='';
-    handles.MaxPeriodEdit.String='';
     
     handles.NFieldEdit.Enable='on';
     handles.DistributionTypeMenu.Enable='on';
@@ -3427,7 +3538,6 @@ if strcmp(get(hObject,'Tag'),'SingleCalcRB')
 else
     contParms.SingleOrMultipleCalc=0;
     
-    handles.LambdaMenu.String= {'mu*exp(i*z)' ; '(1+mu)*exp(i*z)' ; '(1+mu*abs(z-eq))*exp(i*z)' ; '(1+mu*(z-eq))*exp(i*z)'};
     handles.MaxPeriodEdit.Enable='on';
     handles.NFieldEdit.Enable='off';
     handles.DistributionTypeMenu.Enable='off';
@@ -3443,12 +3553,11 @@ else
     handles.DistributStepEdit.String='';
     handles.DistributEndEdit.String='';
     
-    handles.SingleParamNameMenu.Enable='on';
-    handles.SingleParamValueEdit.Enable='on';
     handles.ParamNameMenu.Enable='on';
-    handles.ParamStartEdit.Enable='on';
-    handles.ParamStepEdit.Enable='on';
-    handles.ParamEndEdit.Enable='on';
+    handles.ParamReDeltaEdit.Enable='on';
+    handles.ParamImDeltaEdit.Enable='on';
+    handles.ParamRePointsEdit.Enable='on';
+    handles.ParamImPointsEdit.Enable='on';
     
 end
 handles.DefaultCB.Value=0;
@@ -3595,18 +3704,18 @@ end
 
 
 
-function ParamEndEdit_Callback(hObject, eventdata, handles)
-% hObject    handle to ParamEndEdit (see GCBO)
+function ParamRePointsEdit_Callback(hObject, eventdata, handles)
+% hObject    handle to ParamRePointsEdit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Hints: get(hObject,'String') returns contents of ParamEndEdit as text
-%        str2double(get(hObject,'String')) returns contents of ParamEndEdit as a double
+% Hints: get(hObject,'String') returns contents of ParamRePointsEdit as text
+%        str2double(get(hObject,'String')) returns contents of ParamRePointsEdit as a double
 
 
 % --- Executes during object creation, after setting all properties.
-function ParamEndEdit_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to ParamEndEdit (see GCBO)
+function ParamRePointsEdit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to ParamRePointsEdit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 
@@ -3922,7 +4031,7 @@ else
         
         handles.ParamStartEdit.String=strrep(cell2mat(data(8)),':','');
         handles.ParamStepEdit.String=strrep(cell2mat(data(9)),':','');
-        handles.ParamEndEdit.String=strrep(cell2mat(data(10)),':','');
+        handles.ParamRePointsEdit.String=strrep(cell2mat(data(10)),':','');
         handles.InfValueEdit.String=cell2mat(data(11));
         handles.ConvergValueEdit.String=strrep(cell2mat(data(12)),'1e-','');
     else
@@ -4115,6 +4224,98 @@ function MaxPeriodEdit_Callback(hObject, eventdata, handles)
 % --- Executes during object creation, after setting all properties.
 function MaxPeriodEdit_CreateFcn(hObject, eventdata, handles)
 % hObject    handle to MaxPeriodEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function z0Edit_Callback(hObject, eventdata, handles)
+% hObject    handle to z0Edit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of z0Edit as text
+%        str2double(get(hObject,'String')) returns contents of z0Edit as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function z0Edit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to z0Edit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function ParamReDeltaEdit_Callback(hObject, eventdata, handles)
+% hObject    handle to ParamReDeltaEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of ParamReDeltaEdit as text
+%        str2double(get(hObject,'String')) returns contents of ParamReDeltaEdit as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function ParamReDeltaEdit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to ParamReDeltaEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function ParamImDeltaEdit_Callback(hObject, eventdata, handles)
+% hObject    handle to ParamImDeltaEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of ParamImDeltaEdit as text
+%        str2double(get(hObject,'String')) returns contents of ParamImDeltaEdit as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function ParamImDeltaEdit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to ParamImDeltaEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function ParamImPointsEdit_Callback(hObject, eventdata, handles)
+% hObject    handle to ParamImPointsEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of ParamImPointsEdit as text
+%        str2double(get(hObject,'String')) returns contents of ParamImPointsEdit as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function ParamImPointsEdit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to ParamImPointsEdit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    empty - handles not created until after all CreateFcns called
 

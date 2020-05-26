@@ -10,7 +10,7 @@ compArr=compArr';
 Im=Im';
 Re=Re';
 
-fieldType=false;
+fieldType=true;
 N=5;
 
 coorditates=[];
@@ -41,6 +41,8 @@ if fieldType
     k((2*cellCount/3)+1:cellCount,:)=3;
     
     coorditates=[i j k];
+    coorditates=[[0 0 0];coorditates];
+    cellCount=cellCount+1;
     coorditatesCells=arrayfun(@(i,j,k){[i j k]}, i',j',k');
     formatSpec='%d %d %d %f %f\n';
 else

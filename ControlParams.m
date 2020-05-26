@@ -6,9 +6,8 @@ classdef ControlParams %класс параметров управления
        ReRangeWindow(1,:) double % массив действительных значений параметра "окна" 
        ImRangeWindow(1,:) double % массив мнимых значений параметра "окна" 
        WindowParamName(1,:) char % название параметра "окна" 
+       WindowCenterValue double % центральная точка окна
        IsReady2Start logical = false% задан ли КА
-       SingleParamName(1,:) char % название одиночного параметра 
-       SingleParamValue double % значение одиночного параметра 
        ImageFunc function_handle % отображение для множественного расчета
        
        Periods (:,:) double % значения периодов 
@@ -17,7 +16,7 @@ classdef ControlParams %класс параметров управления
    
    methods
        
-       function obj=ControlParams(iterCount,singleOrMultipleCalc,reRangeWindow, imRangeWindow, windowParamName)
+       function obj=ControlParams(iterCount,singleOrMultipleCalc,reRangeWindow, imRangeWindow, windowParamName,imageFunc)
        
            if nargin
                obj.IterCount=iterCount;
@@ -25,6 +24,7 @@ classdef ControlParams %класс параметров управления
                obj.ReRangeWindow=reRangeWindow;
                obj.ImRangeWindow=imRangeWindow;
                obj.WindowParamName=windowParamName;
+               obj.ImageFunc=imageFunc;
            end
            
        end
@@ -62,8 +62,7 @@ classdef ControlParams %класс параметров управления
        end
        
        %метод мультирасчета
-       function [z_New fStepLast path] = MakeMultipleCalcIter(windowParam,z_Old,z_Old_1,itersCount,zParam)
-           
+       function [z_New fStepLast path] = MakeMultipleCalcIter(windowParam,z_Old,z_Old_1,itersCount,zParam,z_eq)
            PrecisionParms = ControlParams.GetSetPrecisionParms;
            func=ControlParams.GetSetMultiCalcFunc;
            path=zeros(1,itersCount);
@@ -77,7 +76,7 @@ classdef ControlParams %класс параметров управления
                    if zParam
                        z_New=func(windowParam);
                    else
-                       z_New=func(windowParam,z_Old);
+                       z_New=func(windowParam,z_Old,z_eq);
                    end
                    fStepLast=fStepLast+1;
                end
@@ -90,53 +89,52 @@ classdef ControlParams %класс параметров управления
                
            end
            path={path};
-%            delta=abs(z_Old_1-z_Old);
        end
        
        %метод создания окна и матрицы функций базы
-       function [WindowParam ContParms] = MakeFuncsWithNumsForMultipleCalc(ca,contParms)
+       function [WindowParam ContParms z_eqArr] = MakeFuncsWithNumsForMultipleCalc(ca,contParms)
            format long;
            [X,Y]=meshgrid(contParms.ReRangeWindow,contParms.ImRangeWindow);
            WindowParam=X+i*Y;
+           z_eqArr=Inf(size(WindowParam));
            switch contParms.WindowParamName
                case {'Z0' 'Z' 'z0' 'z'} % в случае окна по Z0 создание матрицы функций базы,с вставкой одного значения Мю
-                   
-                   SingleParamStr=strcat('(',num2str(contParms.SingleParamValue));
-                   SingleParamStr=strcat(SingleParamStr,')');
                    
                    zBaseStr=strcat('(',num2str(ca.Zbase));
                    zBaseStr=strcat(zBaseStr,')');
                    
+                   Miu0Str=strcat('(',num2str(ca.Miu0));
+                   Miu0Str=strcat(Miu0Str,')');
+                   
+                   MiuStr=strcat('(',num2str(ca.Miu));
+                   MiuStr=strcat(MiuStr,')');
+                   
+                   contParms.ImageFunc=str2func(strrep(func2str(contParms.ImageFunc),'@(Miu,z,eq)','@(z)'));
                    contParms.ImageFunc=str2func(strrep(func2str(contParms.ImageFunc),'@(Miu,z)','@(z)'));
-                   baseFuncStr=strrep(func2str(contParms.ImageFunc), contParms.SingleParamName,SingleParamStr);
-                   baseFuncStr=strrep(baseFuncStr,'c',SingleParamStr);
-                   baseFuncStr=strrep(baseFuncStr,'Miu',SingleParamStr);
+                   baseFuncStr=strrep(func2str(contParms.ImageFunc),'Miu0',Miu0Str);
+                   baseFuncStr=strrep(baseFuncStr, 'Miu',MiuStr);
                    baseFuncStr=strrep(baseFuncStr,'eq',zBaseStr);
                    
                    baseFuncStr=str2func(baseFuncStr);
-                   
-%                    baseFuncStrs=cell(size(WindowParam));
-%                    baseFuncStrs(:)={baseFuncStr};
                    
                case {'Miu','Mu','Мю'} % в случае окна по Мю создание матрицы функций базы, где множитель каждой функции - соответствующее значение Мю из диапазона
 %                    profile on;
 %                    paramsStrs = arrayfun(@(param){strcat('(',num2str(param))},WindowParam);
 %                    paramsStrs = arrayfun(@(param){strcat(cell2mat(param),')')},paramsStrs);
                    
-%                    baseFuncStr=func2str(@(Miu,z)(1+ Miu*abs(z-eq))*exp(i*z));
                    baseFuncStr=func2str(contParms.ImageFunc);
-                   baseFuncStr=strrep(baseFuncStr,'@(z)','@(Miu,z)');
-                   contParms.ImageFunc=str2func(baseFuncStr);
-                   zBaseStr=strcat('(',num2str(ca.Zbase));
-%                    z=-2.989980000000000 - 0.456820000000000i;
-%                    z=0.576412723031435+i*0.374699020737117;
-%                    zBaseStr=strcat('(',num2str(z));
-                   zBaseStr=strcat(zBaseStr,')');
-                   baseFuncStr=strrep(baseFuncStr,'eq',zBaseStr);
                    
-%                    zStr=strcat('(',num2str(0));
-%                    zStr=strcat(zStr,')');
-%                    baseFuncStr=strrep(baseFuncStr,'z',zStr);
+                   Miu0Str=strcat('(',num2str(ca.Miu0));
+                   Miu0Str=strcat(Miu0Str,')');
+                   baseFuncStr=strrep(baseFuncStr,'Miu0',Miu0Str);
+                   
+                   if contains(baseFuncStr,'eq')
+                       z0Arr=zeros(size(WindowParam));
+%                        ControlParams.GetSetMultiCalcFunc(baseFuncStr);
+                       z0Arr(:) = ControlParams.CountZBaze(contParms.WindowCenterValue,-3.5+0.5*i);
+                       z_eqArr=arrayfun(@ControlParams.CountZBaze,WindowParam,z0Arr);
+                   end
+                   baseFuncStr=strrep(baseFuncStr,'@(z)','@(Miu,z,eq)');
                    baseFuncStr=str2func(baseFuncStr);
                    
 %                    baseFuncStrs=cell(size(WindowParam));
@@ -155,14 +153,37 @@ classdef ControlParams %класс параметров управления
 %            baseFuncStrs(:)={baseFuncStr};
        end
        
+       function [z_eq] = CountZBaze(miu,z0)
+           
+           persistent func
+           if isempty(func)
+               func=@(z)(Miu)*exp(i*z);
+           end
+           
+           MiuStr=num2str(miu);
+           FbaseStr=strrep(func2str(func),'Miu',MiuStr);
+           Fbase=str2func(FbaseStr);
+    
+%            mapz_zero=@(z) abs(Fbase(z)-z);
+           mapz_zero=Fbase;
+           mapz_zero_xy=@(z) mapz_zero(z(1)+i*z(2));
+           [zeq,zer]=fminsearch(mapz_zero_xy, [real(z0) imag(z0)],optimset('TolX',1e-9));
+           z_eq = complex(zeq(1),zeq(2));
+       end
+       
        function [fCodeNew iter period] = CheckConvergence(path)
            
            fCodeNew=[];
            PrecisionParms=ControlParams.GetSetPrecisionParms;
            MaxPeriod=ControlParams.GetSetMaxPeriod;
            
-           path=cell2mat(path);
+           if iscell(path)
+               path=cell2mat(path);
+           end
            path=path(find(path));
+           if isempty(path)
+               path=0;
+           end
            if (log(path(end))/log(10)>PrecisionParms(1)) || isnan(path(end)) || isinf(path(end)) %бесконечность
                fCodeNew=-1;
                iter=length(path);
@@ -194,12 +215,6 @@ classdef ControlParams %класс параметров управления
                    return;
                end
            end
-           
-%            if abs(path(end-1)-path(end)) < 1e-2 %хаос
-%                fCodeNew=2;
-%                iter=length(path);
-%                return;
-%            end
            
            fCodeNew=2;
            iter=length(path);

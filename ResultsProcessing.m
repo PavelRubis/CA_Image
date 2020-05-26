@@ -24,7 +24,7 @@ classdef ResultsProcessing
            
            if contParms.SingleOrMultipleCalc 
                if obj.isSaveCA
-                   ConfFileName=strcat('\Modeling ',datestr(clock));
+                   ConfFileName=strcat('\Modeling-',datestr(clock));
                    ConfFileName=strcat(ConfFileName,'-CA-Conf.txt');
                    ConfFileName=strrep(ConfFileName,':','-');
                    ConfFileName=strcat(obj.ResPath,ConfFileName);
@@ -35,7 +35,13 @@ classdef ResultsProcessing
                        fprintf(fileID, '\nРебро N=1\n');
                        fprintf(fileID, strcat('\nОтображение: ',func2str(ca.Base)));
                        fprintf(fileID, '\nКоличество итераций N=%f\n',length(Res)-1);
-                       fprintf(fileID, '\nТраектория:\n');
+                       fprintf(fileID, 'Судьба\n');
+                       fprintf(fileID,'Re	Im	P	n\n');
+                       fclose(fileID);
+                       dlmwrite(ConfFileName,[real(ca.Cells(1).zPath(1)) imag(ca.Cells(1).zPath(end)) contParms.Periods contParms.LastIters],'-append','delimiter','\t');
+                       
+                       fileID = fopen(ConfFileName, 'a');
+                       fprintf(fileID, '\n\nТраектория:\n');
                        fclose(fileID);
                        Res=Res';
                        dlmwrite(ConfFileName,'Re	Im','-append','delimiter','');
@@ -81,7 +87,7 @@ classdef ResultsProcessing
                
            else
                if obj.isSaveCA
-                   ConfFileName=strcat('\MultiCalc ',datestr(clock));
+                   ConfFileName=strcat('\MultiCalc-',datestr(clock));
                    ConfFileName=strcat(ConfFileName,'.txt');
                    ConfFileName=strrep(ConfFileName,':','-');
                    ConfFileName=strcat(obj.ResPath,ConfFileName);

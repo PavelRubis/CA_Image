@@ -52,6 +52,8 @@ classdef Initializations
                     k((2*cellCount/3)+1:cellCount,:)=3;
                         
                     idxes=arrayfun(@(i,j,k){[i j k]}, i',j',k');
+                    idxes=[{[0 0 0]} idxes];
+                    cellCount=cellCount+1;
                 else
                     x=zeros(cellCount,1);
                     y=zeros(cellCount,1);
