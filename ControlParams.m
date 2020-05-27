@@ -7,6 +7,7 @@ classdef ControlParams %класс параметров управления
        ImRangeWindow(1,:) double % массив мнимых значений параметра "окна" 
        WindowParamName(1,:) char % название параметра "окна" 
        WindowCenterValue double % центральная точка окна
+       SingleParams(1,2) double % одиночные параметры мультирасчета
        IsReady2Start logical = false% задан ли КА
        ImageFunc function_handle % отображение для множественного расчета
        
@@ -123,6 +124,8 @@ classdef ControlParams %класс параметров управления
 %                    paramsStrs = arrayfun(@(param){strcat(cell2mat(param),')')},paramsStrs);
                    
                    baseFuncStr=func2str(contParms.ImageFunc);
+                   baseFuncStr=strrep(baseFuncStr,'@(z)','@(Miu,z,eq)');
+                   contParms.ImageFunc=str2func(baseFuncStr);
                    
                    Miu0Str=strcat('(',num2str(ca.Miu0));
                    Miu0Str=strcat(Miu0Str,')');
@@ -134,7 +137,6 @@ classdef ControlParams %класс параметров управления
                        z0Arr(:) = ControlParams.CountZBaze(contParms.WindowCenterValue,-3.5+0.5*i);
                        z_eqArr=arrayfun(@ControlParams.CountZBaze,WindowParam,z0Arr);
                    end
-                   baseFuncStr=strrep(baseFuncStr,'@(z)','@(Miu,z,eq)');
                    baseFuncStr=str2func(baseFuncStr);
                    
 %                    baseFuncStrs=cell(size(WindowParam));
@@ -164,8 +166,8 @@ classdef ControlParams %класс параметров управления
            FbaseStr=strrep(func2str(func),'Miu',MiuStr);
            Fbase=str2func(FbaseStr);
     
-%            mapz_zero=@(z) abs(Fbase(z)-z);
-           mapz_zero=Fbase;
+           mapz_zero=@(z) abs(Fbase(z)-z);
+%            mapz_zero=Fbase;
            mapz_zero_xy=@(z) mapz_zero(z(1)+i*z(2));
            [zeq,zer]=fminsearch(mapz_zero_xy, [real(z0) imag(z0)],optimset('TolX',1e-9));
            z_eq = complex(zeq(1),zeq(2));
