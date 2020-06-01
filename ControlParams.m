@@ -1,18 +1,18 @@
 classdef ControlParams %класс параметров управления
     
    properties
-       IterCount {mustBeInteger, mustBePositive} %количество итераций
+       IterCount %{mustBeInteger, mustBePositive} %количество итераций
        SingleOrMultipleCalc logical %одиночный или множественный рассчет
-       ReRangeWindow(1,:) double % массив действительных значений параметра "окна" 
-       ImRangeWindow(1,:) double % массив мнимых значений параметра "окна" 
-       WindowParamName(1,:) char % название параметра "окна" 
+       ReRangeWindow double% (1,:)  % массив действительных значений параметра "окна" 
+       ImRangeWindow double% (1,:)  % массив мнимых значений параметра "окна" 
+       WindowParamName char % (1,:)  % название параметра "окна" 
        WindowCenterValue double % центральная точка окна
-       SingleParams(1,2) double % одиночные параметры мультирасчета
+       SingleParams double %(1,2)  % одиночные параметры мультирасчета
        IsReady2Start logical = false% задан ли КА
        ImageFunc function_handle % отображение для множественного расчета
        
-       Periods (:,:) double % значения периодов 
-       LastIters (:,:) double  % последняя итерация
+       Periods double %(:,:)  % значения периодов 
+       LastIters double %(:,:)  % последняя итерация
    end
    
    methods
@@ -131,7 +131,7 @@ classdef ControlParams %класс параметров управления
                    Miu0Str=strcat(Miu0Str,')');
                    baseFuncStr=strrep(baseFuncStr,'Miu0',Miu0Str);
                    
-                   if contains(baseFuncStr,'eq')
+                   if ~isempty(strfind(baseFuncStr,'eq'))
                        z0Arr=zeros(size(WindowParam));
 %                        ControlParams.GetSetMultiCalcFunc(baseFuncStr);
                        z0Arr(:) = ControlParams.CountZBaze(contParms.WindowCenterValue,-3.5+0.5*i);

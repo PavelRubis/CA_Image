@@ -4,9 +4,9 @@ classdef ResultsProcessing
        isSave logical =0% сохраняем ли результаты
        isSaveCA logical =0% сохраняем ли КА
        isSaveFig logical =0% сохраняем ли фигуру
-       ResPath (1,:) char %путь к сохраняемым результатам
+       ResPath char% (1,:)  %путь к сохраняемым результатам
        CellsValuesFileFormat logical % формат файла для записи значений ячеек (1-txt,0-xls)
-       FigureFileFormat {mustBeInteger, mustBeInRange(FigureFileFormat,[1,3])}% формат картинки поля
+       FigureFileFormat %{mustBeInteger, mustBeInRange(FigureFileFormat,[1,3])}% формат картинки поля
    end
    
    methods

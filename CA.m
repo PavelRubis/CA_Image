@@ -278,7 +278,7 @@ else
                ylabel(ylabelStr);
            end
            string_title=strrep(string_title,'eq','z^{*}');
-           if contains(string_title,'z^{*}')
+           if ~isempty(strfind(string_title,'z^{*}'))
                string_title=strcat(string_title,'  z^{*}=');
                string_title=strcat(string_title,num2str(complex(0.576412723031435,0.374699020737117)));
            end
@@ -2731,7 +2731,7 @@ else
     
     FbaseStr=strrep(func2str(currCA.Base),'c',MiuStr);
     FbaseStr=strrep(FbaseStr,'Miu',MiuStr);
-    if contains(FbaseStr,'(exp')
+    if ~isempty(strfind(FbaseStr,'(exp'))
         MiuStr=strcat(MiuStr,'*(exp');
         FbaseStr=strrep(FbaseStr,'(exp',MiuStr);
     end
@@ -2966,7 +2966,7 @@ else
         MiuStr=strcat(MiuStr,')');
         FbaseStr=strrep(func2str(currCA.Base),'Miu',MiuStr);
         FbaseStr=strrep(FbaseStr,'c',MiuStr);
-        if contains(FbaseStr,'(exp')
+        if ~isempty(strfind(FbaseStr,'(exp'))
             MiuStr=strcat(MiuStr,'*(exp');
             FbaseStr=strrep(FbaseStr,'(exp',MiuStr);
         end

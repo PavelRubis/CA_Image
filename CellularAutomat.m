@@ -3,14 +3,14 @@ classdef CellularAutomat
     properties
         
         FieldType logical % тип решетки (1-гексагональный, 0-квадратный)
-        BordersType {mustBeInteger, mustBeInRange(BordersType,[1,3])} % тип границ (1-линия смерти, 2-замыкание границ, 3-закрытые границы )
-        N double {mustBePositive, mustBeInteger} % ребро поля
+        BordersType %{mustBeInteger, mustBeInRange(BordersType,[1,3])} % тип границ (1-линия смерти, 2-замыкание границ, 3-закрытые границы )
+        N double %{mustBePositive, mustBeInteger} % ребро поля
         Base function_handle % базовое отображение
         Lambda function_handle % зависимость коеффициента перед базой
         Zbase double % параметр z*
         Miu0 double= 0% параметр мю0
         Miu double = 1% параметр мю
-        Cells(1,:) CACell % массив всех ячеек на поле
+        Cells CACell %(1,:) CACell % массив всех ячеек на поле
         
     end
     
