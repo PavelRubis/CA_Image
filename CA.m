@@ -221,7 +221,7 @@ else
                Fcode(periodCodeIndicate)=1;
            end
            
-           colormap(clmp);
+           clrmp = colormap(clmp);
                
            [Re,Im]=meshgrid(contParms.ReRangeWindow,contParms.ImRangeWindow);
            pcolor(Re, Im, (fStepNew.*Fcode));
@@ -288,9 +288,12 @@ else
 %          legend('show');
            handles.CAField.FontSize=11;
            
+           graphics.Axs=handles.CAField;
+           graphics.Clrbr=clrbr;
+           graphics.Clrmp=clrmp;
            
            if resProc.isSave
-               resProc=SaveRes(resProc,ca,handles.CAField,contParms,zRes);
+               resProc=SaveRes(resProc,ca,graphics,contParms,zRes);
            end
            handles.ResetButton.Enable='on';
            setappdata(handles.output,'CurrCA',ca);
@@ -386,11 +389,13 @@ else
            contParms.LastIters=length(N1Path);
            contParms.Periods=period;
            
-           ResultsProcessing.GetSetCellOrient
+           graphics.Axs=handles.CAField;
+           graphics.Clrbr=clrbr;
+           graphics.Clrmp=clrmp;
+           
            if resProc.isSave
-               resProc=SaveRes(resProc,ca,handles.CAField,contParms,N1Path);
+               resProc=SaveRes(resProc,ca,graphics,contParms,N1Path);
            end
-           ResultsProcessing.GetSetCellOrient
            
            handles.ResetButton.Enable='on';
            setappdata(handles.output,'CurrCA',ca);
@@ -425,25 +430,28 @@ else
        
        
        %создание палитры
-       colors=colormap(jet(256));
+       colors=colormap([[1 1 1];jet(256);[0 0 0]]);
        
        modulesArr=zeros(1,ca_L);
        zbase=zeros(1,ca_L);
        zbase(:)=ca.Zbase;
        
+       PrecisionParms = ControlParams.GetSetPrecisionParms;
+       
        modulesArr=arrayfun(@(cell,zbase) log(CellularAutomat.ComplexModule(cell.zPath(end)-zbase))/log(10),ca.Cells,zbase);
-       compareArr=-12:24/(255):12;
+       compareArr=-PrecisionParms(1):(2*PrecisionParms(1)+1)/255:PrecisionParms(1);
+       
+       [modulesArrSrt indxes]=sort(modulesArr);
        
        %присваивание цветов ячейкам в соответсвии с рассчитанной выше величиной
        for i=1:ca_L
            
-           ind=find(compareArr>modulesArr(i),length(compareArr),'first');
+           ind=find(compareArr>modulesArr(i),1,'first');
            
            if isempty(ind)
                ca.Cells(i).Color=[0 0 0];
            else
-               ind=ind(1);
-               if ind==1
+               if ind==1 || isnan(modulesArr(i))
                    ca.Cells(i).Color=[1 1 1];
                else
                    ca.Cells(i).Color=colors(ind-1,:);
@@ -451,36 +459,97 @@ else
            end
        end
        
-       handles.ResetButton.Enable='on';
-       
        %отрисовка поля
        arrayfun(@(cell) ResultsProcessing.DrawCell(cell),ca.Cells);
-       modulesArr=sort(modulesArr);
        
-       if all(isinf(modulesArr))
-           colorbar('Ticks',[]);
-       else
-           indx=~isinf(modulesArr);
-           finitModulesArr=modulesArr(find(indx));
-           
-           indx=~isnan(finitModulesArr);
-           finitModulesArr=finitModulesArr(find(indx));
-           
-           if length(finitModulesArr) < 2
-               colorbar('Ticks',[]);
-           else
-               colorbar('Limits',[finitModulesArr(1) finitModulesArr(end)]);
-           end
+       colors=arrayfun(@(cell) {cell.Color},ca.Cells(indxes));
+       colors=cell2mat(colors');
+       
+       if any(modulesArr>PrecisionParms(1)) || any(isinf(modulesArr))|| any(isnan(modulesArr))
+           colors=[[1 1 1];colors];
        end
        
+       if any(modulesArr<-PrecisionParms(1))
+           colors=[colors;[0 0 0]];
+       end
+       
+       clrmp = colormap(colors);
+       
+       modulesArr=sort(modulesArr);
+       clrbr = colorbar;
+       
+       indx=modulesArr<PrecisionParms(1);
+       finitModulesArr=modulesArr(find(indx));
+       
+       indx=~isnan(finitModulesArr);
+       finitModulesArr=finitModulesArr(find(indx));
+       
+       if length(finitModulesArr) >= 2
+           minMod=min(finitModulesArr);
+           maxMod=max(finitModulesArr);
+           NotInfModArrLen=length(finitModulesArr);
+           InfModArrLen=length(modulesArr)-NotInfModArrLen;
+           
+           k=abs(1-InfModArrLen/NotInfModArrLen);
+           if InfModArrLen>NotInfModArrLen
+               k=NotInfModArrLen/length(modulesArr);
+           end
+           
+           newLables=minMod:((maxMod-minMod)/(11*k)):maxMod;
+           l = length(newLables);
+           if InfModArrLen~=0
+               infLablesPart=zeros(1,11-length(newLables));
+               infLablesPart(:)=PrecisionParms(1);
+               newLables=[newLables infLablesPart];
+           end
+           
+           clrbr.TickLabels={newLables};
+       else
+           clrbr.TickLabels={''};
+       end
+       clrbr.Label.String='\fontsize{16}log_{10}(\midz_{t+1}\mid-\midz^{*}\mid)';
+       
+       titleStr='';
+       switch func2str(ca.Base)
+           case '@(z)(exp(i*z))'
+               titleStr='z_{t+1}=exp(i\cdotz_{t})';
+           case '@(z)(z^2+c)'
+               titleStr='z_{t+1}=z^{2}+c';
+           otherwise
+               titleStr=func2str(ca.Base);
+       end
+       
+       switch handles.LambdaMenu.Value
+           case 1
+               titleStr=strcat(titleStr,' ; \lambda(t)=\mu_{0}+\Sigma_{k=1}^{n}\mu_{k}\cdotz_{k}^{t}');
+           case 2
+               titleStr=strcat(titleStr,' ; \lambda(t)=\mu+\mu_{0}\cdot\mid(1/n)\cdot\Sigma_{k=1}^{n}z_{k}^{t}-z^{*}(\mu)\mid');
+           case 3
+               titleStr=strcat(titleStr,' ; \lambda(t)=\mu+\mu_{0}\cdot\mid(1/n)\cdot\Sigma_{k=1}^{n}(-1^{k})\cdotz_{k}^{t}\mid');
+           case 4
+               titleStr=strcat(titleStr,' ; \lambda(t)=\mu+\mu_{0}\cdot( (1/n)\cdot\Sigma_{k=1}^{n}z_{k}^{t}-z^{*}(\mu) )');
+           case 5
+               titleStr=strcat(titleStr,' ; \lambda=\mu_{0}+\mu');
+               
+       end
+       
+       titleStr=strcat(titleStr,' ; \mu_{0}=',num2str(ca.Miu0),' ; \mu=',num2str(ca.Miu));
+       
+       title(handles.CAField,strcat('\fontsize{16}',titleStr));
+       
+       graphics.Axs=handles.CAField;
+       graphics.Clrbr=clrbr;
+       graphics.Clrmp=clrmp;
+       
        if resProc.isSave
-           resProc=SaveRes(resProc,ca,handles.CAField,contParms,[]);
+           resProc=SaveRes(resProc,ca,graphics,contParms,[]);
        end
       
        setappdata(handles.output,'CurrCA',ca);
        contParms.IterCount=contParms.IterCount+1;
        setappdata(handles.output,'ContParms',contParms);
        setappdata(handles.output,'ResProc',resProc);
+       handles.ResetButton.Enable='on';
        handles.SaveAllModelParamsB.Enable='on';
     end
 end

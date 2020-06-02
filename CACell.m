@@ -2,11 +2,11 @@ classdef CACell
     
    properties
       z0 double=0+0i % начальное состо€ние €чейки
-      zPath double % (1,:)  % орбита €чейки
-      Indexes int32 % (1,3)  % индексы €чейки на поле (i,j,k при заданной ориентации, x,y при )
-      CurrNeighbors CACell % (1,:)  % массив соседей €чейки на текущей итерации
+      zPath  (1,:) double % орбита €чейки
+      Indexes  (1,3) int32 % индексы €чейки на поле (i,j,k при заданной ориентации, x,y при )
+      CurrNeighbors  (1,:) CACell % массив соседей €чейки на текущей итерации
       IsExternal logical = false % €вл€етс€ ли €чейка внешней
-      Color double% (1,3)  %{mustBeNumeric, mustBeInRange(Color,[0,1])} % цвет дл€ отрисовки €чейки на поле
+      Color (1,3) double %{mustBeNumeric, mustBeInRange(Color,[0,1])} % цвет дл€ отрисовки €чейки на поле
       
       fstep double = 0
    end

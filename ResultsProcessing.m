@@ -4,9 +4,9 @@ classdef ResultsProcessing
        isSave logical =0% сохраняем ли результаты
        isSaveCA logical =0% сохраняем ли КА
        isSaveFig logical =0% сохраняем ли фигуру
-       ResPath char% (1,:)  %путь к сохраняемым результатам
+       ResPath (1,:) char %путь к сохраняемым результатам
        CellsValuesFileFormat logical % формат файла для записи значений ячеек (1-txt,0-xls)
-       FigureFileFormat %{mustBeInteger, mustBeInRange(FigureFileFormat,[1,3])}% формат картинки поля
+       FigureFileFormat {mustBeInteger, mustBeInRange(FigureFileFormat,[1,3])}% формат картинки поля
    end
    
    methods
@@ -20,7 +20,7 @@ classdef ResultsProcessing
        end
        
        %метод сохранения результатов
-       function resproc = SaveRes(obj, ca, fig,contParms,Res)
+       function resproc = SaveRes(obj, ca, graphics,contParms,Res)
            
            if contParms.SingleOrMultipleCalc 
                if obj.isSaveCA
@@ -138,6 +138,7 @@ classdef ResultsProcessing
 
            end
            if obj.isSaveFig
+               fig=graphics.Axs;
                set(fig,'Units','pixel');
                rect=fig.Position;
                rect=rect-10;
@@ -152,12 +153,11 @@ classdef ResultsProcessing
                switch obj.FigureFileFormat
                    case 1
                        h = figure;
-                       h.Visible='off';
-                       h.CurrentAxes = copyobj(fig,h);
-                       saveas(h,strcat(photoName,'.fig'));
+                       colormap(graphics.Clrmp);
+                       h.CurrentAxes = copyobj([fig graphics.Clrbr],h);
+%                        savefig(h,strcat(photoName,'.fig'));
                        h.Visible='on';
                            
-                       delete(h);
                    case 2
                        imwrite(photo,jet(256),strcat(photoName,'.png'));
                    case 3

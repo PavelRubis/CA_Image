@@ -1,18 +1,18 @@
-classdef ControlParams %класс параметров управления
+classdef ControlParams %класс параметров управления и множественного элементарного расчета
     
    properties
-       IterCount %{mustBeInteger, mustBePositive} %количество итераций
+       IterCount double {mustBeInteger, mustBePositive} %количество итераций
        SingleOrMultipleCalc logical %одиночный или множественный рассчет
-       ReRangeWindow double% (1,:)  % массив действительных значений параметра "окна" 
-       ImRangeWindow double% (1,:)  % массив мнимых значений параметра "окна" 
-       WindowParamName char % (1,:)  % название параметра "окна" 
+       ReRangeWindow  (1,:) double % массив действительных значений параметра "окна" 
+       ImRangeWindow  (1,:) double % массив мнимых значений параметра "окна" 
+       WindowParamName  (1,:) char % название параметра "окна" 
        WindowCenterValue double % центральная точка окна
-       SingleParams double %(1,2)  % одиночные параметры мультирасчета
+       SingleParams  (1,2) double % одиночные параметры мультирасчета
        IsReady2Start logical = false% задан ли КА
        ImageFunc function_handle % отображение для множественного расчета
        
-       Periods double %(:,:)  % значения периодов 
-       LastIters double %(:,:)  % последняя итерация
+       Periods  (:,:) double % значения периодов 
+       LastIters  (:,:) double % последняя итерация
    end
    
    methods
