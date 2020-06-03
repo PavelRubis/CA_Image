@@ -41,10 +41,6 @@ classdef CellularAutomat
                z_last = CA_cell.zPath(end);
                [base,lambda] = CellularAutomat.GetSetFuncs;%получаем функции базового отображения и лямбды
                basePart = base(z_last);% вычисление базы
-               
-%                if length(CA_cell.CurrNeighbors)~=6
-%                    l = length(CA_cell.CurrNeighbors)
-%                end
            
                neighborsZ=zeros(1,length(CA_cell.CurrNeighbors));
                neighborsZ=arrayfun(@(neighbor) neighbor.zPath(end)*1, CA_cell.CurrNeighbors);
@@ -58,7 +54,12 @@ classdef CellularAutomat
                end
                
                if isequal(CA_cell.Indexes,[0 1 1])
-                   lambdaPart = 1;
+                   lambdaStr=func2str(lambda);
+                   if ~isempty(strfind(lambdaStr,'sum'))
+                       lambdaStr = regexprep(lambdaStr,'\)\+.+',')');
+                       lambda=str2func(lambdaStr);
+                   end
+                   lambdaPart=lambda(neighborsZ);
                end
                
                z_new=lambdaPart*basePart;

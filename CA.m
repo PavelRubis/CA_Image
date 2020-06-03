@@ -278,9 +278,10 @@ else
                ylabel(ylabelStr);
            end
            string_title=strrep(string_title,'eq','z^{*}');
-           if ~isempty(strfind(string_title,'z^{*}'))
+           
+           if any(strcmp(contParms.WindowParamName,{'Z0' 'Z' 'z0' 'z'}))
                string_title=strcat(string_title,'  z^{*}=');
-               string_title=strcat(string_title,num2str(complex(0.576412723031435,0.374699020737117)));
+               string_title=strcat(string_title,num2str(ca.Zbase));
            end
            
            title(handles.CAField,strcat('\fontsize{16}',string_title));
@@ -370,20 +371,39 @@ else
            
            handles.CAField.XGrid='on';
            handles.CAField.YGrid='on';
-           string_legend=(strcat('Траектория точки z_0=',num2str(ca.Cells(1).z0)));
-           legend(string_legend);
-           legend('show');
            
            clrbr = colorbar('Ticks',[0,0.2,0.4,0.6,0.8,1],...
            'TickLabels',{0,floor(length(N1Path)*0.2),floor(length(N1Path)*0.4),floor(length(N1Path)*0.6),floor(length(N1Path)*0.8),length(N1Path)-1});
            clrbr.Label.String = 'Число итераций';
-       
-           string_title=strcat('\mu=',num2str(ca.Miu),'  \mu_{0}=',num2str(ca.Miu0));
+         
+           titleStr='';
+           switch func2str(ca.Base)
+               case '@(z)(exp(i*z))'
+                   titleStr='z_{t+1}=exp(i\cdotz_{t})';
+               case '@(z)(z^2+c)'
+                   titleStr='z_{t+1}=z^{2}+c';
+               otherwise
+                   titleStr=func2str(ca.Base);
+           end
            
-           title(handles.CAField,strcat('\fontsize{16}',string_title));
+           switch handles.LambdaMenu.Value
+               case 1
+                   titleStr=strcat(titleStr,' ; \lambda(t)=\mu_{0}');
+               case 2
+                   titleStr=strcat(titleStr,' ; \lambda(t)=\mu');
+               case 3
+                   titleStr=strcat(titleStr,' ; \lambda(t)=\mu');
+               case 4
+                   titleStr=strcat(titleStr,' ; \lambda(t)=\mu');
+               case 5
+                   titleStr=strcat(titleStr,' ; \lambda=\mu_{0}+\mu');
+           end
+       
+           titleStr=strcat(titleStr,' ; z_{0}=',num2str(ca.Cells(1).z0),' ; \mu=',num2str(ca.Miu),' ; \mu_{0}=',num2str(ca.Miu0));
+           
+           title(handles.CAField,strcat('\fontsize{16}',titleStr));
            
            handles.CAField.FontSize=10;
-           handles.CAField.Legend.FontSize=14;
            zoom on;
            contParms.IterCount=contParms.IterCount+1;
            contParms.LastIters=length(N1Path);
