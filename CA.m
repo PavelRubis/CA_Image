@@ -311,17 +311,7 @@ else
            hold on;
            N1Path = getappdata(handles.output,'N1Path');
            
-           persistent msg;
-           persistent fCode;
-           if isempty(fCode)
-               fCode=2;
-           end
-           if length(N1Path)==1 && fCode~=2
-               msgbox(msg,'modal');
-               return;
-           else
-               msg='';
-           end
+           msg=[];
 
            len=length(N1Path(1,:));
            N1Path=[N1Path zeros(2,itersCount)];
@@ -352,7 +342,7 @@ else
                    break;
                end
            end
-               
+           
            N1Path=N1Path(:,1:iter);
            ms=20;
            clrmp=colormap(jet(length(N1Path)));
@@ -366,8 +356,27 @@ else
            xlabel('Re');
            ylabel('Im');
            
-           handles.CAField.YTick=[min(N1Path(2,:)):(abs(max(N1Path(2,:))-min(N1Path(2,:)))/length(N1Path))*0.2*length(N1Path):max(N1Path(2,:))];
-           handles.CAField.XTick=[min(N1Path(1,:)):(abs(max(N1Path(1,:))-min(N1Path(1,:)))/length(N1Path))*0.2*length(N1Path):max(N1Path(1,:))];
+           imStep=(abs(max(N1Path(2,:))-min(N1Path(2,:)))/length(N1Path(2,:)))*0.2*length(N1Path(2,:));
+           reStep=(abs(max(N1Path(1,:))-min(N1Path(1,:)))/length(N1Path(1,:)))*0.2*length(N1Path(1,:));
+           
+           handles.CAField.YTick=[min(N1Path(2,:)):imStep:max(N1Path(2,:))];
+           handles.CAField.XTick=[min(N1Path(1,:)):reStep:max(N1Path(1,:))];
+           
+           if max(abs(N1Path(2,:)))>max(abs(N1Path(1,:)))
+               deltaDiv=max(abs(N1Path(2,:)))/max(abs(N1Path(1,:)));
+               if deltaDiv~=inf
+                   handles.CAField.XLim=[handles.CAField.XLim(1)-deltaDiv*reStep handles.CAField.XLim(2)+deltaDiv*reStep];
+                   reStep=(handles.CAField.XLim(2)-handles.CAField.XLim(1))*0.2;
+                   handles.CAField.XTick=[min(N1Path(1,:))-deltaDiv*reStep:reStep:max(N1Path(1,:))+deltaDiv*reStep];
+               end
+           else
+               deltaDiv=max(abs(N1Path(1,:)))/max(abs(N1Path(2,:)));
+               if deltaDiv~=inf
+                   handles.CAField.YLim=[handles.CAField.YLim(1)-deltaDiv*imStep handles.CAField.YLim(2)+deltaDiv*imStep];
+                   imStep=(handles.CAField.YLim(2)-handles.CAField.YLim(1))*0.2;
+                   handles.CAField.YTick=[min(N1Path(2,:))-deltaDiv*imStep:imStep:max(N1Path(2,:))+deltaDiv*imStep];
+               end
+           end
            
            handles.CAField.XGrid='on';
            handles.CAField.YGrid='on';
@@ -3043,7 +3052,14 @@ else
     end
     
     if currCA.N==1
-        N1Path=[real(currCA.Cells(1).z0);imag(currCA.Cells(1).z0)];
+        N1Path = getappdata(handles.output,'N1Path');
+        if isempty(N1Path)
+            N1Path=[real(currCA.Cells(1).z0);imag(currCA.Cells(1).z0)];
+        else
+            if complex(N1Path(1,1),N1Path(2,1))~=currCA.Cells(1).z0
+                N1Path=[real(currCA.Cells(1).z0);imag(currCA.Cells(1).z0)];
+            end
+        end
         setappdata(handles.output,'N1Path',N1Path);
     end
     
