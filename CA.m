@@ -472,6 +472,7 @@ else
        
        [modulesArrSrt indxes]=sort(modulesArr);
        
+       infVal=false;
        %присваивание цветов €чейкам в соответсвии с рассчитанной выше величиной
        for i=1:ca_L
            
@@ -479,6 +480,7 @@ else
            
            if isempty(ind)
                ca.Cells(i).Color=[0 0 0];
+               infVal=true;
            else
                if ind==1 || isnan(modulesArr(i))
                    ca.Cells(i).Color=[1 1 1];
@@ -493,14 +495,15 @@ else
        
        colors=arrayfun(@(cell) {cell.Color},ca.Cells(indxes));
        colors=cell2mat(colors');
-       
-       if any(modulesArr>PrecisionParms(1)) || any(isinf(modulesArr))|| any(isnan(modulesArr))
-           colors=[[1 1 1];colors];
-       end
+%        [colors,ia,ic] = unique(colors,'rows');
        
        if any(modulesArr<-PrecisionParms(1))
-           colors=[colors;[0 0 0]];
+           colors=[colors;[1 1 1]];
        end
+%        if infVal
+%            colors(1,:)=[];
+%            colors=[colors;[0 0 0]];
+%        end
        
        clrmp = colormap(colors);
        
@@ -519,20 +522,37 @@ else
            NotInfModArrLen=length(finitModulesArr);
            InfModArrLen=length(modulesArr)-NotInfModArrLen;
            
-           k=abs(1-InfModArrLen/NotInfModArrLen);
-           if InfModArrLen>NotInfModArrLen
-               k=NotInfModArrLen/length(modulesArr);
-           end
+           k=NotInfModArrLen/length(modulesArr);
            
            newLables=minMod:((maxMod-minMod)/(11*k)):maxMod;
-           l = length(newLables);
+           
            if InfModArrLen~=0
                infLablesPart=zeros(1,11-length(newLables));
-               infLablesPart(:)=PrecisionParms(1);
-               newLables=[newLables infLablesPart];
+               infLablesPart(:)=inf;
+               
+               if maxMod~=minMod
+                   newLables(end)=[];
+                   NotInfLabsStr=num2str(newLables);
+                   NotInfLabsStr=regexprep(NotInfLabsStr,'\s+',''',''');
+                   NotInfLabsStr=strcat('{''',NotInfLabsStr,''',''''',',''');
+                   
+                   InfLabsStr=num2str(infLablesPart);
+                   InfLabsStr=strrep(InfLabsStr,'  ',''',''');
+                   InfLabsStr=strcat(InfLabsStr,'''}');
+                   
+                   newLables=strcat(NotInfLabsStr,InfLabsStr);
+                   
+               else
+                   newLables=[minMod infLablesPart];
+               end
            end
            
-           clrbr.TickLabels={newLables};
+           if ischar(newLables)
+               eval(strcat('clrbr.TickLabels=',newLables,';'));
+           else
+               clrbr.TickLabels={newLables};
+           end
+           
        else
            clrbr.TickLabels={''};
        end
