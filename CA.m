@@ -95,35 +95,46 @@ SaveParamsButton_Callback(handles.SaveParamsButton, eventdata, handles)
 
 contParms = getappdata(handles.output,'ContParms');
 resProc = getappdata(handles.output,'ResProc');
+ca = getappdata(handles.output,'CurrCA');
 
-if (~contParms.IsReady2Start) || (((strcmp(resProc.ResPath,' ')) || ~ischar(resProc.ResPath)) && resProc.isSave) %проверка задан ли КА и директория сохранения резов
-    errorStr='Ошибка. ';
+
+errorStr='Ошибка. ';
+errorModelCheck=false;
     
-    if(~contParms.IsReady2Start) 
-        errorStr='Ошибка. Конфигурация КА не задана полностью или не сохранена. ';
-    end
-    
-    if strcmp(resProc.ResPath,' ') || ~ischar(resProc.ResPath)
-        errorStr=strcat(errorStr,'Не задана директория сохранения результатов.');
-    end
-    setappdata(handles.output,'ResProc',resProc);
-    
-    errordlg(errorStr,'modal');
-else
-    if isempty(regexp(handles.IterCountEdit.String,'^\d+$')) || str2double(handles.IterCountEdit.String)<1 || isempty(regexp(handles.InfValueEdit.String,'^\d+$')) || str2double(handles.InfValueEdit.String)<1 || isempty(regexp(handles.ConvergValueEdit.String,'^\d+$')) || str2double(handles.ConvergValueEdit.String)<1 %проверка задано ли число итераций и точность
-        errordlg('Ошибка в поле числа итераций и(или) в полях точности вычислений и максимального периода.','modal');
-    else
+if(~contParms.IsReady2Start) 
+    errorModelCheck=true;
+    errorStr='Конфигурация КА не задана полностью или не сохранена; ';
+end
+
+if (strcmp(resProc.ResPath,' ') || ~ischar(resProc.ResPath)) &&  resProc.isSave
+    errorModelCheck=true;
+    errorStr=strcat(errorStr,'Не задана директория сохранения результатов; ');
+end
+
+if isempty(regexp(handles.IterCountEdit.String,'^\d+$'))
+    errorModelCheck=true;
+    errorStr=strcat(errorStr,'Ошибка в поле числа итераций;');
+end
+
+if isempty(regexp(handles.InfValueEdit.String,'^\d+$')) || isempty(regexp(handles.ConvergValueEdit.String,'^\d+$'))
+    errorModelCheck=true;
+    errorStr=strcat(errorStr,'Ошибка в полях точности вычислений;');
+end
+
+if  isempty(regexp(handles.MaxPeriodEdit.String,'^\d+$')) && (~contParms.SingleOrMultipleCalc || length(ca.Cells)==1)
+    errorModelCheck=true;
+    errorStr=strcat(errorStr,'Ошибка в поле максимального периода.');
+end
+
+if errorModelCheck
+    errordlg(errorStr,'Ошибки в параметрах моделирования:');
+    return;
+end
+
        ControlParams.GetSetPrecisionParms([str2double(handles.InfValueEdit.String) str2double(strcat('1e-',handles.ConvergValueEdit.String))]);
         
-       ca = getappdata(handles.output,'CurrCA');
-       
        handles.CancelParamsButton.Enable='off';
        if ~contParms.SingleOrMultipleCalc% в случае мультирассчета
-           
-           if  isempty(regexp(handles.MaxPeriodEdit.String,'^\d+$'))
-               errordlg('Ошибка в поле максимального периода.','modal');
-               return;
-           end
            
            itersCount=str2double(handles.IterCountEdit.String); %число итераций
            contParms.IterCount=itersCount;
@@ -310,21 +321,24 @@ else
        if length(ca.Cells)==1 %случай когда рассматривается одна ячейка/точка
            hold on;
            N1Path = getappdata(handles.output,'N1Path');
-           
            msg=[];
-
+           
+           N1PathOld=complex(N1Path(1,:),N1Path(2,:));
            len=length(N1Path(1,:));
            N1Path=[N1Path zeros(2,itersCount)];
+           
            for i=1:itersCount
                ca.Cells(1)=CellularAutomat.MakeIter(ca.Cells(1));
                N1Path(1,i+len)=real(ca.Cells(1).zPath(end));
                N1Path(2,i+len)=imag(ca.Cells(1).zPath(end));
+               
                path=complex(N1Path(1,:),N1Path(2,:));
                [fCode iter period] = ControlParams.CheckConvergence(path);
                if fCode~=2
                    str=strcat('Точка ',num2str(ca.Cells(1).z0));
                    switch fCode
                        case -1
+                           ca.Cells(1).zPath=ca.Cells(1).zPath(:,1:iter-1);
                            str=strcat(str,' уходит в бесконечность на итерации:');
                            str=strcat(str,'  ');
                            msg=strcat(str,num2str(iter));
@@ -343,7 +357,26 @@ else
                end
            end
            
-           N1Path=N1Path(:,1:iter);
+           if fCode==-1
+               N1Path=N1Path(:,1:iter-1);
+           else
+               N1Path=N1Path(:,1:iter);
+           end
+           
+           N1PathNew=complex(N1Path(1,:),N1Path(2,:));
+           N1PathOld=[N1PathOld nan(1,length(N1PathNew)-length(N1PathOld))];
+           ind=find(N1PathOld==N1PathNew,1,'last')+1;
+           if ind<length(N1PathNew)
+               temp=N1PathNew(ind:length(N1PathNew));
+               tempNew=zeros(2,length(temp));
+               tempNew(1,:)=real(temp);
+               tempNew(2,:)=imag(temp);
+               N1PathNew=tempNew;
+           else
+               N1PathNew=[];
+           end
+           N1PathOld(end)=[];
+           
            ms=20;
            clrmp=colormap(jet(length(N1Path)));
            for i=1:length(N1Path)
@@ -359,31 +392,70 @@ else
            imStep=(abs(max(N1Path(2,:))-min(N1Path(2,:)))/length(N1Path(2,:)))*0.2*length(N1Path(2,:));
            reStep=(abs(max(N1Path(1,:))-min(N1Path(1,:)))/length(N1Path(1,:)))*0.2*length(N1Path(1,:));
            
+           if ~isempty(N1PathNew)
+               if (any(N1PathNew(1,:)<min(real(N1PathOld))) || any(N1PathNew(1,:)>max(real(N1PathOld))))
+                   handles.CAField.XLim=[min(N1Path(1,:)) max(N1Path(1,:))];
+               end
+               
+               if (any(N1PathNew(2,:)<min(imag(N1PathOld))) || any(N1PathNew(2,:)>max(imag(N1PathOld))))
+                   handles.CAField.YLim=[min(N1Path(2,:)) max(N1Path(2,:))];
+               end
+           end
+           
            handles.CAField.YTick=[min(N1Path(2,:)):imStep:max(N1Path(2,:))];
            handles.CAField.XTick=[min(N1Path(1,:)):reStep:max(N1Path(1,:))];
            
-           if max(abs(N1Path(2,:)))>max(abs(N1Path(1,:)))
-               deltaDiv=max(abs(N1Path(2,:)))/max(abs(N1Path(1,:)));
-               if deltaDiv~=inf
-                   handles.CAField.XLim=[handles.CAField.XLim(1)-deltaDiv*reStep handles.CAField.XLim(2)+deltaDiv*reStep];
-                   reStep=(handles.CAField.XLim(2)-handles.CAField.XLim(1))*0.2;
-                   handles.CAField.XTick=[min(N1Path(1,:))-deltaDiv*reStep:reStep:max(N1Path(1,:))+deltaDiv*reStep];
+           Imlength=abs(max(N1Path(2,:))-min(N1Path(2,:)));
+           Relength=abs(max(N1Path(1,:))-min(N1Path(1,:)));
+           
+           if Imlength>Relength
+               
+               if isempty(N1PathNew)
+                   handles.CAField.XLim=[handles.CAField.XLim(1)+Imlength/2 handles.CAField.XLim(2)-Imlength/2];
+               else
+                   if ~(any(N1PathNew(1,:)<min(real(N1PathOld))) || any(N1PathNew(1,:)>max(real(N1PathOld))))
+                       handles.CAField.XLim=[handles.CAField.XLim(1)+Imlength/2 handles.CAField.XLim(2)-Imlength/2];
+                   end
                end
+               
+               handles.CAField.XLim=[handles.CAField.XLim(1)-Imlength/2 handles.CAField.XLim(2)+Imlength/2];
+               reStep=(handles.CAField.XLim(2)-handles.CAField.XLim(1))*0.2;
+               handles.CAField.XTick=[handles.CAField.XLim(1):reStep:handles.CAField.XLim(2)];
+               
            else
-               deltaDiv=max(abs(N1Path(1,:)))/max(abs(N1Path(2,:)));
-               if deltaDiv~=inf
-                   handles.CAField.YLim=[handles.CAField.YLim(1)-deltaDiv*imStep handles.CAField.YLim(2)+deltaDiv*imStep];
-                   imStep=(handles.CAField.YLim(2)-handles.CAField.YLim(1))*0.2;
-                   handles.CAField.YTick=[min(N1Path(2,:))-deltaDiv*imStep:imStep:max(N1Path(2,:))+deltaDiv*imStep];
+               
+               if isempty(N1PathNew)
+                   handles.CAField.YLim=[handles.CAField.YLim(1)+Relength/2 handles.CAField.YLim(2)-Relength/2];
+               else
+                   if  isempty(N1PathNew) || ~(any(N1PathNew(2,:)<min(imag(N1PathOld))) || any(N1PathNew(2,:)>max(imag(N1PathOld))))
+                       handles.CAField.YLim=[handles.CAField.YLim(1)+Relength/2 handles.CAField.YLim(2)-Relength/2];
+                   end
                end
+               
+               handles.CAField.YLim=[handles.CAField.YLim(1)-Relength/2 handles.CAField.YLim(2)+Relength/2];
+               imStep=(handles.CAField.YLim(2)-handles.CAField.YLim(1))*0.2;
+               handles.CAField.YTick=[handles.CAField.YLim(1):imStep:handles.CAField.YLim(2)];
+               
            end
            
            handles.CAField.XGrid='on';
            handles.CAField.YGrid='on';
            
-           clrbr = colorbar('Ticks',[0,0.2,0.4,0.6,0.8,1],...
-           'TickLabels',{0,floor(length(N1Path)*0.2),floor(length(N1Path)*0.4),floor(length(N1Path)*0.6),floor(length(N1Path)*0.8),length(N1Path)-1});
-           clrbr.Label.String = 'Число итераций';
+%            if max(handles.CAField.YTick)>1e4
+%                handles.CAField.YTick=log(handles.CAField.YTick)/log(10);
+%            end
+%            
+%            if max(handles.CAField.XTick)>1e4
+%                handles.CAField.XTick=log(handles.CAField.XTick)/log(10);
+%            end
+
+           if iter<15
+               clrbr = colorbar('Ticks',[1:iter]/iter,'TickLabels',{1:iter});
+           else
+               clrbr = colorbar('Ticks',[0,0.2,0.4,0.6,0.8,1],...
+                   'TickLabels',{0,floor(iter*0.2),floor(iter*0.4),floor(iter*0.6),floor(iter*0.8),iter-1});
+               clrbr.Label.String = 'Число итераций';
+           end
          
            titleStr='';
            switch func2str(ca.Base)
@@ -456,7 +528,6 @@ else
                cellArr(j)=FindCellsNeighbors(ca, ca.Cells(j));
            end
        end
-       
        
        %создание палитры
        colors=colormap([[1 1 1];jet(256);[0 0 0]]);
@@ -600,8 +671,6 @@ else
        setappdata(handles.output,'ResProc',resProc);
        handles.ResetButton.Enable='on';
        handles.SaveAllModelParamsB.Enable='on';
-    end
-end
 
 
 % hObject    handle to StartButton (see GCBO)
@@ -1207,7 +1276,7 @@ handles.SaveAllModelParamsB.Enable='off';
 if contParms.SingleOrMultipleCalc
     
     
-    handles.MaxPeriodEdit.Enable='off';
+%     handles.MaxPeriodEdit.Enable='off';
     handles.ParamRePointsEdit.Enable='off';
     handles.ParamNameMenu.Enable='off';
     handles.ParamReDeltaEdit.Enable='off';
@@ -1253,7 +1322,7 @@ else
     handles.Z0SourcePathButton.Enable='off';
     handles.ReadZ0SourceButton.Enable='off';
     
-    handles.MaxPeriodEdit.Enable='on';
+%     handles.MaxPeriodEdit.Enable='on';
     handles.ParamRePointsEdit.Enable='on';
     handles.ParamNameMenu.Enable='on';
     handles.ParamReDeltaEdit.Enable='on';
@@ -3057,7 +3126,7 @@ end
 if error
     contParms.IsReady2Start=false;
     regexprep(errorStr,', $','.');
-    errordlg(errorStr,'modal');
+    errordlg(errorStr,'Ошибки в параметрах конфигурации:');
 else
     
     if contParms.SingleOrMultipleCalc
@@ -3618,7 +3687,7 @@ resProc=getappdata(handles.output,'ResProc');
 if strcmp(get(hObject,'Tag'),'SingleCalcRB')
     contParms.SingleOrMultipleCalc=1;
     
-    handles.MaxPeriodEdit.Enable='off';
+%     handles.MaxPeriodEdit.Enable='off';
     handles.ParamRePointsEdit.Enable='off';
     handles.ParamNameMenu.Enable='off';
     handles.ParamReDeltaEdit.Enable='off';
@@ -3655,7 +3724,7 @@ else
     contParms.SingleOrMultipleCalc=0;
     
     
-    handles.MaxPeriodEdit.Enable='on';
+%     handles.MaxPeriodEdit.Enable='on';
     handles.ParamRePointsEdit.Enable='on';
     handles.ParamNameMenu.Enable='on';
     handles.ParamReDeltaEdit.Enable='on';

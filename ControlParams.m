@@ -182,12 +182,24 @@ classdef ControlParams %класс параметров управления и множественного элементарно
            if iscell(path)
                path=cell2mat(path);
            end
-           path=path(find(path));
+           
+           if(path(1)==0)
+               path=path(find(path));
+               path=[0 path];
+           else
+               path=path(find(path));
+           end
+           
            if isempty(path)
                path=0;
            end
            if (log(path(end))/log(10)>PrecisionParms(1)) || isnan(path(end)) || isinf(path(end)) %бесконечность
                fCodeNew=-1;
+%                if isnan(path(end)) || isinf(path(end))
+%                    iter=length(path)-1;
+%                else
+%                    iter=length(path);
+%                end
                iter=length(path);
                period=0;
                return;
