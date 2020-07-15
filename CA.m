@@ -97,37 +97,33 @@ contParms = getappdata(handles.output,'ContParms');
 resProc = getappdata(handles.output,'ResProc');
 ca = getappdata(handles.output,'CurrCA');
 
+error = getappdata(handles.output,'error');
+errorStr = getappdata(handles.output,'errorStr');
 
-errorStr='Ошибка. ';
-errorModelCheck=false;
-    
-if(~contParms.IsReady2Start) 
-    errorModelCheck=true;
-    errorStr='Конфигурация КА не задана полностью или не сохранена; ';
-end
-
-if (strcmp(resProc.ResPath,' ') || ~ischar(resProc.ResPath)) &&  resProc.isSave
-    errorModelCheck=true;
+if (length(resProc.ResPath)==1 || ~ischar(resProc.ResPath)) &&  resProc.isSave
+    error=true;
     errorStr=strcat(errorStr,'Не задана директория сохранения результатов; ');
 end
 
 if isempty(regexp(handles.IterCountEdit.String,'^\d+$'))
-    errorModelCheck=true;
-    errorStr=strcat(errorStr,'Ошибка в поле числа итераций;');
+    error=true;
+    errorStr=strcat(errorStr,'Ошибка в поле числа итераций; ');
 end
 
 if isempty(regexp(handles.InfValueEdit.String,'^\d+$')) || isempty(regexp(handles.ConvergValueEdit.String,'^\d+$'))
-    errorModelCheck=true;
-    errorStr=strcat(errorStr,'Ошибка в полях точности вычислений;');
+    error=true;
+    errorStr=strcat(errorStr,'Ошибка в полях точности вычислений; ');
 end
 
 if  isempty(regexp(handles.MaxPeriodEdit.String,'^\d+$')) && (~contParms.SingleOrMultipleCalc || length(ca.Cells)==1)
-    errorModelCheck=true;
-    errorStr=strcat(errorStr,'Ошибка в поле максимального периода.');
+    error=true;
+    errorStr=strcat(errorStr,'Ошибка в поле максимального периода; ');
 end
 
-if errorModelCheck
-    errordlg(errorStr,'Ошибки в параметрах моделирования:');
+if error
+    handles.ResetButton.Enable='on';
+    errorStr=regexprep(errorStr,';$','.');
+    errordlg(errorStr,'Ошибки ввода:');
     return;
 end
 
@@ -325,7 +321,7 @@ end
            
            N1PathOld=complex(N1Path(1,:),N1Path(2,:));
            len=length(N1Path(1,:));
-           N1Path=[N1Path zeros(2,itersCount)];
+           N1Path=[N1Path nan(2,itersCount)];
            
            for i=1:itersCount
                ca.Cells(1)=CellularAutomat.MakeIter(ca.Cells(1));
@@ -413,7 +409,7 @@ end
                if isempty(N1PathNew)
                    handles.CAField.XLim=[handles.CAField.XLim(1)+Imlength/2 handles.CAField.XLim(2)-Imlength/2];
                else
-                   if ~(any(N1PathNew(1,:)<min(real(N1PathOld))) || any(N1PathNew(1,:)>max(real(N1PathOld))))
+                   if ~(any(N1PathNew(1,:)<min(real(N1PathOld))) || any(N1PathNew(1,:)>max(real(N1PathOld)))) && max(N1Path(1,:))~=min(N1Path(1,:))
                        handles.CAField.XLim=[handles.CAField.XLim(1)+Imlength/2 handles.CAField.XLim(2)-Imlength/2];
                    end
                end
@@ -427,7 +423,7 @@ end
                if isempty(N1PathNew)
                    handles.CAField.YLim=[handles.CAField.YLim(1)+Relength/2 handles.CAField.YLim(2)-Relength/2];
                else
-                   if  isempty(N1PathNew) || ~(any(N1PathNew(2,:)<min(imag(N1PathOld))) || any(N1PathNew(2,:)>max(imag(N1PathOld))))
+                   if  isempty(N1PathNew) || ~(any(N1PathNew(2,:)<min(imag(N1PathOld))) || any(N1PathNew(2,:)>max(imag(N1PathOld)))) && max(N1Path(2,:))~=min(N1Path(2,:))
                        handles.CAField.YLim=[handles.CAField.YLim(1)+Relength/2 handles.CAField.YLim(2)-Relength/2];
                    end
                end
@@ -2905,7 +2901,7 @@ end
 function CountBaseZButton_Callback(hObject, eventdata, handles)
 
 Muerror=false;
-if(isempty(regexp(handles.MiuEdit.String,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?[-\+]?\d+(\.)?(?(4)\d+|)(?(3)|i)$')))
+if(isempty(regexp(handles.MiuEdit.String,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')))
     errordlg('Ошибка. Недопустимое значение параметра Мю.','modal');
 else
     
@@ -2974,40 +2970,26 @@ if contParms.SingleOrMultipleCalc
     if(isempty(regexp(handles.NFieldEdit.String,'^\d+$')))
         Nerror=true;
         error=true;
-        errorStr=strcat(errorStr,'N, ');
+        errorStr=strcat(errorStr,'N; ');
     end
-else
-%     ParamNameerror=false;
-%     if handles.ParamNameMenu.Value == handles.SingleParamNameMenu.Value
-%         error=true;
-%         ParamNameerror=true;
-%         errorStr=strcat(errorStr,'совпадение одиночного и мульти-параметров, ');
-%     end
-%     newN=0;
-%     ParamCellCount=0;
-%     
-%     if(isempty(regexp(handles.SingleParamValueEdit.String,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?[-\+]?\d+(\.)?(?(4)\d+|)(?(3)|i)$')))
-%         error=true;
-%         errorStr=strcat(errorStr,'Одиночный параметр, ');
-%     end
 end
 
-%regexp('-0.58755665+5.45i','^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]?\d+(?<dot>\.)?(?(dot)\d+|)(?(3)|i))?$')
+%regexp('-0.58755665+5.45i','^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')
 numErrors=[0 0 0];
 num=0;
-if(isempty(regexp(handles.MiuEdit.String,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?[-\+]?\d+(\.)?(?(4)\d+|)(?(3)|i)$')))
+if(isempty(regexp(handles.MiuEdit.String,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')))
     error=true;
-    errorStr=strcat(errorStr,'Мю, ');
+    errorStr=strcat(errorStr,'Мю; ');
     numErrors(2)=true;
 end
 
-if(isempty(regexp(handles.Miu0Edit.String,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?[-\+]?\d+(\.)?(?(4)\d+|)(?(3)|i)$')))
+if(isempty(regexp(handles.Miu0Edit.String,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')))
     error=true;
-    errorStr=strcat(errorStr,'Мю0, ');
+    errorStr=strcat(errorStr,'Мю0; ');
     numErrors(3)=true;
 end
 
-if(isempty(regexp(handles.z0Edit.String,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?[-\+]?\d+(\.)?(?(4)\d+|)(?(3)|i)$')))
+if(isempty(regexp(handles.z0Edit.String,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')))
     numErrors(1)=true;
 end
 
@@ -3025,7 +3007,7 @@ if isempty(currCA.Cells) || (~contParms.IsReady2Start && ~fileWasRead)
         if (isnan(DistributStart) || isreal(DistributStart) || isempty(regexp(handles.DistributStepEdit.String,'^\d+(\.?)(?(1)\d+|)$')) || isnan(DistributEnd) || isreal(DistributEnd)) && str2double(handles.NFieldEdit.String)~=1
             error=true;
             regexprep(errorStr,', $','. ');
-            errorStr=strcat(errorStr,' Не задана начальная конфигурация КА. Неправильный формат диапазона значений Z0. Задайте диапазон Z0 или загрузите данные из файла. ');
+            errorStr=strcat(errorStr,' Не задана начальная конфигурация: неправильный формат диапазона значений Z0 или точки z0; ');
         else
             if ~Nerror
                 ReRange=real(DistributStart):DistributStep:real(DistributEnd);
@@ -3034,10 +3016,10 @@ if isempty(currCA.Cells) || (~contParms.IsReady2Start && ~fileWasRead)
                 rangeErrorStr='';
                 
                 if str2double(handles.NFieldEdit.String)==1 && ~isempty(handles.z0Edit.String)
-                    if(isempty(regexp(handles.z0Edit.String,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?[-\+]?\d+(\.)?(?(4)\d+|)(?(3)|i)$')))
+                    if(isempty(regexp(handles.z0Edit.String,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')))
                         error=true;
                         rangeError=true;
-                        errorStr=strcat(errorStr,'z0, ');
+                        errorStr=strcat(errorStr,'z0; ');
                     else
                         ReRange=real(str2double(handles.z0Edit.String));
                         ImRange=imag(str2double(handles.z0Edit.String));
@@ -3050,7 +3032,7 @@ if isempty(currCA.Cells) || (~contParms.IsReady2Start && ~fileWasRead)
                 
                 if rangeError
                     error=true;
-                    regexprep(errorStr,', $','. ');
+                    regexprep(errorStr,';$','.');
                     errorStr=strcat(errorStr,rangeErrorStr);
                 else
                     if ~error
@@ -3078,8 +3060,8 @@ if isempty(currCA.Cells) || (~contParms.IsReady2Start && ~fileWasRead)
     else
         if isempty(regexp(handles.ParamReDeltaEdit.String,'^\d+(?<dot>\.?)(?(dot)\d+|)$')) || isempty(regexp(handles.ParamImDeltaEdit.String,'^\d+(?<dot>\.?)(?(dot)\d+|)$')) || isempty(regexp(handles.ParamRePointsEdit.String,'^\d+$')) || isempty(regexp(handles.ParamImPointsEdit.String,'^\d+$'))
             error=true;
-            regexprep(errorStr,', $','. ');
-            errorStr=strcat(errorStr,' Неправильный формат диапазона параметра "окна". ');
+            regexprep(errorStr,';$','.');
+            errorStr=strcat(errorStr,' Неправильный формат диапазона параметра "окна"; ');
         else
             switch handles.ParamNameMenu.Value
                 case 1
@@ -3106,7 +3088,7 @@ if isempty(currCA.Cells) || (~contParms.IsReady2Start && ~fileWasRead)
                 ImRange=(ImCenter-ImDelta):ImStep:(ImCenter+ImDelta);
                 currCA.N=2;
             else
-                errorStr=strcat(errorStr,'одиночный параметр мультирасчета, ');
+                errorStr=strcat(errorStr,'одиночный параметр мультирасчета; ');
                 error=true;
             end
             
@@ -3123,10 +3105,12 @@ if isempty(currCA.Cells) || (~contParms.IsReady2Start && ~fileWasRead)
     
 end
 
+
+setappdata(handles.output,'error',error);
+setappdata(handles.output,'errorStr',errorStr);
+
 if error
     contParms.IsReady2Start=false;
-    regexprep(errorStr,', $','.');
-    errordlg(errorStr,'Ошибки в параметрах конфигурации:');
 else
     
     if contParms.SingleOrMultipleCalc

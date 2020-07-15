@@ -55,14 +55,19 @@ classdef CellularAutomat
                
                if isequal(CA_cell.Indexes,[0 1 1])
                    lambdaStr=func2str(lambda);
-                   if ~isempty(strfind(lambdaStr,'sum'))
+                   if contains(lambdaStr,'sum')
                        lambdaStr = regexprep(lambdaStr,'\)\+.+',')');
                        lambda=str2func(lambdaStr);
                    end
                    lambdaPart=lambda(neighborsZ);
                end
                
-               z_new=lambdaPart*basePart;
+               if strcmp(func2str(base),'@(z)(exp(i*z))')
+                   z_new=lambdaPart*basePart;
+               else
+                   z_new=basePart;
+               end
+               
                CA_cell.zPath=[CA_cell.zPath z_new];
                
                if (abs(CA_cell.zPath(end)-CA_cell.zPath(end-1))<PrecisionParms(2))

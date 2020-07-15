@@ -66,7 +66,7 @@ classdef ControlParams %класс параметров управления и множественного элементарно
        function [z_New fStepLast path] = MakeMultipleCalcIter(windowParam,z_Old,z_Old_1,itersCount,zParam,z_eq)
            PrecisionParms = ControlParams.GetSetPrecisionParms;
            func=ControlParams.GetSetMultiCalcFunc;
-           path=zeros(1,itersCount);
+           path=nan(1,itersCount);
            path(1)=z_Old;
            fStepLast=1;
            while(fStepLast~=itersCount)
@@ -183,23 +183,20 @@ classdef ControlParams %класс параметров управления и множественного элементарно
                path=cell2mat(path);
            end
            
-           if(path(1)==0)
-               path=path(find(path));
-               path=[0 path];
-           else
-               path=path(find(path));
-           end
+           path=path(find(~isnan(path)));
+
+%            if(path(1)==0)
+%                path=path(find(path));
+%                path=[0 path];
+%            else
+%                path=path(find(path));
+%            end
            
            if isempty(path)
                path=0;
            end
            if (log(path(end))/log(10)>PrecisionParms(1)) || isnan(path(end)) || isinf(path(end)) %бесконечность
                fCodeNew=-1;
-%                if isnan(path(end)) || isinf(path(end))
-%                    iter=length(path)-1;
-%                else
-%                    iter=length(path);
-%                end
                iter=length(path);
                period=0;
                return;
