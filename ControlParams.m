@@ -62,6 +62,15 @@ classdef ControlParams %класс параметров управления и множественного элементарно
            out = MaxPeriod;
        end
        
+      % метод get-set для статической переменной максимального периода в мультирасчете)
+       function out = GetSetCustomBase(customBase)
+           persistent CustomBase;
+           if nargin==1
+               CustomBase = customBase;
+           end
+           out = CustomBase;
+       end
+       
        %метод мультирасчета
        function [z_New fStepLast path] = MakeMultipleCalcIter(windowParam,z_Old,z_Old_1,itersCount,zParam,z_eq)
            PrecisionParms = ControlParams.GetSetPrecisionParms;
@@ -184,13 +193,6 @@ classdef ControlParams %класс параметров управления и множественного элементарно
            end
            
            path=path(find(~isnan(path)));
-
-%            if(path(1)==0)
-%                path=path(find(path));
-%                path=[0 path];
-%            else
-%                path=path(find(path));
-%            end
            
            if isempty(path)
                path=0;

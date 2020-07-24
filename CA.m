@@ -127,13 +127,53 @@ if error
     return;
 end
 
+handles.ParamRePointsEdit.Enable='off';
+handles.ParamNameMenu.Enable='off';
+handles.ParamReDeltaEdit.Enable='off';
+handles.ParamImDeltaEdit.Enable='off';
+handles.ParamRePointsEdit.Enable='off';
+handles.ParamImPointsEdit.Enable='off';
+handles.DefaultMultiParmCB.Enable='off';
+    
+handles.NFieldEdit.Enable='off';
+handles.SquareFieldRB.Enable='off';
+handles.HexFieldRB.Enable='off';
+handles.GorOrientRB.Enable='off';
+handles.VertOrientRB.Enable='off';
+handles.DefaultCACB.Enable='off';
+handles.CompletedBordersRB.Enable='off';
+handles.DeathLineBordersRB.Enable='off';
+handles.ClosedBordersRB.Enable='off';
+    
+handles.BaseImagMenu.Enable='off';
+handles.UsersBaseImagEdit.Enable='off';
+handles.LambdaMenu.Enable='off';
+handles.DefaultFuncsCB.Enable='off';
+    
+handles.z0Edit.Enable='off';
+handles.MiuEdit.Enable='off';
+handles.Miu0Edit.Enable='off';
+handles.DefaultCB.Enable='off';
+handles.CountBaseZButton.Enable='off';
+    
+handles.DistributionTypeMenu.Enable='off';
+handles.DistributStartEdit.Enable='off';
+handles.DistributStepEdit.Enable='off';
+handles.DistributEndEdit.Enable='off';
+    
+handles.Z0SourcePathButton.Enable='off';
+handles.ReadZ0SourceButton.Enable='off';
+    
+handles.SingleCalcRB.Enable='off';
+handles.MultipleCalcRB.Enable='off';
+
        ControlParams.GetSetPrecisionParms([str2double(handles.InfValueEdit.String) str2double(strcat('1e-',handles.ConvergValueEdit.String))]);
         
        handles.CancelParamsButton.Enable='off';
+       itersCount=str2double(handles.IterCountEdit.String); %число итераций
+       contParms.IterCount=contParms.IterCount+itersCount;
        if ~contParms.SingleOrMultipleCalc% в случае мультирассчета
            
-           itersCount=str2double(handles.IterCountEdit.String); %число итераций
-           contParms.IterCount=itersCount;
            ControlParams.GetSetMaxPeriod(str2double(handles.MaxPeriodEdit.String));
            
            %создание окна и матрицы функций базы
@@ -311,8 +351,7 @@ end
            return;
        end
        %подготовка обоих функций
-       MakeFuncsWithNums(ca)
-       itersCount=str2double(handles.IterCountEdit.String); %число итераций
+       MakeFuncsWithNums(ca);
        
        if length(ca.Cells)==1 %случай когда рассматриваетс€ одна €чейка/точка
            hold on;
@@ -409,7 +448,7 @@ end
                if isempty(N1PathNew)
                    handles.CAField.XLim=[handles.CAField.XLim(1)+Imlength/2 handles.CAField.XLim(2)-Imlength/2];
                else
-                   if ~(any(N1PathNew(1,:)<min(real(N1PathOld))) || any(N1PathNew(1,:)>max(real(N1PathOld)))) && max(N1Path(1,:))~=min(N1Path(1,:))
+                   if ~(any(N1PathNew(1,:)<min(real(N1PathOld))) || any(N1PathNew(1,:)>max(real(N1PathOld)))) && handles.CAField.XLim(1)+Imlength/2<handles.CAField.XLim(2)-Imlength/2
                        handles.CAField.XLim=[handles.CAField.XLim(1)+Imlength/2 handles.CAField.XLim(2)-Imlength/2];
                    end
                end
@@ -423,7 +462,7 @@ end
                if isempty(N1PathNew)
                    handles.CAField.YLim=[handles.CAField.YLim(1)+Relength/2 handles.CAField.YLim(2)-Relength/2];
                else
-                   if  isempty(N1PathNew) || ~(any(N1PathNew(2,:)<min(imag(N1PathOld))) || any(N1PathNew(2,:)>max(imag(N1PathOld)))) && max(N1Path(2,:))~=min(N1Path(2,:))
+                   if  isempty(N1PathNew) || ~(any(N1PathNew(2,:)<min(imag(N1PathOld))) || any(N1PathNew(2,:)>max(imag(N1PathOld)))) && (handles.CAField.YLim(1)+Relength/2<handles.CAField.YLim(2)-Relength/2)
                        handles.CAField.YLim=[handles.CAField.YLim(1)+Relength/2 handles.CAField.YLim(2)-Relength/2];
                    end
                end
@@ -460,29 +499,35 @@ end
                case '@(z)(z^2+c)'
                    titleStr='z_{t+1}=z^{2}+c';
                otherwise
-                   titleStr=func2str(ca.Base);
+                   titleStr=strrep(func2str(ca.Base),'z','z_{t}');
+                   titleStr=strrep(titleStr,'@(z_{t})','z_{t+1}=');
            end
            
-           switch handles.LambdaMenu.Value
-               case 1
-                   titleStr=strcat(titleStr,' ; \lambda(t)=\mu_{0}');
-               case 2
-                   titleStr=strcat(titleStr,' ; \lambda(t)=\mu');
-               case 3
-                   titleStr=strcat(titleStr,' ; \lambda(t)=\mu');
-               case 4
-                   titleStr=strcat(titleStr,' ; \lambda(t)=\mu');
-               case 5
-                   titleStr=strcat(titleStr,' ; \lambda=\mu_{0}+\mu');
+           if ~ControlParams.GetSetCustomBase
+               switch handles.LambdaMenu.Value
+                   case 1
+                       titleStr=strcat(titleStr,' ; \lambda(t)=\mu_{0}');
+                   case 2
+                       titleStr=strcat(titleStr,' ; \lambda(t)=\mu');
+                   case 3
+                       titleStr=strcat(titleStr,' ; \lambda(t)=\mu');
+                   case 4
+                       titleStr=strcat(titleStr,' ; \lambda(t)=\mu');
+                   case 5
+                       titleStr=strcat(titleStr,' ; \lambda=\mu_{0}+\mu');
+               end
            end
        
-           titleStr=strcat(titleStr,' ; z_{0}=',num2str(ca.Cells(1).z0),' ; \mu=',num2str(ca.Miu),' ; \mu_{0}=',num2str(ca.Miu0));
+           titleStr=strcat(titleStr,' ; z_{0}=',num2str(ca.Cells(1).z0));
+           
+           if ~ControlParams.GetSetCustomBase
+               titleStr=strcat(titleStr,' ; \mu=',num2str(ca.Miu),' ; \mu_{0}=',num2str(ca.Miu0));
+           end
            
            title(handles.CAField,strcat('\fontsize{16}',titleStr));
            
            handles.CAField.FontSize=10;
            zoom on;
-           contParms.IterCount=contParms.IterCount+1;
            contParms.LastIters=length(N1Path);
            contParms.Periods=period;
            
@@ -632,24 +677,28 @@ end
            case '@(z)(z^2+c)'
                titleStr='z_{t+1}=z^{2}+c';
            otherwise
-               titleStr=func2str(ca.Base);
+               titleStr=strrep(func2str(ca.Base),'z','z_{t}');
+               titleStr=strrep(titleStr,'@(z_{t})','z_{t+1}=');
        end
        
-       switch handles.LambdaMenu.Value
-           case 1
-               titleStr=strcat(titleStr,' ; \lambda(t)=\mu_{0}+\Sigma_{k=1}^{n}\mu_{k}\cdotz_{k}^{t}');
-           case 2
-               titleStr=strcat(titleStr,' ; \lambda(t)=\mu+\mu_{0}\cdot\mid(1/n)\cdot\Sigma_{k=1}^{n}z_{k}^{t}-z^{*}(\mu)\mid');
-           case 3
-               titleStr=strcat(titleStr,' ; \lambda(t)=\mu+\mu_{0}\cdot\mid(1/n)\cdot\Sigma_{k=1}^{n}(-1^{k})\cdotz_{k}^{t}\mid');
-           case 4
-               titleStr=strcat(titleStr,' ; \lambda(t)=\mu+\mu_{0}\cdot( (1/n)\cdot\Sigma_{k=1}^{n}z_{k}^{t}-z^{*}(\mu) )');
-           case 5
-               titleStr=strcat(titleStr,' ; \lambda=\mu_{0}+\mu');
-               
+       if ~ControlParams.GetSetCustomBase
+           switch handles.LambdaMenu.Value
+               case 1
+                   titleStr=strcat(titleStr,' ; \lambda(t)=\mu_{0}+\Sigma_{k=1}^{n}\mu_{k}\cdotz_{k}^{t}');
+               case 2
+                   titleStr=strcat(titleStr,' ; \lambda(t)=\mu+\mu_{0}\cdot\mid(1/n)\cdot\Sigma_{k=1}^{n}z_{k}^{t}-z^{*}(\mu)\mid');
+               case 3
+                   titleStr=strcat(titleStr,' ; \lambda(t)=\mu+\mu_{0}\cdot\mid(1/n)\cdot\Sigma_{k=1}^{n}(-1^{k})\cdotz_{k}^{t}\mid');
+               case 4
+                   titleStr=strcat(titleStr,' ; \lambda(t)=\mu+\mu_{0}\cdot( (1/n)\cdot\Sigma_{k=1}^{n}z_{k}^{t}-z^{*}(\mu) )');
+               case 5
+                   titleStr=strcat(titleStr,' ; \lambda=\mu_{0}+\mu');
+           end
        end
        
-       titleStr=strcat(titleStr,' ; \mu_{0}=',num2str(ca.Miu0),' ; \mu=',num2str(ca.Miu));
+       if ~ControlParams.GetSetCustomBase
+           titleStr=strcat(titleStr,' ; \mu_{0}=',num2str(ca.Miu0),' ; \mu=',num2str(ca.Miu));
+       end
        
        title(handles.CAField,strcat('\fontsize{16}',titleStr));
        
@@ -662,7 +711,6 @@ end
        end
       
        setappdata(handles.output,'CurrCA',ca);
-       contParms.IterCount=contParms.IterCount+1;
        setappdata(handles.output,'ContParms',contParms);
        setappdata(handles.output,'ResProc',resProc);
        handles.ResetButton.Enable='on';
@@ -1256,7 +1304,9 @@ N1Path = getappdata(handles.output,'N1Path');
 
 ca = CellularAutomat(ca.FieldType,ca.BordersType, ca.N ,ca.Base,ca.Lambda, ca.Zbase, ca.Miu0, ca.Miu);
 
+% ControlParams.GetSetCustomBase(false);
 contParms.IsReady2Start=false;
+contParms.IterCount=1;
 
 N1Path=[];
 
@@ -2978,15 +3028,19 @@ end
 numErrors=[0 0 0];
 num=0;
 if(isempty(regexp(handles.MiuEdit.String,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')))
+    if ~ControlParams.GetSetCustomBase || ~contParms.SingleOrMultipleCalc
     error=true;
     errorStr=strcat(errorStr,'ћю; ');
     numErrors(2)=true;
+    end
 end
 
 if(isempty(regexp(handles.Miu0Edit.String,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')))
+    if ~ControlParams.GetSetCustomBase || ~contParms.SingleOrMultipleCalc
     error=true;
     errorStr=strcat(errorStr,'ћю0; ');
     numErrors(3)=true;
+    end
 end
 
 if(isempty(regexp(handles.z0Edit.String,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')))
@@ -3004,7 +3058,7 @@ if isempty(currCA.Cells) || (~contParms.IsReady2Start && ~fileWasRead)
         DistributStep=str2double(handles.DistributStepEdit.String);
         DistributEnd=str2double(handles.DistributEndEdit.String);
     
-        if (isnan(DistributStart) || isreal(DistributStart) || isempty(regexp(handles.DistributStepEdit.String,'^\d+(\.?)(?(1)\d+|)$')) || isnan(DistributEnd) || isreal(DistributEnd)) && str2double(handles.NFieldEdit.String)~=1
+        if (isnan(DistributStart) || isreal(DistributStart) || isempty(regexp(handles.DistributStepEdit.String,'^\d+(\.?)(?(1)\d+|)$')) || isnan(DistributEnd) || isreal(DistributEnd)) && (str2double(handles.NFieldEdit.String)~=1 ||(str2double(handles.NFieldEdit.String)==1 && numErrors(1)))
             error=true;
             regexprep(errorStr,', $','. ');
             errorStr=strcat(errorStr,' Ќе задана начальна€ конфигураци€: неправильный формат диапазона значений Z0 или точки z0; ');
@@ -3166,48 +3220,6 @@ else
     
     contParms.IsReady2Start=true;
     setappdata(handles.output,'ContParms',contParms);
-    
-
-    handles.ParamRePointsEdit.Enable='off';
-    handles.ParamNameMenu.Enable='off';
-    handles.ParamReDeltaEdit.Enable='off';
-    handles.ParamImDeltaEdit.Enable='off';
-    handles.ParamRePointsEdit.Enable='off';
-    handles.ParamImPointsEdit.Enable='off';
-    handles.DefaultMultiParmCB.Enable='off';
-    
-    handles.NFieldEdit.Enable='off';
-    handles.SquareFieldRB.Enable='off';
-    handles.HexFieldRB.Enable='off';
-    handles.GorOrientRB.Enable='off';
-    handles.VertOrientRB.Enable='off';
-    handles.DefaultCACB.Enable='off';
-    handles.CompletedBordersRB.Enable='off';
-    handles.DeathLineBordersRB.Enable='off';
-    handles.ClosedBordersRB.Enable='off';
-    
-    handles.BaseImagMenu.Enable='off';
-    handles.UsersBaseImagEdit.Enable='off';
-    handles.LambdaMenu.Enable='off';
-    handles.DefaultFuncsCB.Enable='off';
-    
-    handles.z0Edit.Enable='off';
-    handles.MiuEdit.Enable='off';
-    handles.Miu0Edit.Enable='off';
-    handles.DefaultCB.Enable='off';
-    handles.CountBaseZButton.Enable='off';
-    
-    handles.DistributionTypeMenu.Enable='off';
-    handles.DistributStartEdit.Enable='off';
-    handles.DistributStepEdit.Enable='off';
-    handles.DistributEndEdit.Enable='off';
-    
-    handles.Z0SourcePathButton.Enable='off';
-    handles.ReadZ0SourceButton.Enable='off';
-    
-    handles.SingleCalcRB.Enable='off';
-    handles.MultipleCalcRB.Enable='off';
-    
 end
 % hObject    handle to SaveParamsButton (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -3411,15 +3423,18 @@ end
 function BaseImagMenu_Callback(hObject, eventdata, handles)
 
 currCA=getappdata(handles.output,'CurrCA');
+contParms = getappdata(handles.output,'ContParms');
 switch hObject.Value
     
     case 1
         currCA.Base=@(z)(exp(i*z));
         handles.UsersBaseImagEdit.String='';
+        ControlParams.GetSetCustomBase(false);
         
     case 2
         currCA.Base=@(z)(z^2+c);
         handles.UsersBaseImagEdit.String='';
+        ControlParams.GetSetCustomBase(false);
         
     case 3
         userFuncStr=handles.UsersBaseImagEdit.String;
@@ -3432,9 +3447,11 @@ switch hObject.Value
         else
             funcStr=strcat('@(z)',userFuncStr);
             currCA.Base=str2func(funcStr);
+            ControlParams.GetSetCustomBase(true);
         end
 end
 setappdata(handles.output,'CurrCA',currCA);
+setappdata(handles.output,'ContParms',contParms);
 % hObject    handle to BaseImagMenu (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)

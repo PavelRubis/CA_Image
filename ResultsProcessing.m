@@ -34,6 +34,7 @@ classdef ResultsProcessing
                    if length(ca.Cells)==1
                        fprintf(fileID, '\nРебро N=1\n');
                        fprintf(fileID, strcat('\nОтображение: ',func2str(ca.Base)));
+                       fprintf(fileID, strcat('\nЗависимость параметра лямбда: ',func2str(ca.Lambda)));
                        fprintf(fileID, '\nКоличество итераций N=%f\n',length(Res)-1);
                        fprintf(fileID, 'Судьба\n');
                        fprintf(fileID,'Re	Im	P	n\n');
@@ -70,7 +71,7 @@ classdef ResultsProcessing
                        fprintf(fileID, strcat('\nЗависимость параметра лямбда: ',func2str(ca.Lambda)));
                        fprintf(fileID, '\nПараметр Мю=%f %fi\n',real(ca.Miu),imag(ca.Miu));
                        fprintf(fileID, 'Параметр Мю0=%f %fi\n',real(ca.Miu0),imag(ca.Miu0));
-                       fprintf(fileID, 'Итерация Iter=%f\n',contParms.IterCount);
+                       fprintf(fileID, 'Итерация Iter=%f\n',contParms.IterCount-1);
                        fclose(fileID);
                
                        Z=[];
@@ -98,10 +99,9 @@ classdef ResultsProcessing
                    
                    fprintf(fileID,strcat('Отображение: ',func2str(contParms.ImageFunc)));
                    
-                   fprintf(fileID, '\nКоличество итераций N=%f\n',contParms.IterCount);
+                   fprintf(fileID, '\nКоличество итераций N=%f\n',contParms.IterCount-1);
                    
-                   fprintf(fileID, strcat('Одиночный параметр: ',contParms.SingleParamName));
-                   fprintf(fileID,strcat('=',num2str(contParms.SingleParamValue)));
+                   fprintf(fileID, strcat('Одиночные параметры: ',num2str(contParms.SingleParams(1)),' ; ',num2str(contParms.SingleParams(2))));
                    fprintf(fileID, strcat('\nПараметр окна: ',contParms.WindowParamName));
                    fprintf(fileID, '\nДиапазон параметра окна: ');
                    
@@ -138,32 +138,32 @@ classdef ResultsProcessing
 
            end
            if obj.isSaveFig
+                   
                fig=graphics.Axs;
-               set(fig,'Units','pixel');
-               rect=fig.Position;
-               rect=rect-10;
-               drect=fig.TightInset;
-                   
-               rect([1 2])=-drect([1 2])-2;
-               rect([3 4])= rect([3 4])+drect([3 4])+2;
-               photo=getframe(fig,rect);
-               [photo,cmp]=frame2im(photo);
-               photoName=strcat(obj.ResPath,'\CAField');
-                   
-               switch obj.FigureFileFormat
-                   case 1
+               if obj.FigureFileFormat==1
                        h = figure;
                        colormap(graphics.Clrmp);
                        h.CurrentAxes = copyobj([fig graphics.Clrbr],h);
-%                        savefig(h,strcat(photoName,'.fig'));
                        h.Visible='on';
-                           
-                   case 2
-                       imwrite(photo,jet(256),strcat(photoName,'.png'));
-                   case 3
-                       imwrite(photo,strcat(photoName,'.jpg'),'jpg','Quality',100);
+               else
+                   set(fig,'Units','pixel');
+                   rect=fig.Position;
+                   rect=rect-10;
+                   drect=fig.TightInset;
+                   
+                   rect([1 2])=-drect([1 2])-2;
+                   rect([3 4])= rect([3 4])+drect([3 4])+2;
+                   photo=getframe(fig,rect);
+                   [photo,cmp]=frame2im(photo);
+                   photoName=strcat(obj.ResPath,'\CAField');
+                   switch obj.FigureFileFormat
+                       case 2
+                           imwrite(photo,jet(256),strcat(photoName,'.png'));
+                       case 3
+                           imwrite(photo,strcat(photoName,'.jpg'),'jpg','Quality',100);
+                   end
+                   set(fig,'Units','normalized');
                end
-               set(fig,'Units','normalized');
            end
            resproc=obj;
        end

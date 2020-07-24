@@ -62,10 +62,10 @@ classdef CellularAutomat
                    lambdaPart=lambda(neighborsZ);
                end
                
-               if strcmp(func2str(base),'@(z)(exp(i*z))')
-                   z_new=lambdaPart*basePart;
-               else
+               if ControlParams.GetSetCustomBase
                    z_new=basePart;
+               else
+                   z_new=lambdaPart*basePart;
                end
                
                CA_cell.zPath=[CA_cell.zPath z_new];
