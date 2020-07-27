@@ -62,7 +62,7 @@ classdef CellularAutomat
                    lambdaPart=lambda(neighborsZ);
                end
                
-               if ControlParams.GetSetCustomBase
+               if ControlParams.GetSetCustomImag
                    z_new=basePart;
                else
                    z_new=lambdaPart*basePart;
@@ -456,11 +456,11 @@ classdef CellularAutomat
            
            MiuStr=strcat('(',num2str(thisCA.Miu));
            MiuStr=strcat(MiuStr,')');
-           baseFuncStr=strrep(func2str(thisCA.Base),'Miu',MiuStr);
-           baseFuncStr=strrep(baseFuncStr,'c',MiuStr);
-           
            Miu0Str=strcat('(',num2str(thisCA.Miu0));
            Miu0Str=strcat(Miu0Str,')');
+           baseFuncStr=strrep(func2str(thisCA.Base),'Miu0',Miu0Str);
+           baseFuncStr=strrep(baseFuncStr,'Miu',MiuStr);
+           
            lambdaFuncStr=strrep(func2str(thisCA.Lambda),'Miu0',Miu0Str);
            lambdaFuncStr=strrep(lambdaFuncStr,'Miu',MiuStr);
            

@@ -48,10 +48,13 @@ end
 function CA_OpeningFcn(hObject, eventdata, handles, varargin)
 
 CurrCA = CellularAutomat(0, 2, 1,@(z)(exp(i*z)),@(z_k)Miu0 + sum(z_k), 0, 0, 0);
-ContParms = ControlParams(1,1,0,0,' ',@(z)(Miu+z)*exp(i*z));
+ContParms = ControlParams(1,1,0,0,' ',@(z)exp(i*z),'*(Miu+z)');
+ControlParams.GetSetCustomImag(0);
+
 ResProc = ResultsProcessing(' ',1,1);
 ResultsProcessing.GetSetCellOrient(0);
 ResultsProcessing.GetSetFieldOrient(0);
+
 FileWasRead=false;
 
 setappdata(hObject,'CurrCA',CurrCA);
@@ -182,24 +185,27 @@ handles.MultipleCalcRB.Enable='off';
            len=size(WindowParam);
            zParam=false;
            Z_Old=[];
-           if any(strcmp(contParms.WindowParamName,{'Z0' 'Z' 'z0' 'z'}))
-               z_New=WindowParam;
-               Z_Old=z_New;
-               zParam=true;
-           else
-               z_New=zeros(len);
-               z_New(:)=str2double(handles.z0Edit.String);
-               Z_Old=z_New;
+           
+           switch contParms.WindowParamName
+               case 'z0' 
+                   z_New=WindowParam;
+                   Z_Old=z_New;
+                   zParam=true;
+               case {'Miu','Miu0'}
+                   z_New=zeros(len);
+                   z_New(:)=str2double(handles.z0Edit.String);
+                   Z_Old=z_New;
            end
+           
            fStepNew=zeros(len);
            Delta=zeros(len);
            
            ZParam=zeros(len);
            ZParam(:)=zParam;
            Z_Old_1=Inf(len);
-           if isempty(Z_Old)
-               Z_Old=zeros(len);
-           end
+%            if isempty(Z_Old)
+%                Z_Old=zeros(len);
+%            end
            FStep=zeros(len);
            ItersCount=zeros(len);
            ItersCount(:)=itersCount;
@@ -297,33 +303,48 @@ handles.MultipleCalcRB.Enable='off';
            string_title= func2str(contParms.ImageFunc);
            string_title=strrep(string_title,'z','z_{t}');
            string_title=strrep(string_title,'*','\cdot');
-           if any(strcmp(contParms.WindowParamName,{'Z0' 'Z' 'z0' 'z'}))
-               string_title=strrep(string_title,'@(z_{t})','z_{t+1}=');
-               string_title=strrep(string_title,'Miu0','\mu_{0}');
-               string_title=strrep(string_title,'Miu','\mu');
-               xlabel('Re(z(t))');
-               ylabel('Im(z(t))');
-               string_title=strcat(string_title,'  \mu=');
-               string_title=strcat(string_title,num2str(contParms.SingleParams(1)));
-               string_title=strcat(string_title,'  \mu_{0}=');
-               string_title=strcat(string_title,num2str(contParms.SingleParams(2)));
-           else
-               string_title=strrep(string_title,'@(Miu,z_{t},eq)','z_{t+1}=');
-               string_title=strrep(string_title,'Miu0','\mu_{0}');
-               string_title=strrep(string_title,'Miu','\mu');
-               string_title=strcat(string_title,'  z_{0}=');
-               string_title=strcat(string_title,num2str(contParms.SingleParams(1)));
-               string_title=strcat(string_title,'  \mu_{0}=');
-               string_title=strcat(string_title,num2str(contParms.SingleParams(2)));
-               xlabelStr='Re(\mu';
-               xlabelStr=strcat(xlabelStr,')');
+           switch contParms.WindowParamName
+               case 'z0'
+                   string_title=strrep(string_title,'@(z_{t})','z_{t+1}=');
+                   string_title=strrep(string_title,'Miu0','\mu_{0}');
+                   string_title=strrep(string_title,'Miu','\mu');
+                   xlabel('Re(z(t))');
+                   ylabel('Im(z(t))');
+                   string_title=strcat(string_title,'  \mu=');
+                   string_title=strcat(string_title,num2str(contParms.SingleParams(1)));
+                   string_title=strcat(string_title,'  \mu_{0}=');
+                   string_title=strcat(string_title,num2str(contParms.SingleParams(2)));
+               case 'Miu'
+                   string_title=strrep(string_title,'@(Miu,z_{t},eq)','z_{t+1}=');
+                   string_title=strrep(string_title,'Miu0','\mu_{0}');
+                   string_title=strrep(string_title,'Miu','\mu');
+                   string_title=strcat(string_title,'  z_{0}=');
+                   string_title=strcat(string_title,num2str(contParms.SingleParams(1)));
+                   string_title=strcat(string_title,'  \mu_{0}=');
+                   string_title=strcat(string_title,num2str(contParms.SingleParams(2)));
+                   xlabelStr='Re(\mu)';
                 
-               ylabelStr='Im(\mu';
-               ylabelStr=strcat(ylabelStr,')');
+                   ylabelStr='Im(\mu)';
                
-               xlabel(xlabelStr);
-               ylabel(ylabelStr);
+                   xlabel(xlabelStr);
+                   ylabel(ylabelStr);
+               case 'Miu0'
+                   string_title=strrep(string_title,'@(Miu0,z_{t},eq)','z_{t+1}=');
+                   string_title=strrep(string_title,'Miu0','\mu_{0}');
+                   string_title=strrep(string_title,'Miu','\mu');
+                   string_title=strcat(string_title,'  z_{0}=');
+                   string_title=strcat(string_title,num2str(contParms.SingleParams(1)));
+                   string_title=strcat(string_title,'  \mu=');
+                   string_title=strcat(string_title,num2str(contParms.SingleParams(2)));
+                   
+                   xlabelStr='Re(\mu_{0})';
+                   ylabelStr='Im(\mu_{0})';
+               
+                   xlabel(xlabelStr);
+                   ylabel(ylabelStr);
+                   
            end
+           
            string_title=strrep(string_title,'eq','z^{*}');
            
            if any(strcmp(contParms.WindowParamName,{'Z0' 'Z' 'z0' 'z'}))
@@ -503,7 +524,7 @@ handles.MultipleCalcRB.Enable='off';
                    titleStr=strrep(titleStr,'@(z_{t})','z_{t+1}=');
            end
            
-           if ~ControlParams.GetSetCustomBase
+           if isempty(ControlParams.GetSetCustomImag)
                switch handles.LambdaMenu.Value
                    case 1
                        titleStr=strcat(titleStr,' ; \lambda(t)=\mu_{0}');
@@ -516,12 +537,31 @@ handles.MultipleCalcRB.Enable='off';
                    case 5
                        titleStr=strcat(titleStr,' ; \lambda=\mu_{0}+\mu');
                end
+           else
+               if ~ControlParams.GetSetCustomImag
+                   switch handles.LambdaMenu.Value
+                       case 1
+                           titleStr=strcat(titleStr,' ; \lambda(t)=\mu_{0}');
+                       case 2
+                           titleStr=strcat(titleStr,' ; \lambda(t)=\mu');
+                       case 3
+                           titleStr=strcat(titleStr,' ; \lambda(t)=\mu');
+                       case 4
+                           titleStr=strcat(titleStr,' ; \lambda(t)=\mu');
+                       case 5
+                           titleStr=strcat(titleStr,' ; \lambda=\mu_{0}+\mu');
+                   end
+               end
            end
        
            titleStr=strcat(titleStr,' ; z_{0}=',num2str(ca.Cells(1).z0));
            
-           if ~ControlParams.GetSetCustomBase
+           if isempty(ControlParams.GetSetCustomImag)
                titleStr=strcat(titleStr,' ; \mu=',num2str(ca.Miu),' ; \mu_{0}=',num2str(ca.Miu0));
+           else
+               if ~ControlParams.GetSetCustomImag
+                   titleStr=strcat(titleStr,' ; \mu=',num2str(ca.Miu),' ; \mu_{0}=',num2str(ca.Miu0));
+               end
            end
            
            title(handles.CAField,strcat('\fontsize{16}',titleStr));
@@ -681,7 +721,7 @@ handles.MultipleCalcRB.Enable='off';
                titleStr=strrep(titleStr,'@(z_{t})','z_{t+1}=');
        end
        
-       if ~ControlParams.GetSetCustomBase
+       if isempty(ControlParams.GetSetCustomImag)
            switch handles.LambdaMenu.Value
                case 1
                    titleStr=strcat(titleStr,' ; \lambda(t)=\mu_{0}+\Sigma_{k=1}^{n}\mu_{k}\cdotz_{k}^{t}');
@@ -694,10 +734,29 @@ handles.MultipleCalcRB.Enable='off';
                case 5
                    titleStr=strcat(titleStr,' ; \lambda=\mu_{0}+\mu');
            end
+       else
+           if~ControlParams.GetSetCustomImag
+               switch handles.LambdaMenu.Value
+                   case 1
+                       titleStr=strcat(titleStr,' ; \lambda(t)=\mu_{0}+\Sigma_{k=1}^{n}\mu_{k}\cdotz_{k}^{t}');
+                   case 2
+                       titleStr=strcat(titleStr,' ; \lambda(t)=\mu+\mu_{0}\cdot\mid(1/n)\cdot\Sigma_{k=1}^{n}z_{k}^{t}-z^{*}(\mu)\mid');
+                   case 3
+                       titleStr=strcat(titleStr,' ; \lambda(t)=\mu+\mu_{0}\cdot\mid(1/n)\cdot\Sigma_{k=1}^{n}(-1^{k})\cdotz_{k}^{t}\mid');
+                   case 4
+                       titleStr=strcat(titleStr,' ; \lambda(t)=\mu+\mu_{0}\cdot( (1/n)\cdot\Sigma_{k=1}^{n}z_{k}^{t}-z^{*}(\mu) )');
+                   case 5
+                       titleStr=strcat(titleStr,' ; \lambda=\mu_{0}+\mu');
+               end
+           end
        end
        
-       if ~ControlParams.GetSetCustomBase
+       if isempty(ControlParams.GetSetCustomImag)
            titleStr=strcat(titleStr,' ; \mu_{0}=',num2str(ca.Miu0),' ; \mu=',num2str(ca.Miu));
+       else
+           if ~ControlParams.GetSetCustomImag 
+               titleStr=strcat(titleStr,' ; \mu_{0}=',num2str(ca.Miu0),' ; \mu=',num2str(ca.Miu));
+           end
        end
        
        title(handles.CAField,strcat('\fontsize{16}',titleStr));
@@ -988,31 +1047,31 @@ switch hObject.Value
         if contParms.SingleOrMultipleCalc
             currCA.Lambda = @(z_k)Miu0 + sum(z_k);
         else
-            contParms.ImageFunc=@(z)(Miu+z)*exp(i*z);
+            contParms.Lambda='*(Miu+z)';
         end
     case 2
         if contParms.SingleOrMultipleCalc
             currCA.Lambda = @(z_k)Miu + Miu0*(abs(sum(z_k-Zbase)/(length(z_k))));
         else
-            contParms.ImageFunc=@(z)(Miu+(Miu0*abs(z-(eq))))*exp(i*z);
+            contParms.Lambda='*(Miu+(Miu0*abs(z-(eq))))';
         end
     case 3
         if contParms.SingleOrMultipleCalc
             currCA.Lambda = @(z_k,n)Miu + Miu0*abs(sum(arrayfun(@(z_n,o)o*z_n ,z_k,n)));
         else
-            contParms.ImageFunc=@(z)(Miu+(Miu0*abs(z)))*exp(i*z);
+            contParms.Lambda='*(Miu+(Miu0*abs(z)))';
         end
     case 4
         if contParms.SingleOrMultipleCalc
             currCA.Lambda = @(z_k)Miu + Miu0*(sum(z_k-Zbase)/(length(z_k)));
         else
-            contParms.ImageFunc=@(z)(Miu+(Miu0*(z-(eq))))*exp(i*z);
+            contParms.Lambda='*(Miu+(Miu0*(z-(eq))))';
         end
     case 5
         if contParms.SingleOrMultipleCalc
             currCA.Lambda = @(z_k)(Miu + Miu0);
         else
-            contParms.ImageFunc=@(z)(Miu+Miu0)*exp(i*z);
+            contParms.Lambda='*(Miu+Miu0)';
         end
 end
 
@@ -1304,7 +1363,7 @@ N1Path = getappdata(handles.output,'N1Path');
 
 ca = CellularAutomat(ca.FieldType,ca.BordersType, ca.N ,ca.Base,ca.Lambda, ca.Zbase, ca.Miu0, ca.Miu);
 
-% ControlParams.GetSetCustomBase(false);
+% ControlParams.GetSetCustomImag(false);
 contParms.IsReady2Start=false;
 contParms.IterCount=1;
 
@@ -1319,6 +1378,16 @@ setappdata(handles.output,'N1Path',N1Path);
 
 
 handles.SaveAllModelParamsB.Enable='off';
+
+if handles.BaseImagMenu.Value==1
+    handles.LambdaMenu.Enable='on';
+    handles.CountBaseZButton.Enable='on';
+else
+    handles.LambdaMenu.Enable='off';
+    handles.CountBaseZButton.Enable='off';
+    handles.BaseZEdit.String='';
+end
+
 if contParms.SingleOrMultipleCalc
     
     
@@ -1381,14 +1450,12 @@ end
     
     handles.BaseImagMenu.Enable='on';
     handles.UsersBaseImagEdit.Enable='on';
-    handles.LambdaMenu.Enable='on';
     handles.DefaultFuncsCB.Enable='on';
     
     handles.z0Edit.Enable='on';
     handles.MiuEdit.Enable='on';
     handles.Miu0Edit.Enable='on';
     handles.DefaultCB.Enable='on';
-    handles.CountBaseZButton.Enable='on';
     
     
     handles.SingleCalcRB.Enable='on';
@@ -3024,11 +3091,10 @@ if contParms.SingleOrMultipleCalc
     end
 end
 
-%regexp('-0.58755665+5.45i','^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')
 numErrors=[0 0 0];
 num=0;
 if(isempty(regexp(handles.MiuEdit.String,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')))
-    if ~ControlParams.GetSetCustomBase || ~contParms.SingleOrMultipleCalc
+    if ~ControlParams.GetSetCustomImag || ~contParms.SingleOrMultipleCalc
     error=true;
     errorStr=strcat(errorStr,'Мю; ');
     numErrors(2)=true;
@@ -3036,7 +3102,7 @@ if(isempty(regexp(handles.MiuEdit.String,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+
 end
 
 if(isempty(regexp(handles.Miu0Edit.String,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')))
-    if ~ControlParams.GetSetCustomBase || ~contParms.SingleOrMultipleCalc
+    if ~ControlParams.GetSetCustomImag || ~contParms.SingleOrMultipleCalc
     error=true;
     errorStr=strcat(errorStr,'Мю0; ');
     numErrors(3)=true;
@@ -3047,9 +3113,89 @@ if(isempty(regexp(handles.z0Edit.String,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(
     numErrors(1)=true;
 end
 
-
-
 currCA=getappdata(handles.output,'CurrCA');
+
+switch handles.BaseImagMenu.Value
+    
+    case 1
+        currCA.Base=@(z)(exp(i*z));
+        handles.UsersBaseImagEdit.String='';
+        ControlParams.GetSetCustomImag(false);
+        
+        if ~contParms.SingleOrMultipleCalc
+            ImageFuncStr=strcat(func2str(@(z)(exp(i*z))),contParms.Lambda);
+            contParms.ImageFunc=str2func(ImageFuncStr);
+        end
+        
+    case 2
+        currCA.Base=@(z)(z^2+c);
+        handles.UsersBaseImagEdit.String='';
+        ControlParams.GetSetCustomImag(true);
+        
+        if ~contParms.SingleOrMultipleCalc
+            contParms.ImageFunc=@(z)(z^2+Miu);
+        end
+        
+    case 3
+        userFuncStr=handles.UsersBaseImagEdit.String;
+        if ~isempty(regexp(userFuncStr,'[^\*\^\+-\/\.\(\)\dczie(exp)(pi)(mu)(mu0)]','ONCE')) || isempty(userFuncStr)
+            
+            error=true;
+            errorStr=strcat(errorStr,'Недопустимый формат пользовательской функции; ');
+            
+        else
+            try 
+                varNum=0;
+                varStr='@(';
+                
+                if contains(userFuncStr,'z')
+                    varNum=varNum+1;
+                    varStr=strcat(varStr,'z,');
+                end
+                
+                if contains(userFuncStr,'mu0')
+                    userFuncStr=strrep(userFuncStr,'mu0','Miu0');
+                    varNum=varNum+1;
+                    varStr=strcat(varStr,'Miu0,');
+                end
+                
+                if contains(userFuncStr,'mu')
+                    userFuncStr=strrep(userFuncStr,'mu','Miu');
+                    varNum=varNum+1;
+                    varStr=strcat(varStr,'Miu,');
+                end
+                
+                varStr=regexprep(varStr,',$','\)');
+                funcStr=strcat(varStr,userFuncStr);
+                testFunc=str2func(funcStr);
+                
+                switch varNum
+                    case 1
+                        testFunc(0);
+                    case 2
+                        testFunc(0,0);
+                    case 3
+                        testFunc(0,0,0);
+                    otherwise
+                        i_love_MATLAB^2;
+                end
+                
+                funcStr=regexprep(funcStr,'@\(.+\)','@(z)');
+                currCA.Base=str2func(funcStr);
+                
+                if ~contParms.SingleOrMultipleCalc
+                    contParms.ImageFunc=str2func(funcStr);
+                end
+                
+                ControlParams.GetSetCustomImag(true);
+                handles.LambdaMenu.Enable='off';
+            catch
+                error=true;
+                errorStr=strcat(errorStr,'Недопустимый формат пользовательской функции; ');
+            end
+        end
+end
+
 fileWasRead = getappdata(handles.output,'FileWasRead');
 if isempty(currCA.Cells) || (~contParms.IsReady2Start && ~fileWasRead)
     
@@ -3128,6 +3274,11 @@ if isempty(currCA.Cells) || (~contParms.IsReady2Start && ~fileWasRead)
                     CenterPointStr=handles.MiuEdit.String;
                     param1=str2double(handles.z0Edit.String);
                     param2=str2double(handles.Miu0Edit.String);
+                case 3
+                    num=3;
+                    CenterPointStr=handles.Miu0Edit.String;
+                    param1=str2double(handles.z0Edit.String);
+                    param2=str2double(handles.MiuEdit.String);
             end
             
             if ~(numErrors(num))
@@ -3140,9 +3291,9 @@ if isempty(currCA.Cells) || (~contParms.IsReady2Start && ~fileWasRead)
                 
                 ReRange=(ReCenter-ReDelta):ReStep:(ReCenter+ReDelta);
                 ImRange=(ImCenter-ImDelta):ImStep:(ImCenter+ImDelta);
-                currCA.N=2;
+                currCA.N=100000;
             else
-                errorStr=strcat(errorStr,'одиночный параметр мультирасчета; ');
+                errorStr=strcat(errorStr,'Параметр "окна" мультирасчета; ');
                 error=true;
             end
             
@@ -3175,6 +3326,8 @@ else
                 contParms.WindowParamName='z0';
             case 2
                 contParms.WindowParamName='Miu';
+            case 3
+                contParms.WindowParamName='Miu0';
         end
     end
     
@@ -3193,11 +3346,13 @@ else
     currCA.Miu=str2double(handles.MiuEdit.String);
     
     if num~=2
-        MiuStr=handles.MiuEdit.String;
-        MiuStr=strcat('(',MiuStr);
-        MiuStr=strcat(MiuStr,')');
-        FbaseStr=strrep(func2str(currCA.Base),'Miu',MiuStr);
+        Miu0Str=strcat('(',handles.Miu0Edit.String,')');
+        MiuStr=strcat('(',handles.MiuEdit.String,')');
+        
+        FbaseStr=strrep(func2str(currCA.Base),'Miu0',Miu0Str);
+        FbaseStr=strrep(FbaseStr,'Miu',MiuStr);
         FbaseStr=strrep(FbaseStr,'c',MiuStr);
+        
         if ~isempty(strfind(FbaseStr,'(exp'))
             MiuStr=strcat(MiuStr,'*(exp');
             FbaseStr=strrep(FbaseStr,'(exp',MiuStr);
@@ -3222,41 +3377,6 @@ else
     setappdata(handles.output,'ContParms',contParms);
 end
 % hObject    handle to SaveParamsButton (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-
-% % --- Executes on button press in CancelParamsButton.
-% function CancelParamsButton_Callback(hObject, eventdata, handles)
-% % handles.MiuReEdit.Enable='on';
-% % handles.MiuImEdit.Enable='on';
-% % handles.Miu0ReEdit.Enable='on';
-% % handles.Miu0ImEdit.Enable='on';
-% handles.NFieldEdit.Enable='on';
-% handles.BaseZEdit.Enable='on';
-% handles.BaseImagMenu.Enable='on';
-% handles.UsersBaseImagEdit.Enable='on';
-% handles.DefaultCB.Enable='on';
-% handles.SquareFieldRB.Enable='on';
-% handles.HexFieldRB.Enable='on';
-% handles.GorOrientRB.Enable='on';
-% handles.VertOrientRB.Enable='on';
-% handles.CompletedBordersRB.Enable='on';
-% handles.DeathLineBordersRB.Enable='on';
-% handles.ClosedBordersRB.Enable='on';
-% handles.BaseImagMenu.Enable='on';
-% handles.UsersBaseImagEdit.Enable='on';
-% handles.LambdaMenu.Enable='on';
-% handles.Z0SourcePathButton='on';
-% handles.ReadZ0SourceButton='on';
-% handles.SaveParamsButton.Enable='on';
-% handles.SingleCalcRB.Enable='on';
-% handles.MultipleCalcRB.Enable='on';
-% 
-% contParms = getappdata(handles.output,'ContParms');
-% contParms.IsReady2Start=false;
-% setappdata(handles.output,'ContParms',contParms);
-% hObject    handle to CancelParamsButton (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
@@ -3422,36 +3542,22 @@ end
 % --- Executes on selection change in BaseImagMenu.
 function BaseImagMenu_Callback(hObject, eventdata, handles)
 
-currCA=getappdata(handles.output,'CurrCA');
-contParms = getappdata(handles.output,'ContParms');
-switch hObject.Value
-    
-    case 1
-        currCA.Base=@(z)(exp(i*z));
-        handles.UsersBaseImagEdit.String='';
-        ControlParams.GetSetCustomBase(false);
-        
-    case 2
-        currCA.Base=@(z)(z^2+c);
-        handles.UsersBaseImagEdit.String='';
-        ControlParams.GetSetCustomBase(false);
-        
-    case 3
-        userFuncStr=handles.UsersBaseImagEdit.String;
-        if ~isempty(regexp(userFuncStr,'[^\*\^\+-\/\.\(\)\dczie(exp)(pi)]','ONCE')) || isempty(userFuncStr)
-            
-            errordlg('Ошибка. Недопустимый формат пользовательской функции.','modal');
-            hObject.Value=1;
-            currCA.Base=@(z)(exp(i*z));
-            handles.UsersBaseImagEdit.String='';
-        else
-            funcStr=strcat('@(z)',userFuncStr);
-            currCA.Base=str2func(funcStr);
-            ControlParams.GetSetCustomBase(true);
-        end
+if hObject.Value==3
+    handles.UsersBaseImagEdit.Enable='on';
+else
+    handles.UsersBaseImagEdit.String='';
+    handles.UsersBaseImagEdit.Enable='off';
 end
-setappdata(handles.output,'CurrCA',currCA);
-setappdata(handles.output,'ContParms',contParms);
+
+if hObject.Value==1
+    handles.LambdaMenu.Enable='on';
+    handles.CountBaseZButton.Enable='on';
+else
+    handles.LambdaMenu.Enable='off';
+    handles.CountBaseZButton.Enable='off';
+    handles.BaseZEdit.String='';
+end
+
 % hObject    handle to BaseImagMenu (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4577,11 +4683,13 @@ if ContParms.SingleOrMultipleCalc
     CurrCA.Base=@(z)(exp(i*z));
     CurrCA.Lambda = @(z_k)Miu0 + sum(z_k);
 else
-    ContParms.ImageFunc=@(z)(Miu+z)*exp(i*z);
+    ContParms.ImageFunc=@(z)exp(i*z)*(Miu+z);
 end
 handles.BaseImagMenu.Value=1;
-handles.UsersBaseImagEdit.String='';
 handles.LambdaMenu.Value=1;
+handles.UsersBaseImagEdit.Enable='off';
+handles.UsersBaseImagEdit.String='';
+
 setappdata(handles.output,'CurrCA',CurrCA);
 setappdata(handles.output,'ContParms',ContParms);
 % hObject    handle to DefaultFuncsCB (see GCBO)

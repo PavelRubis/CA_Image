@@ -10,6 +10,7 @@ classdef ControlParams %класс параметров управлени€ и множественного элементарно
        SingleParams  (1,2) double % одиночные параметры мультирасчета
        IsReady2Start logical = false% задан ли  ј
        ImageFunc function_handle % отображение дл€ множественного расчета
+       Lambda (1,:) char % множитель л€мбда перед отображением exp(i*z) 
        
        Periods  (:,:) double % значени€ периодов 
        LastIters  (:,:) double % последн€€ итераци€
@@ -17,7 +18,7 @@ classdef ControlParams %класс параметров управлени€ и множественного элементарно
    
    methods
        
-       function obj=ControlParams(iterCount,singleOrMultipleCalc,reRangeWindow, imRangeWindow, windowParamName,imageFunc)
+       function obj=ControlParams(iterCount,singleOrMultipleCalc,reRangeWindow, imRangeWindow, windowParamName,imageFunc,lambda)
        
            if nargin
                obj.IterCount=iterCount;
@@ -26,6 +27,7 @@ classdef ControlParams %класс параметров управлени€ и множественного элементарно
                obj.ImRangeWindow=imRangeWindow;
                obj.WindowParamName=windowParamName;
                obj.ImageFunc=imageFunc;
+               obj.Lambda=lambda;
            end
            
        end
@@ -44,7 +46,7 @@ classdef ControlParams %класс параметров управлени€ и множественного элементарно
        end
        
        
-      % метод get-set дл€ статической переменной функции мультирасчета
+      % метод get-set дл€ статической переменной порогов точности
        function out = GetSetPrecisionParms(parms)
            persistent PrecisionParms;
            if nargin==1
@@ -53,7 +55,7 @@ classdef ControlParams %класс параметров управлени€ и множественного элементарно
            out = PrecisionParms;
        end
        
-      % метод get-set дл€ статической переменной максимального периода в мультирасчете)
+      % метод get-set дл€ статической переменной максимального периода в мультирасчете
        function out = GetSetMaxPeriod(mp)
            persistent MaxPeriod;
            if nargin==1
@@ -62,8 +64,8 @@ classdef ControlParams %класс параметров управлени€ и множественного элементарно
            out = MaxPeriod;
        end
        
-      % метод get-set дл€ статической переменной максимального периода в мультирасчете)
-       function out = GetSetCustomBase(customBase)
+      % метод get-set дл€ статической переменной-флага пользовательского отображени€
+       function out = GetSetCustomImag(customBase)
            persistent CustomBase;
            if nargin==1
                CustomBase = customBase;
@@ -108,7 +110,7 @@ classdef ControlParams %класс параметров управлени€ и множественного элементарно
            WindowParam=X+i*Y;
            z_eqArr=Inf(size(WindowParam));
            switch contParms.WindowParamName
-               case {'Z0' 'Z' 'z0' 'z'} % в случае окна по Z0 создание матрицы функций базы,с вставкой одного значени€ ћю
+               case 'z0' % в случае окна по Z0
                    
                    zBaseStr=strcat('(',num2str(ca.Zbase));
                    zBaseStr=strcat(zBaseStr,')');
@@ -119,49 +121,57 @@ classdef ControlParams %класс параметров управлени€ и множественного элементарно
                    MiuStr=strcat('(',num2str(ca.Miu));
                    MiuStr=strcat(MiuStr,')');
                    
+                   contParms.ImageFunc=str2func(strrep(func2str(contParms.ImageFunc),'@(Miu0,z,eq)','@(z)'));
                    contParms.ImageFunc=str2func(strrep(func2str(contParms.ImageFunc),'@(Miu,z,eq)','@(z)'));
                    contParms.ImageFunc=str2func(strrep(func2str(contParms.ImageFunc),'@(Miu,z)','@(z)'));
                    baseFuncStr=strrep(func2str(contParms.ImageFunc),'Miu0',Miu0Str);
                    baseFuncStr=strrep(baseFuncStr, 'Miu',MiuStr);
                    baseFuncStr=strrep(baseFuncStr,'eq',zBaseStr);
                    
-                   baseFuncStr=str2func(baseFuncStr);
-                   
-               case {'Miu','Mu','ћю'} % в случае окна по ћю создание матрицы функций базы, где множитель каждой функции - соответствующее значение ћю из диапазона
-%                    profile on;
-%                    paramsStrs = arrayfun(@(param){strcat('(',num2str(param))},WindowParam);
-%                    paramsStrs = arrayfun(@(param){strcat(cell2mat(param),')')},paramsStrs);
+               case 'Miu' % в случае окна по ћю
                    
                    baseFuncStr=func2str(contParms.ImageFunc);
                    baseFuncStr=strrep(baseFuncStr,'@(z)','@(Miu,z,eq)');
+                   baseFuncStr=strrep(baseFuncStr,'@(Miu,z)','@(Miu,z,eq)');
+                   baseFuncStr=strrep(baseFuncStr,'@(Miu0,z,eq)','@(Miu,z,eq)');
                    contParms.ImageFunc=str2func(baseFuncStr);
                    
                    Miu0Str=strcat('(',num2str(ca.Miu0));
                    Miu0Str=strcat(Miu0Str,')');
                    baseFuncStr=strrep(baseFuncStr,'Miu0',Miu0Str);
                    
-                   if ~isempty(strfind(baseFuncStr,'eq'))
+                   pureFuncStr=regexprep(baseFuncStr,'@\(.+\)','');
+                   
+                   if contains(pureFuncStr,'eq')
                        z0Arr=zeros(size(WindowParam));
 %                        ControlParams.GetSetMultiCalcFunc(baseFuncStr);
                        z0Arr(:) = ControlParams.CountZBaze(contParms.WindowCenterValue,-3.5+0.5*i);
                        z_eqArr=arrayfun(@ControlParams.CountZBaze,WindowParam,z0Arr);
                    end
-                   baseFuncStr=str2func(baseFuncStr);
+               
+               case 'Miu0' % в случае окна по ћю0
                    
-%                    baseFuncStrs=cell(size(WindowParam));
-%                    baseFuncStrs(:)={baseFuncStr};
-%                    
-%                    baseFuncStrs = arrayfun(@(base,param)strrep(cell2mat(base),'Miu',param),baseFuncStrs,paramsStrs);
-%                    baseFuncStrs = arrayfun(@(base,param)strrep(cell2mat(base),'c',param),baseFuncStrs,paramsStrs);
-%                    
-%                    baseFuncStrs = arrayfun(@(base){str2func(cell2mat(base))},baseFuncStrs);
-%                    profile viewer;
+                   baseFuncStr=func2str(contParms.ImageFunc);
+                   
+                   baseFuncStr=strrep(baseFuncStr,'@(z)','@(Miu0,z,eq)');
+                   baseFuncStr=strrep(baseFuncStr,'@(Miu,z)','@(Miu0,z,eq)');
+                   baseFuncStr=strrep(baseFuncStr,'@(Miu,z,eq)','@(Miu0,z,eq)');
+                   contParms.ImageFunc=str2func(baseFuncStr);
+                  
+                   MiuStr=strcat('(',num2str(ca.Miu));
+                   MiuStr=strcat(MiuStr,')');
+                   
+                   zBaseStr=strcat('(',num2str(ca.Zbase));
+                   zBaseStr=strcat(zBaseStr,')');
+                   
+                   baseFuncStr=regexprep(baseFuncStr,'Miu(?=\D)',MiuStr);
+                   baseFuncStr=regexprep(baseFuncStr,'Miu$',MiuStr);
+                   baseFuncStr=regexprep(baseFuncStr,'(?<!,)eq',zBaseStr);
+                   
            end
+           baseFuncStr=str2func(baseFuncStr);
            ControlParams.GetSetMultiCalcFunc(baseFuncStr);
            ContParms=contParms;
-%            BaseFuncStr=baseFuncStr;
-%            baseFuncStrs=cell(size(WindowParam));
-%            baseFuncStrs(:)={baseFuncStr};
        end
        
        function [z_eq] = CountZBaze(miu,z0)
