@@ -53,16 +53,7 @@ classdef CellularAutomat
                    lambdaPart=lambda(neighborsZ);% вычисление лямбды
                end
                
-               if isequal(CA_cell.Indexes,[0 1 1])
-                   lambdaStr=func2str(lambda);
-                   if contains(lambdaStr,'sum')
-                       lambdaStr = regexprep(lambdaStr,'\)\+.+',')');
-                       lambda=str2func(lambdaStr);
-                   end
-                   lambdaPart=lambda(neighborsZ);
-               end
-               
-               if ControlParams.GetSetCustomImag
+               if ControlParams.GetSetCustomImag % || isequal(CA_cell.Indexes,[0 1 1])
                    z_new=basePart;
                else
                    z_new=lambdaPart*basePart;

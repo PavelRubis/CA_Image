@@ -140,7 +140,7 @@ classdef ControlParams %класс параметров управления и множественного элементарно
                    Miu0Str=strcat(Miu0Str,')');
                    baseFuncStr=strrep(baseFuncStr,'Miu0',Miu0Str);
                    
-                   pureFuncStr=regexprep(baseFuncStr,'@\(.+\)','');
+                   pureFuncStr=strrep(baseFuncStr,'@(Miu,z,eq)','');
                    
                    if contains(pureFuncStr,'eq')
                        z0Arr=zeros(size(WindowParam));
@@ -164,7 +164,7 @@ classdef ControlParams %класс параметров управления и множественного элементарно
                    zBaseStr=strcat('(',num2str(ca.Zbase));
                    zBaseStr=strcat(zBaseStr,')');
                    
-                   baseFuncStr=regexprep(baseFuncStr,'Miu(?=\D)',MiuStr);
+                   baseFuncStr=regexprep(baseFuncStr,'Miu(?!0)',MiuStr);
                    baseFuncStr=regexprep(baseFuncStr,'Miu$',MiuStr);
                    baseFuncStr=regexprep(baseFuncStr,'(?<!,)eq',zBaseStr);
                    

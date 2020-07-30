@@ -24,30 +24,67 @@ classdef ResultsProcessing
            
            if contParms.SingleOrMultipleCalc 
                if obj.isSaveCA
-                   ConfFileName=strcat('\Modeling-',datestr(clock));
-                   ConfFileName=strcat(ConfFileName,'-CA-Conf.txt');
-                   ConfFileName=strrep(ConfFileName,':','-');
-                   ConfFileName=strcat(obj.ResPath,ConfFileName);
-                   
-                   fileID = fopen(ConfFileName, 'w');
-                   fprintf(fileID, strcat('Одиночное Моделирование от  ',datestr(clock)));
                    if length(ca.Cells)==1
-                       fprintf(fileID, '\nРебро N=1\n');
-                       fprintf(fileID, strcat('\nОтображение: ',func2str(ca.Base)));
-                       fprintf(fileID, strcat('\nЗависимость параметра лямбда: ',func2str(ca.Lambda)));
-                       fprintf(fileID, '\nКоличество итераций N=%f\n',length(Res)-1);
-                       fprintf(fileID, 'Судьба\n');
-                       fprintf(fileID,'Re	Im	P	n\n');
+                       ConfFileName=strcat('\Modeling-',datestr(clock));
+                       ConfFileName=strcat(ConfFileName,'-N-1-Path.txt');
+                       ConfFileName=strrep(ConfFileName,':','-');
+                       ConfFileName=strcat(obj.ResPath,ConfFileName);
+                   
+                       fileID = fopen(ConfFileName, 'w');
+                       fprintf(fileID, strcat('Одиночное Моделирование от-',datestr(clock)));
+                       fprintf(fileID, '\n\nРебро N=1');
+                       fprintf(fileID, strcat('\nБазовое отображение: ',func2str(ca.Base)));
+                       
+                       customImagCheck=isempty(ControlParams.GetSetCustomImag);
+                       if customImagCheck
+                           fprintf(fileID, strcat('\nФактор лямбда: ',func2str(ca.Lambda)));
+                       else
+                           if ControlParams.GetSetCustomImag
+                               fprintf(fileID, '\nФактор лямбда: 1');
+                           else
+                               fprintf(fileID, strcat('\nФактор лямбда: ',func2str(ca.Lambda)));
+                           end
+                       end
+                       
+                       PrecisionParms = ControlParams.GetSetPrecisionParms;
+                       
+                       fprintf(fileID, strcat('\n\n\nМаксимальный период=',num2str(ControlParams.GetSetMaxPeriod),';Порог бесконечности=',num2str(10^PrecisionParms(1)),';Порог сходимости=',num2str(PrecisionParms(2))));
+                       fprintf(fileID, strcat('\nz0=',num2str(ca.Cells(1).z0),'\nmu=',num2str(ca.Miu),'\nmu0=',num2str(ca.Miu0)));
+                       
+                       fprintf(fileID, '\nКоличество итераций T=%f\n',length(Res)-1);
+                       
+                       switch contParms.Periods
+                           case 0
+                               fprintf(fileID, '\n\nИтог: уходящая в бесконечность траектория\n');
+                           case 1
+                               fprintf(fileID, '\n\nИтог: сходящаяся к аттрактору траектория\n');
+                           case inf
+                               fprintf(fileID, '\n\nИтог: хаотичная траектория\n');
+                           otherwise
+                               fprintf(fileID, strcat('\n\nИтог: траектория с периодом: ',num2str(contParms.Periods),'\n'));
+                       end
+                       
+                       fprintf(fileID,'Re	Im	Fate	length\n');
                        fclose(fileID);
                        dlmwrite(ConfFileName,[real(ca.Cells(1).zPath(1)) imag(ca.Cells(1).zPath(end)) contParms.Periods contParms.LastIters],'-append','delimiter','\t');
                        
                        fileID = fopen(ConfFileName, 'a');
                        fprintf(fileID, '\n\nТраектория:\n');
                        fclose(fileID);
+                       iters=1:length(Res(1,:));
+                       iters=iters';
                        Res=Res';
-                       dlmwrite(ConfFileName,'Re	Im','-append','delimiter','');
+                       Res=[iters Res];
+                       dlmwrite(ConfFileName,'iter	Re	Im','-append','delimiter','');
                        dlmwrite(ConfFileName,Res,'-append','delimiter','\t');
                    else
+                       ConfFileName=strcat('\Modeling-',datestr(clock));
+                       ConfFileName=strcat(ConfFileName,'-CA.txt');
+                       ConfFileName=strrep(ConfFileName,':','-');
+                       ConfFileName=strcat(obj.ResPath,ConfFileName);
+                   
+                       fileID = fopen(ConfFileName, 'w');
+                       fprintf(fileID, strcat('Одиночное Моделирование от-',datestr(clock)));
                        fprintf(fileID, '\n\nКонфигурация КА:\n\n');
                
                        if ca.FieldType
@@ -71,7 +108,8 @@ classdef ResultsProcessing
                        fprintf(fileID, strcat('\nЗависимость параметра лямбда: ',func2str(ca.Lambda)));
                        fprintf(fileID, '\nПараметр Мю=%f %fi\n',real(ca.Miu),imag(ca.Miu));
                        fprintf(fileID, 'Параметр Мю0=%f %fi\n',real(ca.Miu0),imag(ca.Miu0));
-                       fprintf(fileID, 'Итерация Iter=%f\n',contParms.IterCount-1);
+                       fprintf(fileID, 'Итерация Iter=%f\n\n\n',contParms.IterCount-1);
+                       fprintf(fileID, 'Значения ячеек:\n\n');
                        fclose(fileID);
                
                        Z=[];
@@ -79,10 +117,8 @@ classdef ResultsProcessing
                            idx=cast(ca.Cells(j).Indexes,'double');
                            Z=[Z ; [idx real(ca.Cells(j).zPath(end)) imag(ca.Cells(j).zPath(end))]];
                        end
-%                        Z=Z';
-                       ZFileName=strrep(ConfFileName,'-CA-Conf','-Z');
-                       dlmwrite(ZFileName,'x	y	k	Re	Im','-append','delimiter','');
-                       dlmwrite(ZFileName,Z,'-append','delimiter','\t');
+                       dlmwrite(ConfFileName,'x	y	k	Re	Im','-append','delimiter','');
+                       dlmwrite(ConfFileName,Z,'-append','delimiter','\t');
                    end
                end
                
@@ -94,14 +130,34 @@ classdef ResultsProcessing
                    ConfFileName=strcat(obj.ResPath,ConfFileName);
                    
                    fileID = fopen(ConfFileName, 'w');
-                   fprintf(fileID, strcat('Множественное Моделирование от  ',datestr(clock)));
-                   fprintf(fileID, '\n\nПараметры мультирасчета:\n\n');
+                   fprintf(fileID, strcat('Множественное Моделирование от- ',datestr(clock)));
                    
-                   fprintf(fileID,strcat('Отображение: ',func2str(contParms.ImageFunc)));
+                   fprintf(fileID, strcat('\n\nОтображение: ',func2str(contParms.ImageFunc)));
+                       
+%                    customImagCheck=isempty(ControlParams.GetSetCustomImag);
+%                    if customImagCheck
+%                        fprintf(fileID, strcat('\nФактор лямбда: ',func2str(ca.Lambda)));
+%                    else
+%                        if ControlParams.GetSetCustomImag
+%                            fprintf(fileID, '\nФактор лямбда: 1');
+%                        else
+%                            fprintf(fileID, strcat('\nФактор лямбда: ',func2str(ca.Lambda)));
+%                        end
+%                    end
                    
-                   fprintf(fileID, '\nКоличество итераций N=%f\n',contParms.IterCount-1);
+                   PrecisionParms = ControlParams.GetSetPrecisionParms;
+                       
+                   fprintf(fileID, strcat('\n\n\nМаксимальный период=',num2str(ControlParams.GetSetMaxPeriod),';Порог бесконечности=',num2str(10^PrecisionParms(1)),';Порог сходимости=',num2str(PrecisionParms(2))));
                    
-                   fprintf(fileID, strcat('Одиночные параметры: ',num2str(contParms.SingleParams(1)),' ; ',num2str(contParms.SingleParams(2))));
+                   switch contParms.WindowParamName
+                       case 'z0'
+                           fprintf(fileID, strcat('\nz0=',num2str(complex(mean(contParms.ReRangeWindow),mean(contParms.ImRangeWindow))),'\nmu=',num2str(ca.Miu),'\nmu0=',num2str(ca.Miu0)));
+                       otherwise
+                           fprintf(fileID, strcat('\nz0=',num2str(contParms.SingleParams(1)),'\nmu=',num2str(ca.Miu),'\nmu0=',num2str(ca.Miu0)));
+                   end    
+                   
+                   fprintf(fileID, '\nКоличество итераций T=%f\n',length(Res)-1);
+                       
                    fprintf(fileID, strcat('\nПараметр окна: ',contParms.WindowParamName));
                    fprintf(fileID, '\nДиапазон параметра окна: ');
                    
@@ -115,7 +171,7 @@ classdef ResultsProcessing
                    paramSrt=strcat(paramSrt,paramEndSrt);
                    fprintf(fileID,strcat(paramSrt,'\n\n'));
                    fclose(fileID);
-                   dlmwrite(ConfFileName,'Re	Im	P	n','-append','delimiter','');
+                   dlmwrite(ConfFileName,'Re	Im	Fate	length','-append','delimiter','');
                   
                    [X,Y]=meshgrid(contParms.ReRangeWindow,contParms.ImRangeWindow);
                    WindowParam=X+i*Y;
@@ -142,6 +198,7 @@ classdef ResultsProcessing
                fig=graphics.Axs;
                if obj.FigureFileFormat==1
                        h = figure;
+                       set(h,'units','normalized','outerposition',[0 0 1 1])
                        colormap(graphics.Clrmp);
                        h.CurrentAxes = copyobj([fig graphics.Clrbr],h);
                        h.Visible='on';
