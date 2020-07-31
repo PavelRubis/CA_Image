@@ -214,10 +214,10 @@ handles.MultipleCalcRB.Enable='off';
            ItersCount(:)=itersCount;
            Pathes=cell(len);
            
-           profile on;
+%            profile on;
            %мультирассчет через arrayfun
            [z_New fStepNew Pathes] = arrayfun(@ControlParams.MakeMultipleCalcIter,WindowParam,Z_Old,Z_Old_1,ItersCount,ZParam,z_eqArr);
-           profile viewer;
+%            profile viewer;
            
            zRes=z_New;
            PrecisionParms = ControlParams.GetSetPrecisionParms;
@@ -585,7 +585,7 @@ handles.MultipleCalcRB.Enable='off';
            
        end
        
-       profile on;
+%        profile on;
        %нахождение соседей каждой €чейки
        for i=1:length(ca.Cells)
            ca.Cells(i)=FindCellsNeighbors(ca, ca.Cells(i));
@@ -636,7 +636,7 @@ handles.MultipleCalcRB.Enable='off';
            end
        end
        
-       profile viewer;
+%        profile viewer;
        %отрисовка пол€
        arrayfun(@(cell) ResultsProcessing.DrawCell(cell),ca.Cells);
        
