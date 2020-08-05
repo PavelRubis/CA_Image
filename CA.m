@@ -172,6 +172,7 @@ handles.ReadZ0SourceButton.Enable='off';
     
 handles.SingleCalcRB.Enable='off';
 handles.MultipleCalcRB.Enable='off';
+handles.ReadModelingParmsFrmFile.Enable='off';
 
        ControlParams.GetSetPrecisionParms([str2double(handles.InfValueEdit.String) str2double(strcat('1e-',handles.ConvergValueEdit.String))]);
         
@@ -214,10 +215,10 @@ handles.MultipleCalcRB.Enable='off';
            ItersCount(:)=itersCount;
            Pathes=cell(len);
            
-%            profile on;
+           profile on;
            %мультирассчет через arrayfun
            [z_New fStepNew Pathes] = arrayfun(@ControlParams.MakeMultipleCalcIter,WindowParam,Z_Old,Z_Old_1,ItersCount,ZParam,z_eqArr);
-%            profile viewer;
+           profile viewer;
            
            zRes=z_New;
            PrecisionParms = ControlParams.GetSetPrecisionParms;
@@ -319,8 +320,10 @@ handles.MultipleCalcRB.Enable='off';
                    string_title=strrep(string_title,'@(z)','z\rightarrow');
                    string_title=strrep(string_title,'Miu0','\mu_{0}');
                    string_title=strrep(string_title,'Miu','\mu');
-                   xlabel('Re(z(t))');
-                   ylabel('Im(z(t))');
+                   xlabel('Re(z_{0})');
+                   ylabel('Im(z_{0})');
+                   string_title=strcat(string_title,'  z_{0_{cntr}}=');
+                   string_title=strcat(string_title,num2str(complex(mean(contParms.ReRangeWindow),mean(contParms.ImRangeWindow))));
                    string_title=strcat(string_title,'  \mu=');
                    string_title=strcat(string_title,num2str(contParms.SingleParams(1)));
                    string_title=strcat(string_title,'  \mu_{0}=');
@@ -329,6 +332,8 @@ handles.MultipleCalcRB.Enable='off';
                    string_title=strrep(string_title,'@(Miu,z,eq)','z\rightarrow');
                    string_title=strrep(string_title,'Miu0','\mu_{0}');
                    string_title=strrep(string_title,'Miu','\mu');
+                   string_title=strcat(string_title,'  \mu_{cntr}=');
+                   string_title=strcat(string_title,num2str(complex(mean(contParms.ReRangeWindow),mean(contParms.ImRangeWindow))));
                    string_title=strcat(string_title,'  z_{0}=');
                    string_title=strcat(string_title,num2str(contParms.SingleParams(1)));
                    string_title=strcat(string_title,'  \mu_{0}=');
@@ -343,6 +348,8 @@ handles.MultipleCalcRB.Enable='off';
                    string_title=strrep(string_title,'@(Miu0,z,eq)','z\rightarrow');
                    string_title=strrep(string_title,'Miu0','\mu_{0}');
                    string_title=strrep(string_title,'Miu','\mu');
+                   string_title=strcat(string_title,'  \mu_{0_{cntr}}=');
+                   string_title=strcat(string_title,num2str(complex(mean(contParms.ReRangeWindow),mean(contParms.ImRangeWindow))));
                    string_title=strcat(string_title,'  z_{0}=');
                    string_title=strcat(string_title,num2str(contParms.SingleParams(1)));
                    string_title=strcat(string_title,'  \mu=');
@@ -447,24 +454,22 @@ handles.MultipleCalcRB.Enable='off';
            ms=20;
            clrmp=colormap(jet(length(N1Path)));
            
-           if all(all(N1Path>0)) && max(N1Path(1,i))>1e4 && max(N1Path(2,i))>1e4
-               for i=1:length(N1Path)
-                   plot(log(N1Path(1,i))/log(10),log(N1Path(2,i))/log(10),'o','MarkerSize', ms,'Color',clrmp(i,:));
-                   if ms~=2
-                       ms=ms-2;
-                   end
-               end
+           %% ВАЖНО: что делать с нулями в мнимой и множественной частях при логарифмировании
+           if abs(max(N1Path(1,:)))>1e4 || abs(max(N1Path(2,:)))>1e4
+               N1Path(1,find(N1Path(1,:)))=log(abs(N1Path(1,find(N1Path(1,:)))))/log(10);
+               N1Path(2,find(N1Path(2,:)))=log(abs(N1Path(2,find(N1Path(2,:)))))/log(10);
                xlabel('log(Re(z))');
                ylabel('log(Im(z))');
            else
-               for i=1:length(N1Path)
-                   plot(N1Path(1,i),N1Path(2,i),'o','MarkerSize', ms,'Color',clrmp(i,:));
-                   if ms~=2
-                       ms=ms-2;
-                   end
-               end
                xlabel('Re(z)');
                ylabel('Im(z)');
+           end
+           %%           
+           for i=1:length(N1Path)
+               plot(N1Path(1,i),N1Path(2,i),'o','MarkerSize', ms,'Color',clrmp(i,:));
+               if ms~=2
+                   ms=ms-2;
+               end
            end
            
            imStep=(abs(max(N1Path(2,:))-min(N1Path(2,:)))/length(N1Path(2,:)))*0.2*length(N1Path(2,:));
@@ -483,38 +488,55 @@ handles.MultipleCalcRB.Enable='off';
            handles.CAField.YTick=[min(N1Path(2,:)):imStep:max(N1Path(2,:))];
            handles.CAField.XTick=[min(N1Path(1,:)):reStep:max(N1Path(1,:))];
            
-           Imlength=abs(max(N1Path(2,:))-min(N1Path(2,:)));
-           Relength=abs(max(N1Path(1,:))-min(N1Path(1,:)));
+           ImLength=max(N1Path(2,:))-min(N1Path(2,:));
+           ReLength=max(N1Path(1,:))-min(N1Path(1,:));
            
-           if Imlength>Relength
-               
-               if isempty(N1PathNew)
-                   handles.CAField.XLim=[handles.CAField.XLim(1)+Imlength/2 handles.CAField.XLim(2)-Imlength/2];
+           Coeff=ReLength-ImLength;
+           if Coeff~=0
+               if Coeff<0
+                   Coeff=abs(Coeff);
+                   if ~isempty(N1PathNew)
+                       handles.CAField.XLim=[min(N1Path(1,:))-Coeff/2 max(N1Path(1,:))+Coeff/2];
+                   end
                else
-                   if ~(any(N1PathNew(1,:)<min(real(N1PathOld))) || any(N1PathNew(1,:)>max(real(N1PathOld)))) && handles.CAField.XLim(1)+Imlength/2<handles.CAField.XLim(2)-Imlength/2
-                       handles.CAField.XLim=[handles.CAField.XLim(1)+Imlength/2 handles.CAField.XLim(2)-Imlength/2];
+                   if ~isempty(N1PathNew)
+                       handles.CAField.YLim=[min(N1Path(2,:))-Coeff/2 max(N1Path(2,:))+Coeff/2];
                    end
                end
-               
-               handles.CAField.XLim=[handles.CAField.XLim(1)-Imlength/2 handles.CAField.XLim(2)+Imlength/2];
-               reStep=(handles.CAField.XLim(2)-handles.CAField.XLim(1))*0.2;
-               handles.CAField.XTick=[handles.CAField.XLim(1):reStep:handles.CAField.XLim(2)];
-               
-           else
-               
-               if isempty(N1PathNew)
-                   handles.CAField.YLim=[handles.CAField.YLim(1)+Relength/2 handles.CAField.YLim(2)-Relength/2];
-               else
-                   if  isempty(N1PathNew) || ~(any(N1PathNew(2,:)<min(imag(N1PathOld))) || any(N1PathNew(2,:)>max(imag(N1PathOld)))) && (handles.CAField.YLim(1)+Relength/2<handles.CAField.YLim(2)-Relength/2)
-                       handles.CAField.YLim=[handles.CAField.YLim(1)+Relength/2 handles.CAField.YLim(2)-Relength/2];
-                   end
-               end
-               
-               handles.CAField.YLim=[handles.CAField.YLim(1)-Relength/2 handles.CAField.YLim(2)+Relength/2];
-               imStep=(handles.CAField.YLim(2)-handles.CAField.YLim(1))*0.2;
-               handles.CAField.YTick=[handles.CAField.YLim(1):imStep:handles.CAField.YLim(2)];
-               
            end
+           xticks('auto');
+           yticks('auto');
+%            Imlength=abs(max(N1Path(2,:))-min(N1Path(2,:)));
+%            Relength=abs(max(N1Path(1,:))-min(N1Path(1,:)));
+%            if Imlength>Relength
+%                
+%                if isempty(N1PathNew)
+%                    handles.CAField.XLim=[handles.CAField.XLim(1)+Imlength/2 handles.CAField.XLim(2)-Imlength/2];
+%                else
+%                    if ~(any(N1PathNew(1,:)<min(real(N1PathOld))) || any(N1PathNew(1,:)>max(real(N1PathOld)))) && handles.CAField.XLim(1)+Imlength/2<handles.CAField.XLim(2)-Imlength/2
+%                        handles.CAField.XLim=[handles.CAField.XLim(1)+Imlength/2 handles.CAField.XLim(2)-Imlength/2];
+%                    end
+%                end
+%                
+%                handles.CAField.XLim=[handles.CAField.XLim(1)-Imlength/2 handles.CAField.XLim(2)+Imlength/2];
+%                reStep=(handles.CAField.XLim(2)-handles.CAField.XLim(1))*0.2;
+%                handles.CAField.XTick=[handles.CAField.XLim(1):reStep:handles.CAField.XLim(2)];
+%                
+%            else
+%                
+%                if isempty(N1PathNew)
+%                    handles.CAField.YLim=[handles.CAField.YLim(1)+Relength/2 handles.CAField.YLim(2)-Relength/2];
+%                else
+%                    if  isempty(N1PathNew) || ~(any(N1PathNew(2,:)<min(imag(N1PathOld))) || any(N1PathNew(2,:)>max(imag(N1PathOld)))) && (handles.CAField.YLim(1)+Relength/2<handles.CAField.YLim(2)-Relength/2)
+%                        handles.CAField.YLim=[handles.CAField.YLim(1)+Relength/2 handles.CAField.YLim(2)-Relength/2];
+%                    end
+%                end
+%                
+%                handles.CAField.YLim=[handles.CAField.YLim(1)-Relength/2 handles.CAField.YLim(2)+Relength/2];
+%                imStep=(handles.CAField.YLim(2)-handles.CAField.YLim(1))*0.2;
+%                handles.CAField.YTick=[handles.CAField.YLim(1):imStep:handles.CAField.YLim(2)];
+%                
+%            end
            
            handles.CAField.XGrid='on';
            handles.CAField.YGrid='on';
@@ -1463,7 +1485,8 @@ else
     handles.DefaultMultiParmCB.Enable='on';
     
 end
-    
+
+    handles.ReadModelingParmsFrmFile.Enable='on';
     handles.BaseImagMenu.Enable='on';
     handles.UsersBaseImagEdit.Enable='on';
     handles.DefaultFuncsCB.Enable='on';
@@ -3404,6 +3427,22 @@ else
     
     if contParms.SingleOrMultipleCalc
         currCA.N=str2double(handles.NFieldEdit.String);
+        if handles.SquareFieldRB.Value==1
+            currCA.FieldType=0;
+            ResultsProcessing.GetSetFieldOrient(0);
+        else
+            currCA.FieldType=1;
+            ResultsProcessing.GetSetFieldOrient(1);
+        end
+    
+%     ResultsProcessing.GetSetCellOrient(0);
+        if handles.GorOrientRB.Value==1
+            ResultsProcessing.GetSetCellOrient(2);
+        end
+        
+        if handles.VertOrientRB.Value==1
+            ResultsProcessing.GetSetCellOrient(1);
+        end
     else
         switch handles.ParamNameMenu.Value
             case 1
@@ -3849,6 +3888,7 @@ function HexOrientationPanel_SelectionChangedFcn(hObject, eventdata, handles)
 % hObject    handle to the selected object in HexOrientationPanel 
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+
 if strcmp(get(hObject,'Tag'),'VertOrientRB')
     ResultsProcessing.GetSetCellOrient(1);
 else
@@ -3861,6 +3901,7 @@ function FieldTypeGroup_SelectionChangedFcn(hObject, eventdata, handles)
 % hObject    handle to the selected object in FieldTypeGroup 
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+
 currCA=getappdata(handles.output,'CurrCA');
 if strcmp(get(hObject,'Tag'),'HexFieldRB')
     currCA.FieldType=1;
@@ -4262,12 +4303,16 @@ if ContParms.SingleOrMultipleCalc
     if FileWasRead
         param=handles.Z0SourcePathEdit.String;
     else
-        distrStart=str2double(handles.DistributStartEdit.String);
-        distrStep=str2double(handles.DistributStepEdit.String);
-        distrEnd=str2double(handles.DistributEndEdit.String);
-        ContParms.ReRangeWindow=real(distrStart):distrStep:real(distrEnd);
-        ContParms.ImRangeWindow=imag(distrStart):distrStep:imag(distrEnd);
-        param=handles.DistributionTypeMenu.Value;
+        if CurrCA.N~=1
+            distrStart=str2double(handles.DistributStartEdit.String);
+            distrStep=str2double(handles.DistributStepEdit.String);
+            distrEnd=str2double(handles.DistributEndEdit.String);
+            ContParms.ReRangeWindow=real(distrStart):distrStep:real(distrEnd);
+            ContParms.ImRangeWindow=imag(distrStart):distrStep:imag(distrEnd);
+            param=handles.DistributionTypeMenu.Value;
+        else
+            param=0;
+        end
     end
 end
 
@@ -4343,13 +4388,15 @@ if cell2mat(data(1))=='1'
     
     CurrCA.Base=str2func(cell2mat(data(6)));
     switch func2str(CurrCA.Base)
-        case '@(z)Miu*(exp(i*z))'
+        case '@(z)(exp(i*z))'
             handles.BaseImagMenu.Value=1;
-        case '@(z)(z^2+c)'
+        case '@(z)(z^2+Miu)'
             handles.BaseImagMenu.Value=2;
         otherwise
+            handles.BaseImagMenu.Value=3;
             handles.UsersBaseImagEdit.String=strrep(func2str(CurrCA.Base),'@(z)','');
     end
+    BaseImagMenu_Callback(handles.BaseImagMenu, [], handles)
     
     CurrCA.Lambda=str2func(cell2mat(data(7)));
     switch func2str(CurrCA.Lambda)
@@ -4371,19 +4418,25 @@ if cell2mat(data(1))=='1'
     
     CurrCA.Miu=str2double(cell2mat(data(10)));
     handles.MiuEdit.String=num2str(CurrCA.Miu);
-    if length(cell2mat(data(11)))>1
-        handles.Z0SourcePathEdit.String=cell2mat(data(11));
-        handles.InfValueEdit.String=cell2mat(data(12));
-        handles.ConvergValueEdit.String=strrep(cell2mat(data(13)),'1e-','');
+    if CurrCA.N~=1
+        if length(cell2mat(data(11)))>1
+            handles.Z0SourcePathEdit.String=cell2mat(data(11));
+            handles.InfValueEdit.String=cell2mat(data(12));
+            handles.ConvergValueEdit.String=strrep(cell2mat(data(13)),'1e-','');
+        else
+            handles.DistributionTypeMenu.Value=str2double(cell2mat(data(11)));
+            handles.DistributStartEdit.String=strrep(cell2mat(data(12)),':','');
+            handles.DistributStepEdit.String=strrep(cell2mat(data(13)),':','');
+            handles.DistributEndEdit.String=strrep(cell2mat(data(14)),':','');
+            handles.InfValueEdit.String=cell2mat(data(15));
+            handles.ConvergValueEdit.String=strrep(cell2mat(data(16)),'1e-','');
+        end
     else
-        handles.DistributionTypeMenu.Value=str2double(cell2mat(data(11)));
-        handles.DistributStartEdit.String=strrep(cell2mat(data(12)),':','');
-        handles.DistributStepEdit.String=strrep(cell2mat(data(13)),':','');
-        handles.DistributEndEdit.String=strrep(cell2mat(data(14)),':','');
-        handles.InfValueEdit.String=cell2mat(data(15));
-        handles.ConvergValueEdit.String=strrep(cell2mat(data(16)),'1e-','');
+        NFieldEdit_Callback(handles.NFieldEdit, [], handles);
+        handles.InfValueEdit.String=cell2mat(data(11));
+        handles.ConvergValueEdit.String=strrep(cell2mat(data(12)),'1e-','');
+        handles.MaxPeriodEdit.String=cell2mat(data(13));
     end
-
 else
     if cell2mat(data(1))=='0'
         if  length(data)~=12

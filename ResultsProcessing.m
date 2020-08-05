@@ -76,7 +76,7 @@ classdef ResultsProcessing
                        Res=Res';
                        Res=[iters Res];
                        dlmwrite(ConfFileName,'iter	Re	Im','-append','delimiter','');
-                       dlmwrite(ConfFileName,Res,'-append','delimiter','\t');
+                       dlmwrite(ConfFileName,Res,'-append','delimiter','\t','precision',7);
                    else
                        ConfFileName=strcat('\Modeling-',datestr(clock));
                        ConfFileName=strcat(ConfFileName,'-CA.txt');
@@ -118,7 +118,7 @@ classdef ResultsProcessing
                            Z=[Z ; [idx real(ca.Cells(j).zPath(end)) imag(ca.Cells(j).zPath(end))]];
                        end
                        dlmwrite(ConfFileName,'x	y	k	Re	Im','-append','delimiter','');
-                       dlmwrite(ConfFileName,Z,'-append','delimiter','\t');
+                       dlmwrite(ConfFileName,Z,'-append','delimiter','\t','precision',7);
                    end
                end
                
@@ -147,7 +147,7 @@ classdef ResultsProcessing
                    
                    PrecisionParms = ControlParams.GetSetPrecisionParms;
                        
-                   fprintf(fileID, strcat('\n\n\nМаксимальный период=',num2str(ControlParams.GetSetMaxPeriod),';Порог бесконечности=',num2str(10^PrecisionParms(1)),';Порог сходимости=',num2str(PrecisionParms(2))));
+                   fprintf(fileID, strcat('\n\n\nМаксимальный период=',num2str(ControlParams.GetSetMaxPeriod),'\nПорог бесконечности=',num2str(10^PrecisionParms(1)),'\nПорог сходимости=',num2str(PrecisionParms(2))));
                    
                    switch contParms.WindowParamName
                        case 'z0'
@@ -204,12 +204,13 @@ classdef ResultsProcessing
                        h.Visible='on';
                else
                    set(fig,'Units','pixel');
-                   rect=fig.Position;
-                   rect=rect-10;
-                   drect=fig.TightInset;
-                   
-                   rect([1 2])=-drect([1 2])-2;
-                   rect([3 4])= rect([3 4])+drect([3 4])+2;
+                   pos=fig.Position;
+                   marg = 40;
+                   if contParms.SingleOrMultipleCalc
+                       rect = [-2*marg, -marg, pos(3)+2.5*marg, pos(4)+2*marg];
+                   else
+                       rect = [-2*marg, -1.5*marg, pos(3)+4.5*marg, pos(4)+2.5*marg];
+                   end
                    photo=getframe(fig,rect);
                    [photo,cmp]=frame2im(photo);
                    photoName=strcat(obj.ResPath,'\CAField');
@@ -231,7 +232,6 @@ classdef ResultsProcessing
            ConfFileName=strrep(ConfFileName,':','-');
            ConfFileName=strcat(obj.ResPath,ConfFileName);
            if contParms.SingleOrMultipleCalc
-               if ca.N~=1
                    fileID = fopen(ConfFileName, 'w');
                    fprintf(fileID, '1\n');
                    fprintf(fileID, strcat(num2str(ca.FieldType),'\n'));
@@ -245,7 +245,7 @@ classdef ResultsProcessing
                    fprintf(fileID, strcat(num2str(ca.Miu0),'\n'));
                    fprintf(fileID, strcat(num2str(ca.Miu),'\n'));
                    
-                   if ~ischar(param)
+                   if ~ischar(param) && param~=0
                        fprintf(fileID, strcat(num2str(param),'\n'));
                        paramStart=complex(contParms.ReRangeWindow(1),contParms.ImRangeWindow(1));
                        paramStep=(contParms.ReRangeWindow(2)-contParms.ReRangeWindow(1));
@@ -259,15 +259,19 @@ classdef ResultsProcessing
                        fprintf(fileID, strcat(paramSrt,'\n'));
                        fclose(fileID);
                    else
-                       fclose(fileID);
-                       dlmwrite(ConfFileName,param,'-append','delimiter','');
+                       if ca.N~=1
+                           fclose(fileID);
+                           dlmwrite(ConfFileName,param,'-append','delimiter','');
+                       else
+                           fprintf(fileID, strcat(num2str(ControlParams.GetSetMaxPeriod),'\n'));
+                           fclose(fileID);
+                       end
                    end
                    fileID = fopen(ConfFileName, 'a');
                    PrecisionParms = ControlParams.GetSetPrecisionParms;
                    fprintf(fileID, strcat(num2str(PrecisionParms(1)),'\n'));
                    fprintf(fileID, strcat(num2str(PrecisionParms(2)),'\n'));
                    fclose(fileID);
-               end
                
            else
                fileID = fopen(ConfFileName, 'w');
