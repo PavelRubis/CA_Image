@@ -1,63 +1,192 @@
-clear; clc;
-format long;
+classdef TestingScripts
+    
+    methods(Static)
+        function [isIntrnl,isIntrnlPlus,isCorner,isCornerAx,isEdge,isZero,isTrueCell,errorCellsInfo]= CheckNeighborsAndBorderType(CACell,n,fieldOrient,bordersType)
+            
+            isTrueCell=true;
+            isIntrnl=false;
+            isIntrnlPlus=false;
+            isCorner=false;
+            isCornerAx=false;
+            isEdge=false;
+            isZero=false;
+            errorCellsInfo={'+'};
+            
+            % тип границ (1-линия смерти, 2-замыкание границ, 3-закрытые границы )
+            switch bordersType
+                case 1
+                    % статическая переменная типа поля (1-гексагональное, 0-квадратное)
+                    if fieldOrient == 1
+                        
+                    else
+                        
+                    end
+                case 2
+                    % статическая переменная типа поля (1-гексагональное, 0-квадратное)
+                    if fieldOrient == 1
+                        if length(CACell.CurrNeighbors)==6
+                            
+                            
+                            isCorner = (length(find(arrayfun(@(neighbor) isequal(CACell.Indexes(1:2)-neighbor.Indexes(1:2),[0 n-1]),CACell.CurrNeighbors))))==3;
+                            
+                            if isCorner
+                                return;
+                            end
+                            
+                            %
+                            isCornerAx = (length(find(arrayfun(@(neighbor) isequal(CACell.Indexes(1:2)-neighbor.Indexes(1:2),[0 -(n-1)]),CACell.CurrNeighbors))))==3;
+                            
+                            if isCornerAx
+                                return;
+                            end
+                            
+                            %
+                            isEdge = (length(find(arrayfun(@(neighbor) isequal((CACell.Indexes(1:2)-neighbor.Indexes(1:2)),[0 0]) && CACell.Indexes(3)~=neighbor.Indexes(3),CACell.CurrNeighbors))))==2;
+                            
+                            if isEdge
+                                return;
+                            end
+                            
+                                                        switch CACell.Indexes(3)
+                                
+                                case 1
+                                    neighborK=[];
+                                    if CACell.Indexes(2)==0
+                                        neighborK=2;
+                                    else
+                                        neighborK=3;
+                                    end
+                                    isIntrnlPlus=any(arrayfun(@(neighbor) any((CACell.Indexes(2)-neighbor.Indexes(1))==[-1 0]) && any(abs(CACell.Indexes(1)-neighbor.Indexes(2))==[1 0]) && (neighbor.Indexes(3)==neighborK) ,CACell.CurrNeighbors));
+                                    
+                                case 2
+                                    neighborK=[];
+                                    if CACell.Indexes(2)==0
+                                        neighborK=3;
+                                    else
+                                        neighborK=1;
+                                    end
+                                    isIntrnlPlus=any(arrayfun(@(neighbor) any((CACell.Indexes(2)-neighbor.Indexes(1))==[-1 0]) && any(abs(CACell.Indexes(1)-neighbor.Indexes(2))==[1 0]) && (neighbor.Indexes(3)==neighborK) ,CACell.CurrNeighbors));
+                                case 3
+                                    neighborK=[];
+                                    if CACell.Indexes(2)==0
+                                        neighborK=1;
+                                    else
+                                        neighborK=2;
+                                    end
+                                    isIntrnlPlus=any(arrayfun(@(neighbor) any((CACell.Indexes(2)-neighbor.Indexes(1))==[-1 0]) && any(abs(CACell.Indexes(1)-neighbor.Indexes(2))==[1 0]) && (neighbor.Indexes(3)==neighborK) ,CACell.CurrNeighbors));
+                                    
+                                otherwise
+                                    checkIntrnlDiffMatr=[[1 0];[1 1]];
+                                    isZero = all(arrayfun(@(neighbor) any(ismember(abs(neighbor.Indexes(1:2)-CACell.Indexes(1:2))==checkIntrnlDiffMatr, [1 1], 'rows')) ,CACell.CurrNeighbors));
 
-a=[];
+                            end
+                            %
+                            if isIntrnlPlus || isZero
+                                return;
+                            end
+                            
+                            checkIntrnlDiffMatr=[[0 1 0];[1 0 0];[1 1 0]];
+                            isIntrnl = all(arrayfun(@(neighbor) any(ismember(abs(neighbor.Indexes-CACell.Indexes)==checkIntrnlDiffMatr, [1 1 1], 'rows')) ,CACell.CurrNeighbors));
+                            
+                            if isIntrnl
+                                return;
+                            end
+                            
+                        end
+                        
+                        if(~any([isEdge isCornerAx isCorner isIntrnlPlus isZero isIntrnl]))
+                            
+                            errInf=strcat(strrep(num2str(CACell.Indexes),"  ",""),"    ");
+                            for i=1:length(CACell.CurrNeighbors)
+                                errInf=strcat(strrep(num2str(CACell.CurrNeighbors(i).Indexes),"  ",""),"    ");
+                            end
+                            errorCellsInfo={errInf};
+                            isTrueCell=false;
+                            return;
+                        end
+                        
+                    else
+                        if length(CACell.CurrNeighbors)==4
+                            checkDiffMatr=[[0 1 0];[1 0 0];[0 n-1 0];[n-1 0 0]];
+                            isTrueCell = all(arrayfun(@(neighbor) any(ismember(abs(neighbor.Indexes-CACell.Indexes)==checkDiffMatr, [1 1 1], 'rows')) ,CACell.CurrNeighbors));
+                            return;
+                        end
+                    end
+                case 3
+                    % статическая переменная типа поля (1-гексагональное, 0-квадратное)
+                    if fieldOrient == 1
+                    
+                    else
+                        
+                    end
+                    
+            end
+        
+        end
+        
+    end
+    
+end
 
-test=1;
-a=[a regexp('1','^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$') ] 
 
-test=-1;
-a=[a regexp('-1','^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$') ] 
 
-test=+1;
-a=[a regexp('+1','^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')] 
-
-test=1i;
-a=[a regexp('1i','^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')] 
-
-test=+1i;
-a=[a regexp('+1i','^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')] 
-
-test=-1i;
-a=[a regexp('-1i','^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')]
-
-test=1.5;
-a=[a regexp('1.5','^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')] 
-
-test=+1.5;
-a=[a regexp('+1.5','^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')] 
-
-test=-1.5i;
-a=[a regexp('-1.5i','^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')]  
-
-test=-1i+1;
-a=[a regexp('-1i+1','^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')] 
-
-test=+1+1i;
-a=[a regexp('+1+1i','^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')]  
-
-test=1+1.5i;
-a=[a regexp('1+1.5i','^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')] 
-
-test=1.5+5i;
-a=[a regexp('1.5+5i','^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')]  
-
-test=1.5+1.5i;
-a=[a regexp('1.5+1.5i','^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')]  
-
-test=-1.5-1.5i;
-a=[a regexp('-1.5-1.5i','^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')]
-
-test=+1.5-1.5i;
-a=[a regexp('+1.5-1.5i','^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')] 
-
-test=5i-1.5;
-a=[a regexp('5i-1.5','^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')] 
-
-test=-5i-1.5;
-a=[a regexp('5i-1.5','^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')] 
-
-all(a==1)
+% a=[];
+% 
+% test=1;
+% a=[a regexp('1','^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$') ] 
+% 
+% test=-1;
+% a=[a regexp('-1','^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$') ] 
+% 
+% test=+1;
+% a=[a regexp('+1','^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')] 
+% 
+% test=1i;
+% a=[a regexp('1i','^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')] 
+% 
+% test=+1i;
+% a=[a regexp('+1i','^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')] 
+% 
+% test=-1i;
+% a=[a regexp('-1i','^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')]
+% 
+% test=1.5;
+% a=[a regexp('1.5','^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')] 
+% 
+% test=+1.5;
+% a=[a regexp('+1.5','^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')] 
+% 
+% test=-1.5i;
+% a=[a regexp('-1.5i','^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')]  
+% 
+% test=-1i+1;
+% a=[a regexp('-1i+1','^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')] 
+% 
+% test=+1+1i;
+% a=[a regexp('+1+1i','^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')]  
+% 
+% test=1+1.5i;
+% a=[a regexp('1+1.5i','^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')] 
+% 
+% test=1.5+5i;
+% a=[a regexp('1.5+5i','^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')]  
+% 
+% test=1.5+1.5i;
+% a=[a regexp('1.5+1.5i','^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')]  
+% 
+% test=-1.5-1.5i;
+% a=[a regexp('-1.5-1.5i','^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')]
+% 
+% test=+1.5-1.5i;
+% a=[a regexp('+1.5-1.5i','^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')] 
+% 
+% test=5i-1.5;
+% a=[a regexp('5i-1.5','^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')] 
+% 
+% test=-5i-1.5;
+% a=[a regexp('5i-1.5','^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')] 
+% 
+% all(a==1)
 
 
 % Re=0:0.001:2;

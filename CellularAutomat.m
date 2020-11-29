@@ -75,19 +75,6 @@ classdef CellularAutomat
            out=sqrt(real(compNum)*real(compNum)+imag(compNum)*imag(compNum));
        end
        
-%        function out = UpdateNeighborsValues(CA_cell,cellArr)
-%            logicNeib=zeros(1,length(cellArr));
-%            ind=(cellArr==CA_cell.CurrNeighbors);
-%            logicNeib = arrayfun(@(celli,neighbor) neighbor.Indexes==celli.Indexes ,cellArr,CA_cell.CurrNeighbors);
-%            neibArrNumbs=find(logicNeib);
-%            
-%            if ~isempty(neibArrNumbs)
-%                CA_cell.CurrNeighbors=cellArr(neibArrNumbs(:));
-%            end
-%            
-%            out=CA_cell;
-%        end
-       
     end
     
     methods

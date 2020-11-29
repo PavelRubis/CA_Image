@@ -207,18 +207,16 @@ handles.ReadModelingParmsFrmFile.Enable='off';
            ZParam=zeros(len);
            ZParam(:)=zParam;
            Z_Old_1=Inf(len);
-%            if isempty(Z_Old)
-%                Z_Old=zeros(len);
-%            end
+           
            FStep=zeros(len);
            ItersCount=zeros(len);
            ItersCount(:)=itersCount;
            Pathes=cell(len);
            
-           profile on;
+%            profile on;
            %мультирассчет через arrayfun
            [z_New fStepNew Pathes] = arrayfun(@ControlParams.MakeMultipleCalcIter,WindowParam,Z_Old,Z_Old_1,ItersCount,ZParam,z_eqArr);
-           profile viewer;
+%            profile viewer;
            
            zRes=z_New;
            PrecisionParms = ControlParams.GetSetPrecisionParms;
@@ -615,6 +613,43 @@ handles.ReadModelingParmsFrmFile.Enable='off';
        
        cellArr=ca.Cells;
        ca_L=length(ca.Cells);
+       
+       % блок тестировани€ правильности нахождени€ элементов и всех типов границ
+       bordersType=zeros(1,ca_L);
+       bordersType(:)=ca.BordersType;
+       fieldType=bordersType;
+       fieldType(:)=ca.FieldType;
+       nArr=fieldType;
+       nArr(:)=ca.N;
+       
+       [isIntrnl,isIntrnlPlus,isCorner,isCornerAx,isCornerEdg,isZero,isTrueCell,errorCellsInfo]=arrayfun(@TestingScripts.CheckNeighborsAndBorderType,ca.Cells,nArr,fieldType,bordersType);
+       
+%        внутренние €чейки: (наход€тс€ правильно)
+        Intrnl = length(find(isIntrnl))==((3*ca.N^2)-(15*ca.N)+18)
+%        intrnlLengthTheor = ((3*ca.N^2)-(15*ca.N)+18)
+%        intrnlLengthTest = length(find(isIntrnl))
+       
+%        внутренние €чейки с сосед€ми из другой фигуры:
+       IntrnlPlus = length(find(isIntrnlPlus))== 6*ca.N-12
+%        IntrnlPlusLengthTheor = 6*ca.N-12
+%        IntrnlPlusLengthTest = length(find(isIntrnlPlus))
+       
+       IntrnlPlusCells=ca.Cells(find(isIntrnlPlus));
+%        IntrnlPlusFalseCellsCount = length(find(arrayfun(@(cell) isequal(cell.Indexes(1,2),[ca.N-1,0]),IntrnlPlusCells)))
+%        €чейки на ребре:
+       CornerEdg = length(find(isCornerEdg))== 6*ca.N-12
+%        
+%        угловые €чейки:
+       Corner = length(find(isCorner))==3
+       
+%        осевые  угловые €чейки:
+       CornerAx = length(find(isCornerAx))==3
+       
+%        нулева€ €чейка:
+       Zero = length(find(isZero))==1
+       
+       
+       % блок тестировани€ правильности нахождени€ элементов и всех типов границ
        
        %рассчет пол€  ј
        for i=1:itersCount
@@ -1425,6 +1460,7 @@ if contParms.SingleOrMultipleCalc
         handles.Z0SourcePathButton.Enable='off';
         handles.ReadZ0SourceButton.Enable='off';
         handles.LambdaMenu.Enable='off';
+        handles.MaxPeriodEdit.Enable='on';
     else
         if handles.BaseImagMenu.Value==1
             handles.LambdaMenu.Enable='on';
@@ -1437,6 +1473,7 @@ if contParms.SingleOrMultipleCalc
         handles.DistributEndEdit.Enable='on';
         handles.Z0SourcePathButton.Enable='on';
         handles.ReadZ0SourceButton.Enable='on';
+        handles.MaxPeriodEdit.Enable='off';
     end
     
     handles.ParamRePointsEdit.Enable='off';
@@ -1475,7 +1512,7 @@ else
     handles.Z0SourcePathButton.Enable='off';
     handles.ReadZ0SourceButton.Enable='off';
     
-%     handles.MaxPeriodEdit.Enable='on';
+    handles.MaxPeriodEdit.Enable='on';
     handles.ParamRePointsEdit.Enable='on';
     handles.ParamNameMenu.Enable='on';
     handles.ParamReDeltaEdit.Enable='on';
@@ -1486,9 +1523,14 @@ else
     
 end
 
+if handles.BaseImagMenu.Value~=3
+    handles.UsersBaseImagEdit.Enable='off';
+else
+    handles.UsersBaseImagEdit.Enable='on';
+end
+
     handles.ReadModelingParmsFrmFile.Enable='on';
     handles.BaseImagMenu.Enable='on';
-    handles.UsersBaseImagEdit.Enable='on';
     handles.DefaultFuncsCB.Enable='on';
     
     handles.z0Edit.Enable='on';
@@ -2072,6 +2114,7 @@ function radiobutton25_Callback(hObject, eventdata, handles)
 
 
 function NFieldEdit_Callback(hObject, eventdata, handles)
+contParms = getappdata(handles.output,'ContParms');
 if(~isempty(regexp(handles.NFieldEdit.String,'^\d+$')))
     if str2double(handles.NFieldEdit.String)==1
         handles.DistributionTypeMenu.Enable='off';
@@ -2085,9 +2128,12 @@ if(~isempty(regexp(handles.NFieldEdit.String,'^\d+$')))
         handles.Z0SourcePathEdit.String='';
         
         handles.LambdaMenu.Enable='off';
+        handles.LambdaMenu.Value=5;
         
         handles.Z0SourcePathButton.Enable='off';
         handles.ReadZ0SourceButton.Enable='off';
+        handles.MaxPeriodEdit.Enable='on';
+        
     else
         handles.DistributionTypeMenu.Enable='on';
         handles.DistributStartEdit.Enable='on';
@@ -2096,6 +2142,11 @@ if(~isempty(regexp(handles.NFieldEdit.String,'^\d+$')))
         
         if handles.BaseImagMenu.Value==1
             handles.LambdaMenu.Enable='on';
+        end
+        
+        if contParms.SingleOrMultipleCalc
+            handles.MaxPeriodEdit.String='';
+            handles.MaxPeriodEdit.Enable='off';
         end
         
         handles.Z0SourcePathButton.Enable='on';
@@ -3928,7 +3979,6 @@ resProc=getappdata(handles.output,'ResProc');
 if strcmp(get(hObject,'Tag'),'SingleCalcRB')
     contParms.SingleOrMultipleCalc=1;
     
-%     handles.MaxPeriodEdit.Enable='off';
     handles.ParamRePointsEdit.Enable='off';
     handles.ParamNameMenu.Enable='off';
     handles.ParamReDeltaEdit.Enable='off';
@@ -3965,7 +4015,7 @@ else
     contParms.SingleOrMultipleCalc=0;
     
     
-%     handles.MaxPeriodEdit.Enable='on';
+    handles.MaxPeriodEdit.Enable='on';
     handles.ParamRePointsEdit.Enable='on';
     handles.ParamNameMenu.Enable='on';
     handles.ParamReDeltaEdit.Enable='on';
@@ -3976,6 +4026,7 @@ else
     
     handles.NFieldEdit.String='';
     handles.NFieldEdit.Enable='off';
+    NFieldEdit_Callback(handles.NFieldEdit, [], handles);
     handles.SquareFieldRB.Enable='off';
     handles.HexFieldRB.Enable='off';
     handles.GorOrientRB.Enable='off';
