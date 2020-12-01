@@ -614,7 +614,7 @@ handles.ReadModelingParmsFrmFile.Enable='off';
        cellArr=ca.Cells;
        ca_L=length(ca.Cells);
        
-       % блок тестировани€ правильности нахождени€ элементов и всех типов границ
+       %блок тестировани€ правильности нахождени€ элементов и работы всех типов границ
        bordersType=zeros(1,ca_L);
        bordersType(:)=ca.BordersType;
        fieldType=bordersType;
@@ -622,34 +622,84 @@ handles.ReadModelingParmsFrmFile.Enable='off';
        nArr=fieldType;
        nArr(:)=ca.N;
        
-       [isIntrnl,isIntrnlPlus,isCorner,isCornerAx,isCornerEdg,isZero,isTrueCell,errorCellsInfo]=arrayfun(@TestingScripts.CheckNeighborsAndBorderType,ca.Cells,nArr,fieldType,bordersType);
+       [isIntrnl,isIntrnlPlus,isCorner,isCornerAx,isEdg,isZero,isTrueCell,errorCellsInfo]=arrayfun(@TestingScripts.CheckNeighborsAndBorderType,ca.Cells,nArr,fieldType,bordersType);
        
-%        внутренние €чейки: (наход€тс€ правильно)
-        Intrnl = length(find(isIntrnl))==((3*ca.N^2)-(15*ca.N)+18)
-%        intrnlLengthTheor = ((3*ca.N^2)-(15*ca.N)+18)
-%        intrnlLengthTest = length(find(isIntrnl))
+       switch ca.BordersType
+           
+           case 1
+               
+               if ca.FieldType == 1
+                   %внутренние €чейки:
+                   Intrnl = length(find(isIntrnl))==((3*ca.N^2)-(15*ca.N)+18);
+               
+                   %внутренние €чейки с сосед€ми из другой фигуры:
+                   IntrnlPlus = length(find(isIntrnlPlus))== 6*ca.N-12;
+               
+                   %мертвые €чейки:
+                   Edg = length(find(isEdg))== 6*ca.N-12 + 6;
+               
+                   %нулева€ €чейка:
+                   Zero = length(find(isZero))==1;
+               
+                   all([Intrnl IntrnlPlus Edg Zero])
+               else
+                   Intrnl = length(find(isIntrnl))==(ca.N-2)^2;
+                   Edg = length(find(isEdg))==(ca.N)^2 - (ca.N-2)^2;
+                   
+                   all([Intrnl Edg])
+               end
+               
+           case 2
+               
+               if ca.FieldType == 1
+                   %внутренние €чейки:
+                   Intrnl = length(find(isIntrnl))==((3*ca.N^2)-(15*ca.N)+18);
+               
+                   %внутренние €чейки с сосед€ми из другой фигуры:
+                   IntrnlPlus = length(find(isIntrnlPlus))== 6*ca.N-12;
+               
+                   %€чейки на ребре:
+                   Edg = length(find(isEdg))== 6*ca.N-12;
+               
+                   %угловые €чейки:
+                   Corner = length(find(isCorner))==3;
+               
+                   %осевые  угловые €чейки:
+                   CornerAx = length(find(isCornerAx))==3;
+               
+                   %нулева€ €чейка:
+                   Zero = length(find(isZero))==1;
+               
+                   all([Intrnl IntrnlPlus Edg Corner CornerAx Zero])
+               else
+                   TrueCell=all(isTrueCell); 
+                   
+                   Intrnl = length(find(isIntrnl))==(ca.N-2)^2;
+                   
+                   Edg = length(find(isEdg))==(ca.N)^2 - (ca.N-2)^2 - 4;
+                   
+                   Corner = length(find(isCorner))==4;
+                   
+                   all([TrueCell Intrnl Edg Corner])
+               end
+               
+           case 3
+               
+               if ca.FieldType == 1
+                   
+               else
+                   Intrnl = length(find(isIntrnl))==(ca.N-2)^2;
+                   
+                   Edg = length(find(isEdg))==(ca.N)^2 - (ca.N-2)^2 - 4;
+                   
+                   Corner = length(find(isCorner))==4;
+                   
+                   all([Intrnl Edg Corner])
+               end
+               
+       end
        
-%        внутренние €чейки с сосед€ми из другой фигуры:
-       IntrnlPlus = length(find(isIntrnlPlus))== 6*ca.N-12
-%        IntrnlPlusLengthTheor = 6*ca.N-12
-%        IntrnlPlusLengthTest = length(find(isIntrnlPlus))
-       
-       IntrnlPlusCells=ca.Cells(find(isIntrnlPlus));
-%        IntrnlPlusFalseCellsCount = length(find(arrayfun(@(cell) isequal(cell.Indexes(1,2),[ca.N-1,0]),IntrnlPlusCells)))
-%        €чейки на ребре:
-       CornerEdg = length(find(isCornerEdg))== 6*ca.N-12
-%        
-%        угловые €чейки:
-       Corner = length(find(isCorner))==3
-       
-%        осевые  угловые €чейки:
-       CornerAx = length(find(isCornerAx))==3
-       
-%        нулева€ €чейка:
-       Zero = length(find(isZero))==1
-       
-       
-       % блок тестировани€ правильности нахождени€ элементов и всех типов границ
+       %блок тестировани€ правильности нахождени€ элементов и всех типов границ
        
        %рассчет пол€  ј
        for i=1:itersCount
@@ -3216,7 +3266,7 @@ contParms = getappdata(handles.output,'ContParms');
 
 if contParms.SingleOrMultipleCalc
     Nerror=false;
-    if(isempty(regexp(handles.NFieldEdit.String,'^\d+$')))
+    if(isempty(regexp(handles.NFieldEdit.String,'^\d+$')) )%|| handles.NFieldEdit.String=='2'
         Nerror=true;
         error=true;
         errorStr=strcat(errorStr,'N; ');

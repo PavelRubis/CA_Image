@@ -18,36 +18,16 @@ classdef TestingScripts
                     % статическая переменная типа поля (1-гексагональное, 0-квадратное)
                     if fieldOrient == 1
                         
-                    else
+                        isEdge=length(CACell.CurrNeighbors)==0 && (isequal(CACell.Indexes(1:2),[n-1 n-1]) || isequal(CACell.Indexes(1:2),[n-1 0]) || ((CACell.Indexes(1)==n-1 && CACell.Indexes(2)<n-1 && CACell.Indexes(2)>0) || (CACell.Indexes(2)==n-1 && CACell.Indexes(1)<n-1 && CACell.Indexes(1)>0)));
+                            
+                        if isEdge
+                            return;
+                        end
                         
-                    end
-                case 2
-                    % статическая переменная типа поля (1-гексагональное, 0-квадратное)
-                    if fieldOrient == 1
                         if length(CACell.CurrNeighbors)==6
                             
-                            
-                            isCorner = (length(find(arrayfun(@(neighbor) isequal(CACell.Indexes(1:2)-neighbor.Indexes(1:2),[0 n-1]),CACell.CurrNeighbors))))==3;
-                            
-                            if isCorner
-                                return;
-                            end
-                            
-                            %
-                            isCornerAx = (length(find(arrayfun(@(neighbor) isequal(CACell.Indexes(1:2)-neighbor.Indexes(1:2),[0 -(n-1)]),CACell.CurrNeighbors))))==3;
-                            
-                            if isCornerAx
-                                return;
-                            end
-                            
-                            %
-                            isEdge = (length(find(arrayfun(@(neighbor) isequal((CACell.Indexes(1:2)-neighbor.Indexes(1:2)),[0 0]) && CACell.Indexes(3)~=neighbor.Indexes(3),CACell.CurrNeighbors))))==2;
-                            
-                            if isEdge
-                                return;
-                            end
-                            
-                                                        switch CACell.Indexes(3)
+                            %либо j=0 либо i=1
+                            switch CACell.Indexes(3)
                                 
                                 case 1
                                     neighborK=[];
@@ -56,7 +36,7 @@ classdef TestingScripts
                                     else
                                         neighborK=3;
                                     end
-                                    isIntrnlPlus=any(arrayfun(@(neighbor) any((CACell.Indexes(2)-neighbor.Indexes(1))==[-1 0]) && any(abs(CACell.Indexes(1)-neighbor.Indexes(2))==[1 0]) && (neighbor.Indexes(3)==neighborK) ,CACell.CurrNeighbors));
+                                    isIntrnlPlus=any(arrayfun(@(neighbor) any((CACell.Indexes(2)-neighbor.Indexes(1))==[-1 0]) && any(abs(CACell.Indexes(1)-neighbor.Indexes(2))==[1 0]) && (neighbor.Indexes(3)==neighborK) ,CACell.CurrNeighbors)) && (CACell.Indexes(1)==1 || CACell.Indexes(2)==0);
                                     
                                 case 2
                                     neighborK=[];
@@ -65,7 +45,7 @@ classdef TestingScripts
                                     else
                                         neighborK=1;
                                     end
-                                    isIntrnlPlus=any(arrayfun(@(neighbor) any((CACell.Indexes(2)-neighbor.Indexes(1))==[-1 0]) && any(abs(CACell.Indexes(1)-neighbor.Indexes(2))==[1 0]) && (neighbor.Indexes(3)==neighborK) ,CACell.CurrNeighbors));
+                                    isIntrnlPlus=any(arrayfun(@(neighbor) any((CACell.Indexes(2)-neighbor.Indexes(1))==[-1 0]) && any(abs(CACell.Indexes(1)-neighbor.Indexes(2))==[1 0]) && (neighbor.Indexes(3)==neighborK) ,CACell.CurrNeighbors)) && (CACell.Indexes(1)==1 || CACell.Indexes(2)==0);
                                 case 3
                                     neighborK=[];
                                     if CACell.Indexes(2)==0
@@ -73,14 +53,94 @@ classdef TestingScripts
                                     else
                                         neighborK=2;
                                     end
-                                    isIntrnlPlus=any(arrayfun(@(neighbor) any((CACell.Indexes(2)-neighbor.Indexes(1))==[-1 0]) && any(abs(CACell.Indexes(1)-neighbor.Indexes(2))==[1 0]) && (neighbor.Indexes(3)==neighborK) ,CACell.CurrNeighbors));
+                                    isIntrnlPlus=any(arrayfun(@(neighbor) any((CACell.Indexes(2)-neighbor.Indexes(1))==[-1 0]) && any(abs(CACell.Indexes(1)-neighbor.Indexes(2))==[1 0]) && (neighbor.Indexes(3)==neighborK) ,CACell.CurrNeighbors)) && (CACell.Indexes(1)==1 || CACell.Indexes(2)==0);
                                     
                                 otherwise
                                     checkIntrnlDiffMatr=[[1 0];[1 1]];
                                     isZero = all(arrayfun(@(neighbor) any(ismember(abs(neighbor.Indexes(1:2)-CACell.Indexes(1:2))==checkIntrnlDiffMatr, [1 1], 'rows')) ,CACell.CurrNeighbors));
 
                             end
-                            %
+                            
+                            if isIntrnlPlus || isZero
+                                return;
+                            end
+                            
+                            checkIntrnlDiffMatr=[[0 1 0];[1 0 0];[1 1 0]];
+                            isIntrnl = all(arrayfun(@(neighbor) any(ismember(abs(neighbor.Indexes-CACell.Indexes)==checkIntrnlDiffMatr, [1 1 1], 'rows')) ,CACell.CurrNeighbors));
+                            
+                            if isIntrnl
+                                return;
+                            end
+                            
+                        end
+                    else
+                        checkDiffMatr=[[0 1 0];[1 0 0]];
+                        
+                        if length(CACell.CurrNeighbors)>0
+                            isIntrnl = length(find(arrayfun(@(neighbor) any(ismember(abs(neighbor.Indexes-CACell.Indexes)==checkDiffMatr, [1 1 1], 'rows')) ,CACell.CurrNeighbors)))==4 &&(all(CACell.Indexes(1:2)<n-1) && all(CACell.Indexes(1:2)>0));
+                        else
+                            isEdge = length(find(arrayfun(@(neighbor) any(ismember(abs(neighbor.Indexes-CACell.Indexes)==checkDiffMatr, [1 1 1], 'rows')) ,CACell.CurrNeighbors)))==0 &&(any(CACell.Indexes(1:2)==n-1) || any(CACell.Indexes(1:2)==0));
+                        end
+                        
+                    end
+                case 2
+                    % статическая переменная типа поля (1-гексагональное, 0-квадратное)
+                    if fieldOrient == 1
+                        if length(CACell.CurrNeighbors)==6
+                            
+                            isCorner = (length(find(arrayfun(@(neighbor) isequal(CACell.Indexes(1:2)-neighbor.Indexes(1:2),[0 n-1]),CACell.CurrNeighbors))))==3 && isequal(CACell.Indexes(1:2),[n-1 n-1]);
+                            
+                            if isCorner
+                                return;
+                            end
+                            
+                            isCornerAx = (length(find(arrayfun(@(neighbor) isequal(CACell.Indexes(1:2)-neighbor.Indexes(1:2),[0 -(n-1)]),CACell.CurrNeighbors))))==3 && isequal(CACell.Indexes(1:2),[n-1 0]);
+                            
+                            if isCornerAx
+                                return;
+                            end
+                            
+                            isEdge = (length(find(arrayfun(@(neighbor) isequal((CACell.Indexes(1:2)-neighbor.Indexes(1:2)),[0 0]) && CACell.Indexes(3)~=neighbor.Indexes(3),CACell.CurrNeighbors))))==2 && ((CACell.Indexes(1)==n-1 && CACell.Indexes(2)<n-1 && CACell.Indexes(2)>0) || (CACell.Indexes(2)==n-1 && CACell.Indexes(1)<n-1 && CACell.Indexes(1)>0));
+                            
+                            if isEdge
+                                return;
+                            end
+                            
+                            %либо j=0 либо i=1
+                            switch CACell.Indexes(3)
+                                
+                                case 1
+                                    neighborK=[];
+                                    if CACell.Indexes(2)==0
+                                        neighborK=2;
+                                    else
+                                        neighborK=3;
+                                    end
+                                    isIntrnlPlus=any(arrayfun(@(neighbor) any((CACell.Indexes(2)-neighbor.Indexes(1))==[-1 0]) && any(abs(CACell.Indexes(1)-neighbor.Indexes(2))==[1 0]) && (neighbor.Indexes(3)==neighborK) ,CACell.CurrNeighbors)) && (CACell.Indexes(1)==1 || CACell.Indexes(2)==0);
+                                    
+                                case 2
+                                    neighborK=[];
+                                    if CACell.Indexes(2)==0
+                                        neighborK=3;
+                                    else
+                                        neighborK=1;
+                                    end
+                                    isIntrnlPlus=any(arrayfun(@(neighbor) any((CACell.Indexes(2)-neighbor.Indexes(1))==[-1 0]) && any(abs(CACell.Indexes(1)-neighbor.Indexes(2))==[1 0]) && (neighbor.Indexes(3)==neighborK) ,CACell.CurrNeighbors)) && (CACell.Indexes(1)==1 || CACell.Indexes(2)==0);
+                                case 3
+                                    neighborK=[];
+                                    if CACell.Indexes(2)==0
+                                        neighborK=1;
+                                    else
+                                        neighborK=2;
+                                    end
+                                    isIntrnlPlus=any(arrayfun(@(neighbor) any((CACell.Indexes(2)-neighbor.Indexes(1))==[-1 0]) && any(abs(CACell.Indexes(1)-neighbor.Indexes(2))==[1 0]) && (neighbor.Indexes(3)==neighborK) ,CACell.CurrNeighbors)) && (CACell.Indexes(1)==1 || CACell.Indexes(2)==0);
+                                    
+                                otherwise
+                                    checkIntrnlDiffMatr=[[1 0];[1 1]];
+                                    isZero = all(arrayfun(@(neighbor) any(ismember(abs(neighbor.Indexes(1:2)-CACell.Indexes(1:2))==checkIntrnlDiffMatr, [1 1], 'rows')) ,CACell.CurrNeighbors));
+
+                            end
+                            
                             if isIntrnlPlus || isZero
                                 return;
                             end
@@ -107,17 +167,36 @@ classdef TestingScripts
                         
                     else
                         if length(CACell.CurrNeighbors)==4
+                            
                             checkDiffMatr=[[0 1 0];[1 0 0];[0 n-1 0];[n-1 0 0]];
-                            isTrueCell = all(arrayfun(@(neighbor) any(ismember(abs(neighbor.Indexes-CACell.Indexes)==checkDiffMatr, [1 1 1], 'rows')) ,CACell.CurrNeighbors));
-                            return;
+                            isTrueCell = length(find((arrayfun(@(neighbor) any(ismember(abs(neighbor.Indexes-CACell.Indexes)==checkDiffMatr, [1 1 1], 'rows')) ,CACell.CurrNeighbors))))==4;
+                            
+                            checkDiffMatr=[[0 1 0];[1 0 0];[0 n-1 0];[n-1 0 0]];
+                            isIntrnl = length(find(arrayfun(@(neighbor) any(ismember(abs(neighbor.Indexes-CACell.Indexes)==checkDiffMatr, [1 1 1], 'rows')) ,CACell.CurrNeighbors)))==4 &&(all(CACell.Indexes(1:2)<n-1) && all(CACell.Indexes(1:2)>0));
+
+                            if isTrueCell
+                                
+                                checkDiffMatr=[[0 n-1 0];[n-1 0 0]];
+                                isEdge = length(find(arrayfun(@(neighbor) any(ismember(abs(neighbor.Indexes-CACell.Indexes)==checkDiffMatr, [1 1 1], 'rows')) ,CACell.CurrNeighbors)))==1 && ((any(CACell.Indexes(1:2)==n-1) || any(CACell.Indexes(1:2)==0)) && ~(all(CACell.Indexes(1:2)==n-1) || all(CACell.Indexes(1:2)==0) || abs(CACell.Indexes(1)-CACell.Indexes(2))==n-1));
+                        
+                                isCorner = length(find(arrayfun(@(neighbor) any(ismember(abs(neighbor.Indexes-CACell.Indexes)==checkDiffMatr, [1 1 1], 'rows')) ,CACell.CurrNeighbors)))==2 && (all(CACell.Indexes(1:2)==n-1) || all(CACell.Indexes(1:2)==0) || abs(CACell.Indexes(1)-CACell.Indexes(2))==n-1);
+                            
+                            end
+                            
                         end
                     end
                 case 3
                     % статическая переменная типа поля (1-гексагональное, 0-квадратное)
                     if fieldOrient == 1
-                    
-                    else
                         
+                    else
+                        checkDiffMatr=[[0 1 0];[1 0 0]];
+                        
+                        isIntrnl = length(find(arrayfun(@(neighbor) any(ismember(abs(neighbor.Indexes-CACell.Indexes)==checkDiffMatr, [1 1 1], 'rows')) ,CACell.CurrNeighbors)))==4 &&(all(CACell.Indexes(1:2)<n-1) && all(CACell.Indexes(1:2)>0));
+
+                        isEdge = length(find(arrayfun(@(neighbor) any(ismember(abs(neighbor.Indexes-CACell.Indexes)==checkDiffMatr, [1 1 1], 'rows')) ,CACell.CurrNeighbors)))==3 && ((any(CACell.Indexes(1:2)==n-1) || any(CACell.Indexes(1:2)==0)) && ~(all(CACell.Indexes(1:2)==n-1) || all(CACell.Indexes(1:2)==0) || abs(CACell.Indexes(1)-CACell.Indexes(2))==n-1));
+                        
+                        isCorner = length(find(arrayfun(@(neighbor) any(ismember(abs(neighbor.Indexes-CACell.Indexes)==checkDiffMatr, [1 1 1], 'rows')) ,CACell.CurrNeighbors)))==2 && (all(CACell.Indexes(1:2)==n-1) || all(CACell.Indexes(1:2)==0) || abs(CACell.Indexes(1)-CACell.Indexes(2))==n-1);
                     end
                     
             end
