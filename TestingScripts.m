@@ -189,6 +189,68 @@ classdef TestingScripts
                     % статическая переменная типа поля (1-гексагональное, 0-квадратное)
                     if fieldOrient == 1
                         
+                        isEdge=length(CACell.CurrNeighbors)==4 && (((CACell.Indexes(1)==n-1 && CACell.Indexes(2)<n-1 && CACell.Indexes(2)>0) || (CACell.Indexes(2)==n-1 && CACell.Indexes(1)<n-1 && CACell.Indexes(1)>0)));
+                            
+                        if isEdge
+                            return;
+                        end
+                        
+                        isCorner=length(CACell.CurrNeighbors)==3 && (isequal(CACell.Indexes(1:2),[n-1 n-1]) || isequal(CACell.Indexes(1:2),[n-1 0]));
+                            
+                        if isCorner
+                            return;
+                        end
+                        
+                        if length(CACell.CurrNeighbors)==6
+                            
+                            %либо j=0 либо i=1
+                            switch CACell.Indexes(3)
+                                
+                                case 1
+                                    neighborK=[];
+                                    if CACell.Indexes(2)==0
+                                        neighborK=2;
+                                    else
+                                        neighborK=3;
+                                    end
+                                    isIntrnlPlus=any(arrayfun(@(neighbor) any((CACell.Indexes(2)-neighbor.Indexes(1))==[-1 0]) && any(abs(CACell.Indexes(1)-neighbor.Indexes(2))==[1 0]) && (neighbor.Indexes(3)==neighborK) ,CACell.CurrNeighbors)) && (CACell.Indexes(1)==1 || CACell.Indexes(2)==0);
+                                    
+                                case 2
+                                    neighborK=[];
+                                    if CACell.Indexes(2)==0
+                                        neighborK=3;
+                                    else
+                                        neighborK=1;
+                                    end
+                                    isIntrnlPlus=any(arrayfun(@(neighbor) any((CACell.Indexes(2)-neighbor.Indexes(1))==[-1 0]) && any(abs(CACell.Indexes(1)-neighbor.Indexes(2))==[1 0]) && (neighbor.Indexes(3)==neighborK) ,CACell.CurrNeighbors)) && (CACell.Indexes(1)==1 || CACell.Indexes(2)==0);
+                                case 3
+                                    neighborK=[];
+                                    if CACell.Indexes(2)==0
+                                        neighborK=1;
+                                    else
+                                        neighborK=2;
+                                    end
+                                    isIntrnlPlus=any(arrayfun(@(neighbor) any((CACell.Indexes(2)-neighbor.Indexes(1))==[-1 0]) && any(abs(CACell.Indexes(1)-neighbor.Indexes(2))==[1 0]) && (neighbor.Indexes(3)==neighborK) ,CACell.CurrNeighbors)) && (CACell.Indexes(1)==1 || CACell.Indexes(2)==0);
+                                    
+                                otherwise
+                                    checkIntrnlDiffMatr=[[1 0];[1 1]];
+                                    isZero = all(arrayfun(@(neighbor) any(ismember(abs(neighbor.Indexes(1:2)-CACell.Indexes(1:2))==checkIntrnlDiffMatr, [1 1], 'rows')) ,CACell.CurrNeighbors));
+
+                            end
+                            
+                            if isIntrnlPlus || isZero
+                                return;
+                            end
+                            
+                            checkIntrnlDiffMatr=[[0 1 0];[1 0 0];[1 1 0]];
+                            isIntrnl = all(arrayfun(@(neighbor) any(ismember(abs(neighbor.Indexes-CACell.Indexes)==checkIntrnlDiffMatr, [1 1 1], 'rows')) ,CACell.CurrNeighbors));
+                            
+                            if isIntrnl
+                                return;
+                            end
+                            
+                        end
+                        
                     else
                         checkDiffMatr=[[0 1 0];[1 0 0]];
                         

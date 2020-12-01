@@ -686,7 +686,22 @@ handles.ReadModelingParmsFrmFile.Enable='off';
            case 3
                
                if ca.FieldType == 1
-                   
+                   %внутренние €чейки:
+                   Intrnl = length(find(isIntrnl))==((3*ca.N^2)-(15*ca.N)+18);
+               
+                   %внутренние €чейки с сосед€ми из другой фигуры:
+                   IntrnlPlus = length(find(isIntrnlPlus))== 6*ca.N-12;
+               
+                   %€чейки на ребре c четырьм€ сосед€ми:
+                   Edg = length(find(isEdg))== 6*ca.N-12;
+               
+                   %€чейки c трем€ сосед€ми:
+                   Corner = length(find(isCorner))==6;
+               
+                   %нулева€ €чейка:
+                   Zero = length(find(isZero))==1;
+               
+                   all([Intrnl IntrnlPlus Edg Corner Zero])
                else
                    Intrnl = length(find(isIntrnl))==(ca.N-2)^2;
                    
