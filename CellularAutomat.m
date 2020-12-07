@@ -3,6 +3,7 @@ classdef CellularAutomat
     properties
         
         FieldType logical % тип решетки (1-гексагональный, 0-квадратный)
+        NeighborhoodType logical % тип окрестности (1-фон-Неймана, 0-Мура)
         BordersType {mustBeInteger, mustBeInRange(BordersType,[1,3])} % тип границ (1-линия смерти, 2-замыкание границ, 3-закрытые границы )
         N double {mustBePositive, mustBeInteger} % ребро поля
         Base function_handle % базовое отображение
@@ -80,9 +81,10 @@ classdef CellularAutomat
     methods
         
        %конструктор КА 
-       function ca = CellularAutomat(fieldType, bordersType, n, base, lambda, zbase, miu0, miu)
+       function ca = CellularAutomat(fieldType,neighborhoodType, bordersType, n, base, lambda, zbase, miu0, miu)
            if nargin
                ca.FieldType=fieldType;
+               ca.NeighborhoodType=neighborhoodType;
                ca.BordersType=bordersType;
                ca.N=n;
                ca.Base=base;
@@ -92,9 +94,24 @@ classdef CellularAutomat
                ca.Miu=miu;
            end
        end
-        
-       %поиск соседей ячейки
-       function out = FindCellsNeighbors(ca, CA_cell)
+       
+       %обновление значений соседних ячеек для текущей
+       function NewCell = UpdateNeighborsValues(ca,CurrCell)
+           if length(CurrCell.CurrNeighbors)>0
+              
+               neighborsIndxsMatr=[];
+               for i=1:length(CurrCell.CurrNeighbors)
+                   neighborsIndxsMatr=[neighborsIndxsMatr ;CurrCell.CurrNeighbors(i).Indexes];
+               end
+               
+               CurrCell.CurrNeighbors = ca.Cells(find(arrayfun(@(CAcell) any(ismember(CAcell.Indexes==neighborsIndxsMatr, [1 1 1], 'rows')),ca.Cells)));
+           
+           end
+           NewCell=CurrCell;
+       end
+       
+       
+       function [generalNeib,extraGeneralNeib,extraNeib] = FindNeumannCellsNeighbors(ca, CA_cell)
            thisCA=ca; % экземпляр текущего КА
            n=thisCA.N; % ребро поля
            generalNeib = []; % массив, индексы ненулевых элементов которого равны индексам соседей в массиве ячеек поля
@@ -108,7 +125,365 @@ classdef CellularAutomat
                generalNeib = zeros(1,n*n);
            end
            
-          CA_cell = CACell(CA_cell.z0,CA_cell.zPath, CA_cell.Indexes, CA_cell.Color, thisCA.FieldType, n);
+           %поиск соседей ячейки CA_cell в зависимости от типа границ КА
+           switch thisCA.BordersType
+               %линия смерти
+               case 1
+                   if thisCA.FieldType
+                       
+                       if(~CA_cell.IsExternal)
+                           
+                           checkDiffMatr=[
+                                [1 1 0];
+                                [-1 0 0];
+                                [0 -1 0];
+                                ];
+                       
+                            generalNeib = arrayfun(@(neighbor) any(ismember((neighbor.Indexes-CA_cell.Indexes)==checkDiffMatr, [1 1 1], 'rows')) ,thisCA.Cells);
+                       
+                           switch CA_cell.Indexes(3)
+                               case 1
+                                   
+                                   if CA_cell.Indexes(2)==0 %&& CA_cell.Indexes(1)<n-1
+                                       
+                                       checkDiffMatr=[
+                                           [1 1 0];
+                                           [-1 0 0];
+                                       ];
+                                       
+                                       extraGeneralNeib = arrayfun(@(neighbor) any(ismember((neighbor.Indexes-CA_cell.Indexes)==checkDiffMatr, [1 1 1], 'rows')) || (neighbor.Indexes(1)-CA_cell.Indexes(2)==1 && neighbor.Indexes(2)-CA_cell.Indexes(1)==1 && neighbor.Indexes(3)==2) ,thisCA.Cells);
+                                   
+                                   end
+                                   
+                                   if CA_cell.Indexes(1)==1 && CA_cell.Indexes(2)>0
+                                       
+                                       checkDiffMatr=[
+                                           [1 1 0];
+                                           [0 -1 0];
+                                       ];
+                                       
+                                       extraGeneralNeib = arrayfun(@(neighbor) any(ismember((neighbor.Indexes-CA_cell.Indexes)==checkDiffMatr, [1 1 1], 'rows')) || (neighbor.Indexes(1)-CA_cell.Indexes(2)==0 && neighbor.Indexes(2)-CA_cell.Indexes(1)==-1 && neighbor.Indexes(3)==3)  ,thisCA.Cells);
+                                   
+                                   end
+                                   
+                               case 2
+                                   
+                                   if CA_cell.Indexes(2)==0 %&& CA_cell.Indexes(1)<n-1
+                                       
+                                       checkDiffMatr=[
+                                           [1 1 0];
+                                           [-1 0 0];
+                                       ];
+                                       
+                                       extraGeneralNeib = arrayfun(@(neighbor) any(ismember((neighbor.Indexes-CA_cell.Indexes)==checkDiffMatr, [1 1 1], 'rows')) || (neighbor.Indexes(1)-CA_cell.Indexes(2)==1 && neighbor.Indexes(2)-CA_cell.Indexes(1)==1 && neighbor.Indexes(3)==3) ,thisCA.Cells);
+                                   
+                                   end
+                                   
+                                   if CA_cell.Indexes(1)==1 && CA_cell.Indexes(2)>0
+                                       
+                                       checkDiffMatr=[
+                                           [1 1 0];
+                                           [0 -1 0];
+                                       ];
+                                       
+                                       extraGeneralNeib = arrayfun(@(neighbor) any(ismember((neighbor.Indexes-CA_cell.Indexes)==checkDiffMatr, [1 1 1], 'rows')) || (neighbor.Indexes(1)-CA_cell.Indexes(2)==0 && neighbor.Indexes(2)-CA_cell.Indexes(1)==-1 && neighbor.Indexes(3)==1)  ,thisCA.Cells);
+                                   
+                                   end
+                                   
+                               case 3
+                                   
+                                   if CA_cell.Indexes(2)==0 %&& CA_cell.Indexes(1)<n-1
+                                       
+                                       checkDiffMatr=[
+                                           [1 1 0];
+                                           [-1 0 0];
+                                       ];
+                                       
+                                       extraGeneralNeib = arrayfun(@(neighbor) any(ismember((neighbor.Indexes-CA_cell.Indexes)==checkDiffMatr, [1 1 1], 'rows')) || (neighbor.Indexes(1)-CA_cell.Indexes(2)==1 && neighbor.Indexes(2)-CA_cell.Indexes(1)==1 && neighbor.Indexes(3)==1) ,thisCA.Cells);
+                                   
+                                   end
+                                   
+                                   if CA_cell.Indexes(1)==1 && CA_cell.Indexes(2)>0
+                                       
+                                       checkDiffMatr=[
+                                           [1 1 0];
+                                           [0 -1 0];
+                                       ];
+                                       
+                                       extraGeneralNeib = arrayfun(@(neighbor) any(ismember((neighbor.Indexes-CA_cell.Indexes)==checkDiffMatr, [1 1 1], 'rows')) || (neighbor.Indexes(1)-CA_cell.Indexes(2)==0 && neighbor.Indexes(2)-CA_cell.Indexes(1)==-1 && neighbor.Indexes(3)==2)  ,thisCA.Cells);
+                                   
+                                   end
+                           end
+                           
+                           if all(CA_cell.Indexes==0)
+                               
+                               checkDiffMatr=[
+                                   [1 1];
+                                   [-1 0];
+                                   [0 -1];
+                                   ];
+                       
+                               generalNeib = arrayfun(@(neighbor) any(ismember((neighbor.Indexes(1:2)-CA_cell.Indexes(1:2))==checkDiffMatr, [1 1], 'rows')) ,thisCA.Cells);
+                           
+                           end
+                       
+                       end
+                       
+                   else
+                       
+                       if(~CA_cell.IsExternal)
+                           generalNeib = arrayfun(@(cell) isequal(abs(cell.Indexes - CA_cell.Indexes),[0 1 0]) || isequal(abs(cell.Indexes - CA_cell.Indexes),[1 0 0]),thisCA.Cells);
+                       end
+                       
+                   end
+                   
+               %замыкание границ
+               case 2
+                   if thisCA.FieldType
+                       %добавить те, у которых либо j=0 либо i=1
+                       
+                       if(any(CA_cell.Indexes(1:2)==n-1))
+                       
+                           if isequal(CA_cell.Indexes(1:2),[n-1 0])
+                               
+                               extraNeib = arrayfun(@(cell) isequal(abs(cell.Indexes - CA_cell.Indexes),[0 1 0]) || isequal(abs(cell.Indexes - CA_cell.Indexes),[1 0 0]) || isequal(cell.Indexes - CA_cell.Indexes,[1 1 0])  || isequal(cell.Indexes - CA_cell.Indexes,[-1 -1 0]) || isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[0 (n-1)]),thisCA.Cells);
+                       
+                           end
+                           
+                           if isequal(CA_cell.Indexes(1:2),[n-1 n-1])
+                           
+                               extraNeib = arrayfun(@(cell) isequal(abs(cell.Indexes - CA_cell.Indexes),[0 1 0]) || isequal(abs(cell.Indexes - CA_cell.Indexes),[1 0 0]) || isequal(cell.Indexes - CA_cell.Indexes,[1 1 0])  || isequal(cell.Indexes - CA_cell.Indexes,[-1 -1 0]) || isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[0 -(n-1)]),thisCA.Cells);
+                       
+                           end
+                           
+                           if (CA_cell.Indexes(1)==n-1 && CA_cell.Indexes(2)>0 && CA_cell.Indexes(2)~=n-1) || (CA_cell.Indexes(2)==n-1 && CA_cell.Indexes(1)>0 && CA_cell.Indexes(1)~=n-1)
+                           
+                               extraNeib = arrayfun(@(cell) isequal(abs(cell.Indexes - CA_cell.Indexes),[0 1 0]) || isequal(abs(cell.Indexes - CA_cell.Indexes),[1 0 0]) || isequal(cell.Indexes - CA_cell.Indexes,[1 1 0])  || isequal(cell.Indexes - CA_cell.Indexes,[-1 -1 0]) || (isequal(abs(cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[0 0]) && cell.Indexes(3)~=CA_cell.Indexes(3)),thisCA.Cells);                    
+                       
+                           end
+                       else
+                           
+                           checkDiffMatr=[
+                                [1 1 0];
+                                [-1 0 0];
+                                [0 -1 0];
+                                ];
+                       
+                            generalNeib = arrayfun(@(neighbor) any(ismember((neighbor.Indexes-CA_cell.Indexes)==checkDiffMatr, [1 1 1], 'rows')) ,thisCA.Cells);                       
+                       
+                       end
+                           
+                           switch CA_cell.Indexes(3)
+                               case 1
+                                   
+                                   if CA_cell.Indexes(2)==0 %&& CA_cell.Indexes(1)<n-1
+                                       
+                                       checkDiffMatr=[
+                                           [1 1 0];
+                                           [-1 0 0];
+                                       ];
+                                       
+                                       extraGeneralNeib = arrayfun(@(neighbor) any(ismember((neighbor.Indexes-CA_cell.Indexes)==checkDiffMatr, [1 1 1], 'rows')) || (neighbor.Indexes(1)-CA_cell.Indexes(2)==1 && neighbor.Indexes(2)-CA_cell.Indexes(1)==1 && neighbor.Indexes(3)==2) ,thisCA.Cells);
+                                   
+                                   end
+                                   
+                                   if CA_cell.Indexes(1)==1 && CA_cell.Indexes(2)>0
+                                       
+                                       checkDiffMatr=[
+                                           [1 1 0];
+                                           [0 -1 0];
+                                       ];
+                                       
+                                       extraGeneralNeib = arrayfun(@(neighbor) any(ismember((neighbor.Indexes-CA_cell.Indexes)==checkDiffMatr, [1 1 1], 'rows')) || (neighbor.Indexes(1)-CA_cell.Indexes(2)==0 && neighbor.Indexes(2)-CA_cell.Indexes(1)==-1 && neighbor.Indexes(3)==3)  ,thisCA.Cells);
+                                   
+                                   end
+                                   
+                               case 2
+                                   
+                                   if CA_cell.Indexes(2)==0 %&& CA_cell.Indexes(1)<n-1
+                                       
+                                       checkDiffMatr=[
+                                           [1 1 0];
+                                           [-1 0 0];
+                                       ];
+                                       
+                                       extraGeneralNeib = arrayfun(@(neighbor) any(ismember((neighbor.Indexes-CA_cell.Indexes)==checkDiffMatr, [1 1 1], 'rows')) || (neighbor.Indexes(1)-CA_cell.Indexes(2)==1 && neighbor.Indexes(2)-CA_cell.Indexes(1)==1 && neighbor.Indexes(3)==3) ,thisCA.Cells);
+                                   
+                                   end
+                                   
+                                   if CA_cell.Indexes(1)==1 && CA_cell.Indexes(2)>0
+                                       
+                                       checkDiffMatr=[
+                                           [1 1 0];
+                                           [0 -1 0];
+                                       ];
+                                       
+                                       extraGeneralNeib = arrayfun(@(neighbor) any(ismember((neighbor.Indexes-CA_cell.Indexes)==checkDiffMatr, [1 1 1], 'rows')) || (neighbor.Indexes(1)-CA_cell.Indexes(2)==0 && neighbor.Indexes(2)-CA_cell.Indexes(1)==-1 && neighbor.Indexes(3)==1)  ,thisCA.Cells);
+                                   
+                                   end
+                                   
+                               case 3
+                                   
+                                   if CA_cell.Indexes(2)==0 %&& CA_cell.Indexes(1)<n-1
+                                       
+                                       checkDiffMatr=[
+                                           [1 1 0];
+                                           [-1 0 0];
+                                       ];
+                                       
+                                       extraGeneralNeib = arrayfun(@(neighbor) any(ismember((neighbor.Indexes-CA_cell.Indexes)==checkDiffMatr, [1 1 1], 'rows')) || (neighbor.Indexes(1)-CA_cell.Indexes(2)==1 && neighbor.Indexes(2)-CA_cell.Indexes(1)==1 && neighbor.Indexes(3)==1) ,thisCA.Cells);
+                                   
+                                   end
+                                   
+                                   if CA_cell.Indexes(1)==1 && CA_cell.Indexes(2)>0
+                                       
+                                       checkDiffMatr=[
+                                           [1 1 0];
+                                           [0 -1 0];
+                                       ];
+                                       
+                                       extraGeneralNeib = arrayfun(@(neighbor) any(ismember((neighbor.Indexes-CA_cell.Indexes)==checkDiffMatr, [1 1 1], 'rows')) || (neighbor.Indexes(1)-CA_cell.Indexes(2)==0 && neighbor.Indexes(2)-CA_cell.Indexes(1)==-1 && neighbor.Indexes(3)==2)  ,thisCA.Cells);
+                                   
+                                   end
+                           end
+                           
+                           if all(CA_cell.Indexes==0)
+                             
+                               checkDiffMatr=[
+                                   [1 1];
+                                   [-1 0];
+                                   [0 -1];
+                                   ];
+                       
+                               generalNeib = arrayfun(@(neighbor) any(ismember((neighbor.Indexes(1:2)-CA_cell.Indexes(1:2))==checkDiffMatr, [1 1], 'rows')) ,thisCA.Cells);                  
+                           
+                           end
+                       
+                   else
+                       
+                       generalNeib = arrayfun(@(cell) isequal(abs(cell.Indexes - CA_cell.Indexes),[0 1 0]) || isequal(abs(cell.Indexes - CA_cell.Indexes),[1 0 0]) || isequal(abs(cell.Indexes - CA_cell.Indexes),[0 n-1 0]) || isequal(abs(cell.Indexes - CA_cell.Indexes),[n-1 0 0]),thisCA.Cells);
+                   
+                   end
+                   
+               %закрытые границы    
+               case 3
+                   if thisCA.FieldType
+
+                       checkDiffMatr=[
+                           [1 1 0];
+                           [-1 0 0];
+                           [0 -1 0];
+                           ];
+                       
+                       generalNeib = arrayfun(@(neighbor) any(ismember((neighbor.Indexes-CA_cell.Indexes)==checkDiffMatr, [1 1 1], 'rows')) ,thisCA.Cells);
+                       
+                           switch CA_cell.Indexes(3)
+                               case 1
+                                   
+                                   if CA_cell.Indexes(2)==0 %&& CA_cell.Indexes(1)<n-1
+                                       
+                                       checkDiffMatr=[
+                                           [1 1 0];
+                                           [-1 0 0];
+                                       ];
+                                       
+                                       extraGeneralNeib = arrayfun(@(neighbor) any(ismember((neighbor.Indexes-CA_cell.Indexes)==checkDiffMatr, [1 1 1], 'rows')) || (neighbor.Indexes(1)-CA_cell.Indexes(2)==1 && neighbor.Indexes(2)-CA_cell.Indexes(1)==1 && neighbor.Indexes(3)==2) ,thisCA.Cells);
+                                   
+                                   end
+                                   
+                                   if CA_cell.Indexes(1)==1 && CA_cell.Indexes(2)>0
+                                       
+                                       checkDiffMatr=[
+                                           [1 1 0];
+                                           [0 -1 0];
+                                       ];
+                                       
+                                       extraGeneralNeib = arrayfun(@(neighbor) any(ismember((neighbor.Indexes-CA_cell.Indexes)==checkDiffMatr, [1 1 1], 'rows')) || (neighbor.Indexes(1)-CA_cell.Indexes(2)==0 && neighbor.Indexes(2)-CA_cell.Indexes(1)==-1 && neighbor.Indexes(3)==3)  ,thisCA.Cells);
+                                   
+                                   end
+                                   
+                               case 2
+                                   
+                                   if CA_cell.Indexes(2)==0 %&& CA_cell.Indexes(1)<n-1
+                                       
+                                       checkDiffMatr=[
+                                           [1 1 0];
+                                           [-1 0 0];
+                                       ];
+                                       
+                                       extraGeneralNeib = arrayfun(@(neighbor) any(ismember((neighbor.Indexes-CA_cell.Indexes)==checkDiffMatr, [1 1 1], 'rows')) || (neighbor.Indexes(1)-CA_cell.Indexes(2)==1 && neighbor.Indexes(2)-CA_cell.Indexes(1)==1 && neighbor.Indexes(3)==3) ,thisCA.Cells);
+                                   
+                                   end
+                                   
+                                   if CA_cell.Indexes(1)==1 && CA_cell.Indexes(2)>0
+                                       
+                                       checkDiffMatr=[
+                                           [1 1 0];
+                                           [0 -1 0];
+                                       ];
+                                       
+                                       extraGeneralNeib = arrayfun(@(neighbor) any(ismember((neighbor.Indexes-CA_cell.Indexes)==checkDiffMatr, [1 1 1], 'rows')) || (neighbor.Indexes(1)-CA_cell.Indexes(2)==0 && neighbor.Indexes(2)-CA_cell.Indexes(1)==-1 && neighbor.Indexes(3)==1)  ,thisCA.Cells);
+                                   
+                                   end
+                                   
+                               case 3
+                                   
+                                   if CA_cell.Indexes(2)==0 %&& CA_cell.Indexes(1)<n-1
+                                       
+                                       checkDiffMatr=[
+                                           [1 1 0];
+                                           [-1 0 0];
+                                       ];
+                                       
+                                       extraGeneralNeib = arrayfun(@(neighbor) any(ismember((neighbor.Indexes-CA_cell.Indexes)==checkDiffMatr, [1 1 1], 'rows')) || (neighbor.Indexes(1)-CA_cell.Indexes(2)==1 && neighbor.Indexes(2)-CA_cell.Indexes(1)==1 && neighbor.Indexes(3)==1) ,thisCA.Cells);
+                                   
+                                   end
+                                   
+                                   if CA_cell.Indexes(1)==1 && CA_cell.Indexes(2)>0
+                                       
+                                       checkDiffMatr=[
+                                           [1 1 0];
+                                           [0 -1 0];
+                                       ];
+                                       
+                                       extraGeneralNeib = arrayfun(@(neighbor) any(ismember((neighbor.Indexes-CA_cell.Indexes)==checkDiffMatr, [1 1 1], 'rows')) || (neighbor.Indexes(1)-CA_cell.Indexes(2)==0 && neighbor.Indexes(2)-CA_cell.Indexes(1)==-1 && neighbor.Indexes(3)==2)  ,thisCA.Cells);
+                                   
+                                   end
+                           end
+                       
+                       if all(CA_cell.Indexes==0)
+                           
+                           checkDiffMatr=[
+                               [1 1];
+                               [-1 0];
+                               [0 -1];
+                               ];
+                       
+                           generalNeib = arrayfun(@(neighbor) any(ismember((neighbor.Indexes(1:2)-CA_cell.Indexes(1:2))==checkDiffMatr, [1 1], 'rows')) ,thisCA.Cells);
+                                              
+                       end
+                       
+                   else
+                       generalNeib = arrayfun(@(cell) isequal(abs(cell.Indexes - CA_cell.Indexes),[0 1 0]) || isequal(abs(cell.Indexes - CA_cell.Indexes),[1 0 0]),thisCA.Cells);
+                   end
+                   
+           end
+           
+       end
+       
+       function [generalNeib,extraGeneralNeib,extraNeib] = FindMooreCellsNeighbors(ca, CA_cell)
+           thisCA=ca; % экземпляр текущего КА
+           n=thisCA.N; % ребро поля
+           generalNeib = []; % массив, индексы ненулевых элементов которого равны индексам соседей в массиве ячеек поля
+           extraNeib = [];
+           extraGeneralNeib = [];
+           if thisCA.FieldType
+               generalNeib = zeros(1,n*(n-1)*3+1);
+               extraGeneralNeib = zeros(1,n*(n-1)*3+1);
+               extraNeib = zeros(1,n*(n-1)*3+1);
+           else
+               generalNeib = zeros(1,n*n);
+           end
            
            %поиск соседей ячейки CA_cell в зависимости от типа границ КА
            switch thisCA.BordersType
@@ -199,7 +574,7 @@ classdef CellularAutomat
                    else
                        
                        if(~CA_cell.IsExternal)
-                           generalNeib = arrayfun(@(cell) isequal(abs(cell.Indexes - CA_cell.Indexes),[0 1 0]) || isequal(abs(cell.Indexes - CA_cell.Indexes),[1 0 0]),thisCA.Cells);
+                           generalNeib = arrayfun(@(cell) isequal(abs(cell.Indexes - CA_cell.Indexes),[0 1 0]) || isequal(abs(cell.Indexes - CA_cell.Indexes),[1 0 0]) || isequal(abs(cell.Indexes - CA_cell.Indexes),[1 1 0]),thisCA.Cells);
                        end
                        
                    end
@@ -310,8 +685,19 @@ classdef CellularAutomat
                        
                    else
                        
-                       generalNeib = arrayfun(@(cell) isequal(abs(cell.Indexes - CA_cell.Indexes),[0 1 0]) || isequal(abs(cell.Indexes - CA_cell.Indexes),[1 0 0]) || isequal(abs(cell.Indexes - CA_cell.Indexes),[0 n-1 0]) || isequal(abs(cell.Indexes - CA_cell.Indexes),[n-1 0 0]),thisCA.Cells);
-                   
+                       checkDiffMatr=[
+                           [0 1 0];
+                           [1 0 0];
+                           [0 n-1 0];
+                           [n-1 0 0];
+                           [1 1 0];
+                           [n-1 n-1 0];
+                           [n-1 1 0];
+                           [1 n-1 0];
+                           ];
+                       
+                       generalNeib = arrayfun(@(neighbor) any(ismember(abs(neighbor.Indexes-CA_cell.Indexes)==checkDiffMatr, [1 1 1], 'rows')) ,thisCA.Cells);
+                       
                    end
                    
                %закрытые границы    
@@ -396,36 +782,369 @@ classdef CellularAutomat
                        end
                        
                    else
-                       generalNeib = arrayfun(@(cell) isequal(abs(cell.Indexes - CA_cell.Indexes),[0 1 0]) || isequal(abs(cell.Indexes - CA_cell.Indexes),[1 0 0]),thisCA.Cells);
+                       generalNeib = arrayfun(@(cell) isequal(abs(cell.Indexes - CA_cell.Indexes),[0 1 0]) || isequal(abs(cell.Indexes - CA_cell.Indexes),[1 0 0]) || isequal(abs(cell.Indexes - CA_cell.Indexes),[1 1 0]),thisCA.Cells);
                    end
                    
            end
            
+       end
+        
+       %поиск соседей ячейки при инициализации КА
+       function out = FindCellsNeighbors(ca, CA_cell)
+%            thisCA=ca; % экземпляр текущего КА
+%            n=thisCA.N; % ребро поля
+%            generalNeib = []; % массив, индексы ненулевых элементов которого равны индексам соседей в массиве ячеек поля
+%            extraNeib = [];
+%            extraGeneralNeib = [];
+%            if thisCA.FieldType
+%                generalNeib = zeros(1,n*(n-1)*3+1);
+%                extraGeneralNeib = zeros(1,n*(n-1)*3+1);
+%                extraNeib = zeros(1,n*(n-1)*3+1);
+%            else
+%                generalNeib = zeros(1,n*n);
+%            end
+           
+          CA_cell = CACell(CA_cell.z0,CA_cell.zPath, CA_cell.Indexes, CA_cell.Color, ca.FieldType, ca.N);
+          
+          if ca.NeighborhoodType
+              [generalNeib,extraGeneralNeib,extraNeib] = FindNeumannCellsNeighbors(ca, CA_cell);
+          else
+              [generalNeib,extraGeneralNeib,extraNeib] = FindMooreCellsNeighbors(ca, CA_cell);
+          end
+                     
            neibArrNumbs=find(generalNeib);
            if ~isempty(neibArrNumbs)
-               CA_cell.CurrNeighbors = thisCA.Cells(neibArrNumbs(:));
+               CA_cell.CurrNeighbors = ca.Cells(neibArrNumbs(:));
            end
            
            neibArrNumbs=find(extraGeneralNeib);
            if ~isempty(neibArrNumbs)
-               CA_cell.CurrNeighbors = [CA_cell.CurrNeighbors thisCA.Cells(neibArrNumbs(:))];
+               CA_cell.CurrNeighbors = [CA_cell.CurrNeighbors ca.Cells(neibArrNumbs(:))];
            end
            
            neibArrNumbs=find(extraNeib);
            if ~isempty(neibArrNumbs)
-               CA_cell.CurrNeighbors = [CA_cell.CurrNeighbors thisCA.Cells(neibArrNumbs(:))];
+               CA_cell.CurrNeighbors = [CA_cell.CurrNeighbors ca.Cells(neibArrNumbs(:))];
            end
            
-%            zeroNeibrs=arrayfun(@(cell) all(cell.Indexes==0) ,CA_cell.CurrNeighbors);
-%            if any(zeroNeibrs==1)
-%                if length(zeroNeibrs)~=1
-%                    inxes=find(zeroNeibrs);
-%                    inxes(1)=[];
-%                    CA_cell.CurrNeighbors(inxes)=[];
-%                end
-%            end
-           
            out = CA_cell;
+           
+%            %поиск соседей ячейки CA_cell в зависимости от типа границ КА
+%            switch thisCA.BordersType
+%                %линия смерти
+%                case 1
+%                    if thisCA.FieldType
+%                        
+%                        if(~CA_cell.IsExternal)
+%                            generalNeib = arrayfun(@(cell) isequal(abs(cell.Indexes - CA_cell.Indexes),[0 1 0]) || isequal(abs(cell.Indexes - CA_cell.Indexes),[1 0 0]) || isequal(cell.Indexes - CA_cell.Indexes,[1 1 0])  || isequal(cell.Indexes - CA_cell.Indexes,[-1 -1 0]) || ((isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[-1 0]) || isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[-1 -1])) && all(cell.Indexes==0)),thisCA.Cells);
+%                            
+% 
+%                            switch CA_cell.Indexes(3)
+%                                case 1
+%                                    
+%                                    if CA_cell.Indexes(2)==0 %&& CA_cell.Indexes(1)<n-1
+%                                        
+%                                        extraGeneralNeib = arrayfun(@(cell) isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[-(CA_cell.Indexes(1)-1) cell.Indexes(2)]) && cell.Indexes(3)==2 && (CA_cell.Indexes(1)==cell.Indexes(2) || CA_cell.Indexes(1)==cell.Indexes(2)-1) ,thisCA.Cells);
+%                                    
+%                                    end
+%                                    if CA_cell.Indexes(1)==1 && CA_cell.Indexes(2)>0
+%                                        if all(CA_cell.Indexes(1:2)==1)
+%                                            
+%                                            extraGeneralNeib = arrayfun(@(cell) isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[(cell.Indexes(1)-1) -CA_cell.Indexes(2)]) && cell.Indexes(3)==3 && (CA_cell.Indexes(2)==cell.Indexes(1)) ,thisCA.Cells);
+%                                        
+%                                        else
+%                                            
+%                                            extraGeneralNeib = arrayfun(@(cell) isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[(cell.Indexes(1)-1) -CA_cell.Indexes(2)]) && cell.Indexes(3)==3 && (CA_cell.Indexes(2)==cell.Indexes(1) || CA_cell.Indexes(2)==cell.Indexes(1)-1) ,thisCA.Cells);
+%                                            if CA_cell.Indexes(1)==1 && CA_cell.Indexes(2)==n-1
+%                                                extraGeneralNeib = arrayfun(@(cell) isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[(cell.Indexes(1)-1) -CA_cell.Indexes(2)]) && cell.Indexes(3)==3 && (CA_cell.Indexes(2)==cell.Indexes(1) || abs(CA_cell.Indexes(2)-cell.Indexes(1))==1) ,thisCA.Cells);
+%                                            end
+%                                            
+%                                        end
+%                                    end
+%                                    
+%                                case 2
+%                                    
+%                                    if CA_cell.Indexes(2)==0 %&& CA_cell.Indexes(1)<n-1
+%                                        
+%                                        extraGeneralNeib = arrayfun(@(cell) isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[-(CA_cell.Indexes(1)-1) cell.Indexes(2)]) && cell.Indexes(3)==3 && (CA_cell.Indexes(1)==cell.Indexes(2) || CA_cell.Indexes(1)==cell.Indexes(2)-1) ,thisCA.Cells);
+%                                    
+%                                    end
+%                                    if CA_cell.Indexes(1)==1 && CA_cell.Indexes(2)>0
+%                                
+%                                        if all(CA_cell.Indexes(1:2)==1)
+%                                            
+%                                            extraGeneralNeib = arrayfun(@(cell) isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[(cell.Indexes(1)-1) -CA_cell.Indexes(2)]) && cell.Indexes(3)==1 && (CA_cell.Indexes(2)==cell.Indexes(1)) ,thisCA.Cells);
+%                                        
+%                                        else
+%                                            
+%                                           extraGeneralNeib = arrayfun(@(cell) isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[(cell.Indexes(1)-1) -CA_cell.Indexes(2)]) && cell.Indexes(3)==1 && (CA_cell.Indexes(2)==cell.Indexes(1) || CA_cell.Indexes(2)==cell.Indexes(1)-1) ,thisCA.Cells);
+%                                            if CA_cell.Indexes(1)==1 && CA_cell.Indexes(2)==n-1
+%                                                extraGeneralNeib = arrayfun(@(cell) isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[(cell.Indexes(1)-1) -CA_cell.Indexes(2)]) && cell.Indexes(3)==1 && (CA_cell.Indexes(2)==cell.Indexes(1) || abs(CA_cell.Indexes(2)-cell.Indexes(1))==1) ,thisCA.Cells);
+%                                            end
+%                                            
+%                                        end
+%                                        
+%                            
+%                                    end
+%                                    
+%                                case 3
+%                                    
+%                                    if CA_cell.Indexes(2)==0 %&& CA_cell.Indexes(1)<n-1
+%                                        
+%                                        extraGeneralNeib = arrayfun(@(cell) isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[-(CA_cell.Indexes(1)-1) cell.Indexes(2)]) && cell.Indexes(3)==1 && (CA_cell.Indexes(1)==cell.Indexes(2) || CA_cell.Indexes(1)==cell.Indexes(2)-1) ,thisCA.Cells);
+%                                    
+%                                    end
+%                                    if CA_cell.Indexes(1)==1 && CA_cell.Indexes(2)>0
+%                                        if all(CA_cell.Indexes(1:2)==1)
+%                                            
+%                                            extraGeneralNeib = arrayfun(@(cell) isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[(cell.Indexes(1)-1) -CA_cell.Indexes(2)]) && cell.Indexes(3)==2 && (CA_cell.Indexes(2)==cell.Indexes(1)) ,thisCA.Cells);
+%                                         
+%                                        else
+%                                            
+%                                            extraGeneralNeib = arrayfun(@(cell) isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[(cell.Indexes(1)-1) -CA_cell.Indexes(2)]) && cell.Indexes(3)==2 && (CA_cell.Indexes(2)==cell.Indexes(1) || CA_cell.Indexes(2)==cell.Indexes(1)-1) ,thisCA.Cells);
+%                                            if CA_cell.Indexes(1)==1 && CA_cell.Indexes(2)==n-1
+%                                                extraGeneralNeib = arrayfun(@(cell) isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[(cell.Indexes(1)-1) -CA_cell.Indexes(2)]) && cell.Indexes(3)==2 && (CA_cell.Indexes(2)==cell.Indexes(1) || abs(CA_cell.Indexes(2)-cell.Indexes(1))==1) ,thisCA.Cells);
+%                                            end
+%                                        end
+%                                    end
+%                            end
+%                            
+%                            if all(CA_cell.Indexes==0)
+%                                generalNeib = arrayfun(@(cell) isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[1 0]) || isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[1 1]),thisCA.Cells);
+%                            end
+%                        
+%                        end
+%                        
+%                    else
+%                        
+%                        if(~CA_cell.IsExternal)
+%                            generalNeib = arrayfun(@(cell) isequal(abs(cell.Indexes - CA_cell.Indexes),[0 1 0]) || isequal(abs(cell.Indexes - CA_cell.Indexes),[1 0 0]),thisCA.Cells);
+%                        end
+%                        
+%                    end
+%                    
+%                %замыкание границ
+%                case 2
+%                    if thisCA.FieldType
+%                        %добавить те, у которых либо j=0 либо i=1
+%                        
+%                        if(any(CA_cell.Indexes(1:2)==n-1))
+%                        
+%                            if isequal(CA_cell.Indexes(1:2),[n-1 0])
+%                                
+%                                extraNeib = arrayfun(@(cell) isequal(abs(cell.Indexes - CA_cell.Indexes),[0 1 0]) || isequal(abs(cell.Indexes - CA_cell.Indexes),[1 0 0]) || isequal(cell.Indexes - CA_cell.Indexes,[1 1 0])  || isequal(cell.Indexes - CA_cell.Indexes,[-1 -1 0]) || isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[0 (n-1)]),thisCA.Cells);
+%                        
+%                            end
+%                            
+%                            if isequal(CA_cell.Indexes(1:2),[n-1 n-1])
+%                            
+%                                extraNeib = arrayfun(@(cell) isequal(abs(cell.Indexes - CA_cell.Indexes),[0 1 0]) || isequal(abs(cell.Indexes - CA_cell.Indexes),[1 0 0]) || isequal(cell.Indexes - CA_cell.Indexes,[1 1 0])  || isequal(cell.Indexes - CA_cell.Indexes,[-1 -1 0]) || isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[0 -(n-1)]),thisCA.Cells);
+%                        
+%                            end
+%                            
+%                            if (CA_cell.Indexes(1)==n-1 && CA_cell.Indexes(2)>0 && CA_cell.Indexes(2)~=n-1) || (CA_cell.Indexes(2)==n-1 && CA_cell.Indexes(1)>0 && CA_cell.Indexes(1)~=n-1)
+%                            
+%                                extraNeib = arrayfun(@(cell) isequal(abs(cell.Indexes - CA_cell.Indexes),[0 1 0]) || isequal(abs(cell.Indexes - CA_cell.Indexes),[1 0 0]) || isequal(cell.Indexes - CA_cell.Indexes,[1 1 0])  || isequal(cell.Indexes - CA_cell.Indexes,[-1 -1 0]) || (isequal(abs(cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[0 0]) && cell.Indexes(3)~=CA_cell.Indexes(3)),thisCA.Cells);                    
+%                        
+%                            end
+%                        else
+%                            generalNeib = arrayfun(@(cell) isequal(abs(cell.Indexes - CA_cell.Indexes),[0 1 0]) || isequal(abs(cell.Indexes - CA_cell.Indexes),[1 0 0]) || isequal(cell.Indexes - CA_cell.Indexes,[1 1 0])  || isequal(cell.Indexes - CA_cell.Indexes,[-1 -1 0]) || ((isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[-1 0]) || isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[-1 -1])) && all(cell.Indexes==0)),thisCA.Cells);
+%                        end
+%                            
+%                            switch CA_cell.Indexes(3)
+%                                case 1
+%                                    
+%                                    if CA_cell.Indexes(2)==0 %&& CA_cell.Indexes(1)<n-1
+%                                        
+%                                        extraGeneralNeib = arrayfun(@(cell) isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[-(CA_cell.Indexes(1)-1) cell.Indexes(2)]) && cell.Indexes(3)==2 && (CA_cell.Indexes(1)==cell.Indexes(2) || CA_cell.Indexes(1)==cell.Indexes(2)-1) ,thisCA.Cells);
+%                                    
+%                                    end
+%                                    if CA_cell.Indexes(1)==1 && CA_cell.Indexes(2)>0
+%                                        if all(CA_cell.Indexes(1:2)==1)
+%                                            
+%                                            extraGeneralNeib = arrayfun(@(cell) isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[(cell.Indexes(1)-1) -CA_cell.Indexes(2)]) && cell.Indexes(3)==3 && (CA_cell.Indexes(2)==cell.Indexes(1)) ,thisCA.Cells);
+%                                        
+%                                        else
+%                                            
+%                                            extraGeneralNeib = arrayfun(@(cell) isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[(cell.Indexes(1)-1) -CA_cell.Indexes(2)]) && cell.Indexes(3)==3 && (CA_cell.Indexes(2)==cell.Indexes(1) || CA_cell.Indexes(2)==cell.Indexes(1)-1) ,thisCA.Cells);
+%                                            if CA_cell.Indexes(1)==1 && CA_cell.Indexes(2)==n-1
+%                                                extraGeneralNeib = arrayfun(@(cell) isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[(cell.Indexes(1)-1) -CA_cell.Indexes(2)]) && cell.Indexes(3)==3 && (CA_cell.Indexes(2)==cell.Indexes(1) || abs(CA_cell.Indexes(2)-cell.Indexes(1))==1) ,thisCA.Cells);
+%                                            end
+%                                            
+%                                        end
+%                                    end
+%                                    
+%                                case 2
+%                                    
+%                                    if CA_cell.Indexes(2)==0 %&& CA_cell.Indexes(1)<n-1
+%                                        
+%                                        extraGeneralNeib = arrayfun(@(cell) isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[-(CA_cell.Indexes(1)-1) cell.Indexes(2)]) && cell.Indexes(3)==3 && (CA_cell.Indexes(1)==cell.Indexes(2) || CA_cell.Indexes(1)==cell.Indexes(2)-1) ,thisCA.Cells);
+%                                    
+%                                    end
+%                                    if CA_cell.Indexes(1)==1 && CA_cell.Indexes(2)>0
+%                                
+%                                        if all(CA_cell.Indexes(1:2)==1)
+%                                            
+%                                            extraGeneralNeib = arrayfun(@(cell) isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[(cell.Indexes(1)-1) -CA_cell.Indexes(2)]) && cell.Indexes(3)==1 && (CA_cell.Indexes(2)==cell.Indexes(1)) ,thisCA.Cells);
+%                                        
+%                                        else
+%                                            
+%                                           extraGeneralNeib = arrayfun(@(cell) isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[(cell.Indexes(1)-1) -CA_cell.Indexes(2)]) && cell.Indexes(3)==1 && (CA_cell.Indexes(2)==cell.Indexes(1) || CA_cell.Indexes(2)==cell.Indexes(1)-1) ,thisCA.Cells);
+%                                            if CA_cell.Indexes(1)==1 && CA_cell.Indexes(2)==n-1
+%                                                extraGeneralNeib = arrayfun(@(cell) isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[(cell.Indexes(1)-1) -CA_cell.Indexes(2)]) && cell.Indexes(3)==1 && (CA_cell.Indexes(2)==cell.Indexes(1) || abs(CA_cell.Indexes(2)-cell.Indexes(1))==1) ,thisCA.Cells);
+%                                            end
+%                                            
+%                                        end
+%                                        
+%                            
+%                                    end
+%                                    
+%                                case 3
+%                                    
+%                                    if CA_cell.Indexes(2)==0 %&& CA_cell.Indexes(1)<n-1
+%                                        
+%                                        extraGeneralNeib = arrayfun(@(cell) isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[-(CA_cell.Indexes(1)-1) cell.Indexes(2)]) && cell.Indexes(3)==1 && (CA_cell.Indexes(1)==cell.Indexes(2) || CA_cell.Indexes(1)==cell.Indexes(2)-1) ,thisCA.Cells);
+%                                    
+%                                    end
+%                                    if CA_cell.Indexes(1)==1 && CA_cell.Indexes(2)>0
+%                                        if all(CA_cell.Indexes(1:2)==1)
+%                                            
+%                                            extraGeneralNeib = arrayfun(@(cell) isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[(cell.Indexes(1)-1) -CA_cell.Indexes(2)]) && cell.Indexes(3)==2 && (CA_cell.Indexes(2)==cell.Indexes(1)) ,thisCA.Cells);
+%                                         
+%                                        else
+%                                            
+%                                            extraGeneralNeib = arrayfun(@(cell) isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[(cell.Indexes(1)-1) -CA_cell.Indexes(2)]) && cell.Indexes(3)==2 && (CA_cell.Indexes(2)==cell.Indexes(1) || CA_cell.Indexes(2)==cell.Indexes(1)-1) ,thisCA.Cells);
+%                                            if CA_cell.Indexes(1)==1 && CA_cell.Indexes(2)==n-1
+%                                                extraGeneralNeib = arrayfun(@(cell) isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[(cell.Indexes(1)-1) -CA_cell.Indexes(2)]) && cell.Indexes(3)==2 && (CA_cell.Indexes(2)==cell.Indexes(1) || abs(CA_cell.Indexes(2)-cell.Indexes(1))==1) ,thisCA.Cells);
+%                                            end
+%                                        end
+%                                    end
+%                            end
+%                            
+%                            if all(CA_cell.Indexes==0)
+%                                
+%                                generalNeib = arrayfun(@(cell) isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[1 0]) || isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[1 1]),thisCA.Cells);
+%                            
+%                            end
+%                        
+%                    else
+%                        
+%                        generalNeib = arrayfun(@(cell) isequal(abs(cell.Indexes - CA_cell.Indexes),[0 1 0]) || isequal(abs(cell.Indexes - CA_cell.Indexes),[1 0 0]) || isequal(abs(cell.Indexes - CA_cell.Indexes),[0 n-1 0]) || isequal(abs(cell.Indexes - CA_cell.Indexes),[n-1 0 0]),thisCA.Cells);
+%                    
+%                    end
+%                    
+%                %закрытые границы    
+%                case 3
+%                    if thisCA.FieldType
+%                        generalNeib = arrayfun(@(cell) isequal(abs(cell.Indexes - CA_cell.Indexes),[0 1 0]) || isequal(abs(cell.Indexes - CA_cell.Indexes),[1 0 0]) || isequal(cell.Indexes - CA_cell.Indexes,[1 1 0])  || isequal(cell.Indexes - CA_cell.Indexes,[-1 -1 0]) || ((isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[-1 0]) || isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[-1 -1])) && all(cell.Indexes==0)),thisCA.Cells);
+% 
+%                            switch CA_cell.Indexes(3)
+%                                case 1
+%                                    
+%                                    if CA_cell.Indexes(2)==0 %&& CA_cell.Indexes(1)<n-1
+%                                        
+%                                        extraGeneralNeib = arrayfun(@(cell) isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[-(CA_cell.Indexes(1)-1) cell.Indexes(2)]) && cell.Indexes(3)==2 && (CA_cell.Indexes(1)==cell.Indexes(2) || CA_cell.Indexes(1)==cell.Indexes(2)-1) ,thisCA.Cells);
+%                                    
+%                                    end
+%                                    if CA_cell.Indexes(1)==1 && CA_cell.Indexes(2)>0
+%                                        if all(CA_cell.Indexes(1:2)==1)
+%                                            
+%                                            extraGeneralNeib = arrayfun(@(cell) isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[(cell.Indexes(1)-1) -CA_cell.Indexes(2)]) && cell.Indexes(3)==3 && (CA_cell.Indexes(2)==cell.Indexes(1)) ,thisCA.Cells);
+%                                        
+%                                        else
+%                                            
+%                                            extraGeneralNeib = arrayfun(@(cell) isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[(cell.Indexes(1)-1) -CA_cell.Indexes(2)]) && cell.Indexes(3)==3 && (CA_cell.Indexes(2)==cell.Indexes(1) || CA_cell.Indexes(2)==cell.Indexes(1)-1) ,thisCA.Cells);
+%                                            if CA_cell.Indexes(1)==1 && CA_cell.Indexes(2)==n-1
+%                                                extraGeneralNeib = arrayfun(@(cell) isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[(cell.Indexes(1)-1) -CA_cell.Indexes(2)]) && cell.Indexes(3)==3 && (CA_cell.Indexes(2)==cell.Indexes(1) || abs(CA_cell.Indexes(2)-cell.Indexes(1))==1) ,thisCA.Cells);
+%                                            end
+%                                            
+%                                        end
+%                                    end
+%                                    
+%                                case 2
+%                                    
+%                                    if CA_cell.Indexes(2)==0 %&& CA_cell.Indexes(1)<n-1
+%                                        
+%                                        extraGeneralNeib = arrayfun(@(cell) isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[-(CA_cell.Indexes(1)-1) cell.Indexes(2)]) && cell.Indexes(3)==3 && (CA_cell.Indexes(1)==cell.Indexes(2) || CA_cell.Indexes(1)==cell.Indexes(2)-1) ,thisCA.Cells);
+%                                    
+%                                    end
+%                                    if CA_cell.Indexes(1)==1 && CA_cell.Indexes(2)>0
+%                                
+%                                        if all(CA_cell.Indexes(1:2)==1)
+%                                            
+%                                            extraGeneralNeib = arrayfun(@(cell) isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[(cell.Indexes(1)-1) -CA_cell.Indexes(2)]) && cell.Indexes(3)==1 && (CA_cell.Indexes(2)==cell.Indexes(1)) ,thisCA.Cells);
+%                                        
+%                                        else
+%                                            
+%                                           extraGeneralNeib = arrayfun(@(cell) isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[(cell.Indexes(1)-1) -CA_cell.Indexes(2)]) && cell.Indexes(3)==1 && (CA_cell.Indexes(2)==cell.Indexes(1) || CA_cell.Indexes(2)==cell.Indexes(1)-1) ,thisCA.Cells);
+%                                            if CA_cell.Indexes(1)==1 && CA_cell.Indexes(2)==n-1
+%                                                extraGeneralNeib = arrayfun(@(cell) isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[(cell.Indexes(1)-1) -CA_cell.Indexes(2)]) && cell.Indexes(3)==1 && (CA_cell.Indexes(2)==cell.Indexes(1) || abs(CA_cell.Indexes(2)-cell.Indexes(1))==1) ,thisCA.Cells);
+%                                            end
+%                                            
+%                                        end
+%                                        
+%                            
+%                                    end
+%                                    
+%                                case 3
+%                                    
+%                                    if CA_cell.Indexes(2)==0 %&& CA_cell.Indexes(1)<n-1
+%                                        
+%                                        extraGeneralNeib = arrayfun(@(cell) isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[-(CA_cell.Indexes(1)-1) cell.Indexes(2)]) && cell.Indexes(3)==1 && (CA_cell.Indexes(1)==cell.Indexes(2) || CA_cell.Indexes(1)==cell.Indexes(2)-1) ,thisCA.Cells);
+%                                    
+%                                    end
+%                                    if CA_cell.Indexes(1)==1 && CA_cell.Indexes(2)>0
+%                                        if all(CA_cell.Indexes(1:2)==1)
+%                                            
+%                                            extraGeneralNeib = arrayfun(@(cell) isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[(cell.Indexes(1)-1) -CA_cell.Indexes(2)]) && cell.Indexes(3)==2 && (CA_cell.Indexes(2)==cell.Indexes(1)) ,thisCA.Cells);
+%                                         
+%                                        else
+%                                            
+%                                            extraGeneralNeib = arrayfun(@(cell) isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[(cell.Indexes(1)-1) -CA_cell.Indexes(2)]) && cell.Indexes(3)==2 && (CA_cell.Indexes(2)==cell.Indexes(1) || CA_cell.Indexes(2)==cell.Indexes(1)-1) ,thisCA.Cells);
+%                                            if CA_cell.Indexes(1)==1 && CA_cell.Indexes(2)==n-1
+%                                                extraGeneralNeib = arrayfun(@(cell) isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[(cell.Indexes(1)-1) -CA_cell.Indexes(2)]) && cell.Indexes(3)==2 && (CA_cell.Indexes(2)==cell.Indexes(1) || abs(CA_cell.Indexes(2)-cell.Indexes(1))==1) ,thisCA.Cells);
+%                                            end
+%                                        end
+%                                    end
+%                            end
+%                        
+%                        if all(CA_cell.Indexes==0)
+%                           
+%                            generalNeib = arrayfun(@(cell) isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[1 0]) || isequal((cell.Indexes(1:2) - CA_cell.Indexes(1:2)),[1 1]),thisCA.Cells);
+%                        
+%                        end
+%                        
+%                    else
+%                        generalNeib = arrayfun(@(cell) isequal(abs(cell.Indexes - CA_cell.Indexes),[0 1 0]) || isequal(abs(cell.Indexes - CA_cell.Indexes),[1 0 0]),thisCA.Cells);
+%                    end
+%                    
+%            end
+%            
+%            neibArrNumbs=find(generalNeib);
+%            if ~isempty(neibArrNumbs)
+%                CA_cell.CurrNeighbors = thisCA.Cells(neibArrNumbs(:));
+%            end
+%            
+%            neibArrNumbs=find(extraGeneralNeib);
+%            if ~isempty(neibArrNumbs)
+%                CA_cell.CurrNeighbors = [CA_cell.CurrNeighbors thisCA.Cells(neibArrNumbs(:))];
+%            end
+%            
+%            neibArrNumbs=find(extraNeib);
+%            if ~isempty(neibArrNumbs)
+%                CA_cell.CurrNeighbors = [CA_cell.CurrNeighbors thisCA.Cells(neibArrNumbs(:))];
+%            end
+%            
+% %            zeroNeibrs=arrayfun(@(cell) all(cell.Indexes==0) ,CA_cell.CurrNeighbors);
+% %            if any(zeroNeibrs==1)
+% %                if length(zeroNeibrs)~=1
+% %                    inxes=find(zeroNeibrs);
+% %                    inxes(1)=[];
+% %                    CA_cell.CurrNeighbors(inxes)=[];
+% %                end
+% %            end
+%            
+%            out = CA_cell;
        end
        
        %замена в обоих функциях текста постоянных параметров на текст их значения

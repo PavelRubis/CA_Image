@@ -34,7 +34,7 @@ classdef CACell
                        end
                    end
                else
-                   if(any(indexes>=N) || any(indexes<0)) && N~=1
+                   if(any(indexes(1:2)>=N) || any(indexes(1:2)<0)) && N~=1
                        error('Error. X coordinate of cell must be <=N, Y coordinate of cell must be <=N and both coordinate must be >=0.');
                    else
                        obj.Indexes=indexes;

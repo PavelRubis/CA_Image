@@ -22,7 +22,7 @@ function varargout = CA(varargin)
 
 % Edit the above text to modify the response to help CA
 
-% Last Modified by GUIDE v2.5 27-May-2020 12:09:22
+% Last Modified by GUIDE v2.5 06-Dec-2020 23:24:40
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -48,7 +48,7 @@ end
 function CA_OpeningFcn(hObject, eventdata, handles, varargin)
 set(hObject,'units','normalized','outerposition',[0 0 1 1])
 
-CurrCA = CellularAutomat(0, 2, 1,@(z)(exp(i*z)),@(z_k)Miu0 + sum(z_k), 0, 0, 0);
+CurrCA = CellularAutomat(0, 1, 2, 1,@(z)(exp(i*z)),@(z_k)Miu0 + sum(z_k), 0, 0, 0);
 ContParms = ControlParams(1,1,0,0,' ',@(z)exp(i*z),'*(Miu+z)');
 ControlParams.GetSetCustomImag(0);
 
@@ -179,6 +179,7 @@ handles.ReadModelingParmsFrmFile.Enable='off';
        handles.CancelParamsButton.Enable='off';
        itersCount=str2double(handles.IterCountEdit.String); %число итераций
        contParms.IterCount=contParms.IterCount+itersCount;
+       
        if ~contParms.SingleOrMultipleCalc% в случае мультирассчета
            
            ControlParams.GetSetMaxPeriod(str2double(handles.MaxPeriodEdit.String));
@@ -369,8 +370,6 @@ handles.ReadModelingParmsFrmFile.Enable='off';
            end
            
            title(handles.CAField,strcat('\fontsize{16}',string_title));
-%          legend(string_legend);
-%          legend('show');
            handles.CAField.FontSize=11;
            
            graphics.Axs=handles.CAField;
@@ -504,37 +503,6 @@ handles.ReadModelingParmsFrmFile.Enable='off';
            end
            xticks('auto');
            yticks('auto');
-%            Imlength=abs(max(N1Path(2,:))-min(N1Path(2,:)));
-%            Relength=abs(max(N1Path(1,:))-min(N1Path(1,:)));
-%            if Imlength>Relength
-%                
-%                if isempty(N1PathNew)
-%                    handles.CAField.XLim=[handles.CAField.XLim(1)+Imlength/2 handles.CAField.XLim(2)-Imlength/2];
-%                else
-%                    if ~(any(N1PathNew(1,:)<min(real(N1PathOld))) || any(N1PathNew(1,:)>max(real(N1PathOld)))) && handles.CAField.XLim(1)+Imlength/2<handles.CAField.XLim(2)-Imlength/2
-%                        handles.CAField.XLim=[handles.CAField.XLim(1)+Imlength/2 handles.CAField.XLim(2)-Imlength/2];
-%                    end
-%                end
-%                
-%                handles.CAField.XLim=[handles.CAField.XLim(1)-Imlength/2 handles.CAField.XLim(2)+Imlength/2];
-%                reStep=(handles.CAField.XLim(2)-handles.CAField.XLim(1))*0.2;
-%                handles.CAField.XTick=[handles.CAField.XLim(1):reStep:handles.CAField.XLim(2)];
-%                
-%            else
-%                
-%                if isempty(N1PathNew)
-%                    handles.CAField.YLim=[handles.CAField.YLim(1)+Relength/2 handles.CAField.YLim(2)-Relength/2];
-%                else
-%                    if  isempty(N1PathNew) || ~(any(N1PathNew(2,:)<min(imag(N1PathOld))) || any(N1PathNew(2,:)>max(imag(N1PathOld)))) && (handles.CAField.YLim(1)+Relength/2<handles.CAField.YLim(2)-Relength/2)
-%                        handles.CAField.YLim=[handles.CAField.YLim(1)+Relength/2 handles.CAField.YLim(2)-Relength/2];
-%                    end
-%                end
-%                
-%                handles.CAField.YLim=[handles.CAField.YLim(1)-Relength/2 handles.CAField.YLim(2)+Relength/2];
-%                imStep=(handles.CAField.YLim(2)-handles.CAField.YLim(1))*0.2;
-%                handles.CAField.YTick=[handles.CAField.YLim(1):imStep:handles.CAField.YLim(2)];
-%                
-%            end
            
            handles.CAField.XGrid='on';
            handles.CAField.YGrid='on';
@@ -722,7 +690,8 @@ handles.ReadModelingParmsFrmFile.Enable='off';
            
            ca.Cells=cellArr;
            for j=1:ca_L
-               cellArr(j)=FindCellsNeighbors(ca, ca.Cells(j));
+               cellArr(j)=UpdateNeighborsValues(ca,ca.Cells(j));
+%                cellArr(j)=FindCellsNeighbors(ca, ca.Cells(j));
            end
        end
        
@@ -1487,7 +1456,7 @@ contParms = getappdata(handles.output,'ContParms');
 FileWasRead=getappdata(handles.output,'FileWasRead');
 N1Path = getappdata(handles.output,'N1Path');
 
-ca = CellularAutomat(ca.FieldType,ca.BordersType, ca.N ,ca.Base,ca.Lambda, ca.Zbase, ca.Miu0, ca.Miu);
+ca = CellularAutomat(ca.FieldType,ca.NeighborhoodType,ca.BordersType, ca.N ,ca.Base,ca.Lambda, ca.Zbase, ca.Miu0, ca.Miu);
 
 % ControlParams.GetSetCustomImag(false);
 contParms.IsReady2Start=false;
@@ -3063,142 +3032,119 @@ if(isempty(regexp(handles.NFieldEdit.String,'^\d+(\.?)(?(1)\d+|)$')) || isempty(
     errordlg('Ошибка. Недопустимое для задания начальной конфигурации значение ребра поля N, или неверный путь к файлу','modal');
 else
     path=handles.Z0SourcePathEdit.String;
-    
     N=str2double(handles.NFieldEdit.String);
+    
     currCA=getappdata(handles.output,'CurrCA');
-    cellCount=0;
-    fieldType= currCA.FieldType;
-    z0Arr=[];
-
+    fileWasRead = getappdata(handles.output,'FileWasRead');
     
-    if(regexp(path,'\.txt$'))
-        if fieldType
-            if N~=1
-                cellCount=N*(N-1)*3+1;
-            else
-                cellCount=1;
-            end
-            z0Size=[5 cellCount];
-            formatSpec = '%d %d %d %f %f\n';
-        else
-            cellCount=N*N;
-            z0Size=[4 cellCount];
-            formatSpec = '%d %d %f %f\n';
-        end
-        file = fopen(path, 'r');
-        z0Arr = fscanf(file, formatSpec,z0Size);
-        fclose(file);
-
-    else
-        if fieldType
-            cellCount=N*(N-1)*3+1;
-        else
-            cellCount=N*N;
-        end
-        z0Arr=xlsread(path,1);
-        z0Arr=z0Arr';
-    end
+    [ca,FileWasRead] = Initializations.Z0FileInit(currCA,N,path,fileWasRead);
     
-    if length(z0Arr(1,:))~=cellCount || (fieldType && length(z0Arr(:,1))==4)|| (~fieldType && length(z0Arr(:,1))==5)
-        errordlg('Ошибка. Количество начальных состояний в файле не соответствует заданному числу ячеек, или данные в файле не подходят для инициализации Z0.','modal');
-        setappdata(handles.output,'CurrCA',currCA);
-    else
-        valuesArr=[];
-        idxes=[];
-        colors=[];
-        z0Arr=z0Arr';
-        
-        if fieldType
-            
-            if N==1
-                value=complex(z0Arr(1,4),z0Arr(1,5));
-                currCA.Cells=CACell(value, value, [0 1 1], [0 0 0], fieldType, 1);
-                
-                N1Path=[real(currCA.Cells(1).z0);imag(currCA.Cells(1).z0)];
-                setappdata(handles.output,'N1Path',N1Path);
-                
-                msgbox(strcat('Начальная конфигурация КА была успешно задана из файла',path),'modal');
-                currCA.N=N;
-                setappdata(handles.output,'CurrCA',currCA);
-                fileWasRead = getappdata(handles.output,'FileWasRead');
-                fileWasRead=true;
-                setappdata(handles.output,'FileWasRead',fileWasRead);
-                return;
-            end
-            
-            valuesArr=arrayfun(@(re,im) complex(re,im),z0Arr(:,4),z0Arr(:,5));
-            for i=1:cellCount
-                idxes=[idxes {z0Arr(i,1:3)}];
-            end
-        else
-            
-            if N==1
-                value=complex(z0Arr(1,3),z0Arr(1,4));
-                currCA.Cells=CACell(value, value, [0 1 1], [0 0 0], fieldType, 1);
-                
-                N1Path=[real(currCA.Cells(1).z0);imag(currCA.Cells(1).z0)];
-                setappdata(handles.output,'N1Path',N1Path);
-                
-                msgbox(strcat('Начальная конфигурация КА была успешно задана из файла',path),'modal');
-                currCA.N=N;
-                setappdata(handles.output,'CurrCA',currCA);
-                fileWasRead = getappdata(handles.output,'FileWasRead');
-                fileWasRead=true;
-                setappdata(handles.output,'FileWasRead',fileWasRead);
-                return;
-            end
-            
-            valuesArr=arrayfun(@(re,im) complex(re,im),z0Arr(:,3),z0Arr(:,4));
-            for i=1:cellCount
-                idxes=[idxes {[z0Arr(i,1:2) 0]}];
-            end
-        end
-        fileWasRead = getappdata(handles.output,'FileWasRead');
-        fileWasRead=true;
-        setappdata(handles.output,'FileWasRead',fileWasRead);
-        valuesArr=valuesArr';
-        
-        colors=cell(1,cellCount);
-        colors(:)=num2cell([0 0 0],[1 2]);
-        
-        fieldTypeArr=zeros(1,cellCount);
-        fieldTypeArr(:)=fieldType;
-        
-        NArr=zeros(1,cellCount);
-        NArr(:)=N;
-        
-        currCA.Cells=arrayfun(@(value, path, indexes, color, FieldType, N) CACell(value, path, indexes, color, FieldType, N) ,valuesArr,valuesArr,idxes,colors,fieldTypeArr,NArr);
-        
-        msgbox(strcat('Начальная конфигурация КА была успешно задана из файла',path),'modal');
-        currCA.N=N;
-        setappdata(handles.output,'CurrCA',currCA);
-    end
+    setappdata(handles.output,'CurrCA',ca);
+    setappdata(handles.output,'FileWasRead',FileWasRead);
     
-%     if length(z0Arr)<cellCount
-%         errordlg('Ошибка. Количество начальных состояний в файле меньше количества ячеек.','modal');
+%     cellCount=0;
+%     fieldType= currCA.FieldType;
+%     z0Arr=[];
+% 
+%     
+%     if(regexp(path,'\.txt$'))
+%         if fieldType
+%             if N~=1
+%                 cellCount=N*(N-1)*3+1;
+%             else
+%                 cellCount=1;
+%             end
+%             z0Size=[5 cellCount];
+%             formatSpec = '%d %d %d %f %f\n';
+%         else
+%             cellCount=N*N;
+%             z0Size=[4 cellCount];
+%             formatSpec = '%d %d %f %f\n';
+%         end
+%         file = fopen(path, 'r');
+%         z0Arr = fscanf(file, formatSpec,z0Size);
+%         fclose(file);
+% 
+%     else
+%         if fieldType
+%             cellCount=N*(N-1)*3+1;
+%         else
+%             cellCount=N*N;
+%         end
+%         z0Arr=xlsread(path,1);
+%         z0Arr=z0Arr';
+%     end
+%     
+%     if length(z0Arr(1,:))~=cellCount || (fieldType && length(z0Arr(:,1))==4)|| (~fieldType && length(z0Arr(:,1))==5)
+%         errordlg('Ошибка. Количество начальных состояний в файле не соответствует заданному числу ячеек, или данные в файле не подходят для инициализации Z0.','modal');
 %         setappdata(handles.output,'CurrCA',currCA);
 %     else
-%         z0Arr=z0Arr(1,1:cellCount);
-%         g=1;
+%         valuesArr=[];
+%         idxes=[];
+%         colors=[];
+%         z0Arr=z0Arr';
+%         
 %         if fieldType
-%             for k=1:3
-%                 for j = 0:N-1
-%                     for i = 1:N-1
-%                         cell=CACell(z0Arr(g),z0Arr(g),[i,j,k],[0 0 0],fieldType,N);
-%                         currCA.Cells=[currCA.Cells cell];
-%                         g=g+1;
-%                     end
-%                 end
+%             
+%             if N==1
+%                 value=complex(z0Arr(1,4),z0Arr(1,5));
+%                 currCA.Cells=CACell(value, value, [0 1 1], [0 0 0], fieldType, 1);
+%                 
+%                 N1Path=[real(currCA.Cells(1).z0);imag(currCA.Cells(1).z0)];
+%                 setappdata(handles.output,'N1Path',N1Path);
+%                 
+%                 msgbox(strcat('Начальная конфигурация КА была успешно задана из файла',path),'modal');
+%                 currCA.N=N;
+%                 setappdata(handles.output,'CurrCA',currCA);
+%                 fileWasRead = getappdata(handles.output,'FileWasRead');
+%                 fileWasRead=true;
+%                 setappdata(handles.output,'FileWasRead',fileWasRead);
+%                 return;
+%             end
+%             
+%             valuesArr=arrayfun(@(re,im) complex(re,im),z0Arr(:,4),z0Arr(:,5));
+%             for i=1:cellCount
+%                 idxes=[idxes {z0Arr(i,1:3)}];
 %             end
 %         else
-%             for x=0:N-1
-%                 for y=0:N-1     
-%                     cell=CACell(z0Arr(g),z0Arr(g),[x,y,0],[0 0 0],fieldType,N);
-%                     currCA.Cells=[currCA.Cells cell];
-%                     g=g+1;
-%                 end
+%             
+%             if N==1
+%                 value=complex(z0Arr(1,3),z0Arr(1,4));
+%                 currCA.Cells=CACell(value, value, [0 1 1], [0 0 0], fieldType, 1);
+%                 
+%                 N1Path=[real(currCA.Cells(1).z0);imag(currCA.Cells(1).z0)];
+%                 setappdata(handles.output,'N1Path',N1Path);
+%                 
+%                 msgbox(strcat('Начальная конфигурация КА была успешно задана из файла',path),'modal');
+%                 currCA.N=N;
+%                 setappdata(handles.output,'CurrCA',currCA);
+%                 fileWasRead = getappdata(handles.output,'FileWasRead');
+%                 fileWasRead=true;
+%                 setappdata(handles.output,'FileWasRead',fileWasRead);
+%                 return;
+%             end
+%             
+%             valuesArr=arrayfun(@(re,im) complex(re,im),z0Arr(:,3),z0Arr(:,4));
+%             for i=1:cellCount
+%                 idxes=[idxes {[z0Arr(i,1:2) 0]}];
 %             end
 %         end
+%         fileWasRead = getappdata(handles.output,'FileWasRead');
+%         fileWasRead=true;
+%         setappdata(handles.output,'FileWasRead',fileWasRead);
+%         valuesArr=valuesArr';
+%         
+%         colors=cell(1,cellCount);
+%         colors(:)=num2cell([0 0 0],[1 2]);
+%         
+%         fieldTypeArr=zeros(1,cellCount);
+%         fieldTypeArr(:)=fieldType;
+%         
+%         NArr=zeros(1,cellCount);
+%         NArr(:)=N;
+%         
+%         currCA.Cells=arrayfun(@(value, path, indexes, color, FieldType, N) CACell(value, path, indexes, color, FieldType, N) ,valuesArr,valuesArr,idxes,colors,fieldTypeArr,NArr);
+%         
 %         msgbox(strcat('Начальная конфигурация КА была успешно задана из файла',path),'modal');
 %         currCA.N=N;
 %         setappdata(handles.output,'CurrCA',currCA);
@@ -5004,3 +4950,21 @@ setappdata(handles.output,'ResProc',ResProc);
 % handles    structure with handles and user data (see GUIDATA)
 
 % Hint: get(hObject,'Value') returns toggle state of DefaultSaveParmCB
+
+
+% --- Executes when selected object is changed in NeighborhoodTemp.
+function NeighborhoodTemp_SelectionChangedFcn(hObject, eventdata, handles)
+currCA=getappdata(handles.output,'CurrCA');
+switch get(hObject,'Tag')
+    
+    case 'NeumannRB'
+        currCA.NeighborhoodType=1;
+    
+    case 'MooreRB'
+        currCA.NeighborhoodType=0;
+        
+end
+setappdata(handles.output,'CurrCA',currCA);
+% hObject    handle to the selected object in NeighborhoodTemp 
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
