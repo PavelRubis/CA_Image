@@ -22,7 +22,7 @@ function varargout = CA(varargin)
 
 % Edit the above text to modify the response to help CA
 
-% Last Modified by GUIDE v2.5 06-Dec-2020 23:24:40
+% Last Modified by GUIDE v2.5 09-Dec-2020 22:35:43
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -704,7 +704,7 @@ handles.ReadModelingParmsFrmFile.Enable='off';
        
        PrecisionParms = ControlParams.GetSetPrecisionParms;
        
-       modulesArr=arrayfun(@(cell,zbase) log(CellularAutomat.ComplexModule(cell.zPath(end)-zbase))/log(10),ca.Cells,zbase);
+       modulesArr=arrayfun(@(cell,zbase) log(abs(cell.zPath(end)-zbase))/log(10),ca.Cells,zbase);
        compareArr=-PrecisionParms(1):(2*PrecisionParms(1)+1)/255:PrecisionParms(1);
        
        [modulesArrSrt indxes]=sort(modulesArr);
@@ -727,7 +727,6 @@ handles.ReadModelingParmsFrmFile.Enable='off';
            end
        end
        
-%        profile viewer;
        %отрисовка пол€
        arrayfun(@(cell) ResultsProcessing.DrawCell(cell),ca.Cells);
        
@@ -794,7 +793,7 @@ handles.ReadModelingParmsFrmFile.Enable='off';
        else
            clrbr.TickLabels={''};
        end
-       clrbr.Label.String='\fontsize{16}log_{10}(\midz_{t+1}\mid-\midz^{*}\mid)';
+       clrbr.Label.String='\fontsize{16}log_{10}(\midz_{t+1}-z^{*}\mid)';
        
        titleStr='';
        switch func2str(ca.Base)
@@ -1473,16 +1472,7 @@ setappdata(handles.output,'N1Path',N1Path);
 
 
 handles.SaveAllModelParamsB.Enable='off';
-handles.BaseZEdit.String='';
-
-if handles.BaseImagMenu.Value==1
-    handles.LambdaMenu.Enable='on';
-    handles.CountBaseZButton.Enable='on';
-else
-    handles.LambdaMenu.Enable='off';
-    handles.CountBaseZButton.Enable='off';
-    handles.BaseZEdit.String='';
-end
+handles.LambdaMenu.Enable='on';
 
 if contParms.SingleOrMultipleCalc
     
@@ -1496,11 +1486,6 @@ if contParms.SingleOrMultipleCalc
         handles.LambdaMenu.Enable='off';
         handles.MaxPeriodEdit.Enable='on';
     else
-        if handles.BaseImagMenu.Value==1
-            handles.LambdaMenu.Enable='on';
-        else
-            handles.LambdaMenu.Enable='off';
-        end
         handles.DistributionTypeMenu.Enable='on';
         handles.DistributStartEdit.Enable='on';
         handles.DistributStepEdit.Enable='on';
@@ -2173,10 +2158,11 @@ if(~isempty(regexp(handles.NFieldEdit.String,'^\d+$')))
         handles.DistributStartEdit.Enable='on';
         handles.DistributStepEdit.Enable='on';
         handles.DistributEndEdit.Enable='on';
-        
-        if handles.BaseImagMenu.Value==1
+        if handles.CustomIterFuncCB.Value==0
             handles.LambdaMenu.Enable='on';
-        end
+        else
+            
+        end 
         
         if contParms.SingleOrMultipleCalc
             handles.MaxPeriodEdit.String='';
@@ -2187,17 +2173,13 @@ if(~isempty(regexp(handles.NFieldEdit.String,'^\d+$')))
         handles.ReadZ0SourceButton.Enable='on';
     end
 else
-    handles.DistributionTypeMenu.Enable='on';
-    handles.DistributStartEdit.Enable='on';
-    handles.DistributStepEdit.Enable='on';
-    handles.DistributEndEdit.Enable='on';
-    
-    if handles.BaseImagMenu.Value==1
-        handles.LambdaMenu.Enable='on';
-    end
-        
-    handles.Z0SourcePathButton.Enable='on';
-    handles.ReadZ0SourceButton.Enable='on';
+%     handles.DistributionTypeMenu.Enable='on';
+%     handles.DistributStartEdit.Enable='on';
+%     handles.DistributStepEdit.Enable='on';
+%     handles.DistributEndEdit.Enable='on';
+%         
+%     handles.Z0SourcePathButton.Enable='on';
+%     handles.ReadZ0SourceButton.Enable='on';
 end
 % hObject    handle to NFieldEdit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -3188,7 +3170,6 @@ else
     
     currCA.Zbase=complex(zeq(1),zeq(2));
     
-    handles.BaseZEdit.String=num2str(currCA.Zbase);
     setappdata(handles.output,'CurrCA',currCA);
 end
 % hObject    handle to CountBaseZButton (see GCBO)
@@ -3236,12 +3217,14 @@ end
 
 currCA=getappdata(handles.output,'CurrCA');
 
+if handles.CustomIterFuncCB.Value~=1
+    
+    ControlParams.GetSetCustomImag(false);
 switch handles.BaseImagMenu.Value
     
     case 1
         currCA.Base=@(z)(exp(i*z));
         handles.UsersBaseImagEdit.String='';
-        ControlParams.GetSetCustomImag(false);
         
         if ~contParms.SingleOrMultipleCalc
             ImageFuncStr=strcat(func2str(@(z)(exp(i*z))),contParms.Lambda);
@@ -3255,10 +3238,10 @@ switch handles.BaseImagMenu.Value
     case 2
         currCA.Base=@(z)(z^2+Miu);
         handles.UsersBaseImagEdit.String='';
-        ControlParams.GetSetCustomImag(true);
         
         if ~contParms.SingleOrMultipleCalc
-            contParms.ImageFunc=@(z)(z^2+Miu);
+            ImageFuncStr=strcat(func2str(@(z)(z^2+Miu)),contParms.Lambda);
+            contParms.ImageFunc=str2func(ImageFuncStr);
         else
             if str2double(handles.NFieldEdit.String)==1
                 currCA.Lambda=@(b)1;
@@ -3266,6 +3249,20 @@ switch handles.BaseImagMenu.Value
         end
         
     case 3
+        currCA.Base=@(z)Miu;
+        handles.UsersBaseImagEdit.String='';
+        
+        if ~contParms.SingleOrMultipleCalc
+            ImageFuncStr=strcat(func2str(@(z)Miu),contParms.Lambda);
+            contParms.ImageFunc=str2func(ImageFuncStr);
+        else
+            if str2double(handles.NFieldEdit.String)==1
+                currCA.Lambda=@(b)(Miu+Miu0);
+            end
+        end
+end
+
+else
         userFuncStr=handles.UsersBaseImagEdit.String;
             try 
                 varNum=0;
@@ -3369,10 +3366,15 @@ fileWasRead = getappdata(handles.output,'FileWasRead');
 if isempty(currCA.Cells) || (~contParms.IsReady2Start && ~fileWasRead)
     
     if contParms.SingleOrMultipleCalc
-        DistributStart=str2double(handles.DistributStartEdit.String);
-        DistributStep=str2double(handles.DistributStepEdit.String);
-        DistributEnd=str2double(handles.DistributEndEdit.String);
-    
+        
+        switch handles.DistributionTypeMenu.Value
+            
+            case 1
+                
+                DistributStart=str2double(handles.DistributStartEdit.String);
+                DistributStep=str2double(handles.DistributStepEdit.String);
+                DistributEnd=str2double(handles.DistributEndEdit.String);
+                
         if (isnan(DistributStart) || isreal(DistributStart) || isempty(regexp(handles.DistributStepEdit.String,'^\d+(\.?)(?(1)\d+|)$')) || isnan(DistributEnd) || isreal(DistributEnd)) && (str2double(handles.NFieldEdit.String)~=1 ||(str2double(handles.NFieldEdit.String)==1 && numErrors(1)))
             error=true;
             regexprep(errorStr,', $','. ');
@@ -3396,7 +3398,7 @@ if isempty(currCA.Cells) || (~contParms.IsReady2Start && ~fileWasRead)
                 end
                 
                 if ~rangeError
-                    [currCA,rangeError,rangeErrorStr] = Initializations.Z0RangeInit(ReRange, ImRange,str2double(handles.NFieldEdit.String),currCA,handles.DistributionTypeMenu.Value);
+                    [currCA,rangeError,rangeErrorStr] = Initializations.Z0RandRangeInit(ReRange, ImRange,str2double(handles.NFieldEdit.String),currCA,handles.DistributionTypeMenu.Value);
                 end
                 
                 if rangeError
@@ -3425,6 +3427,30 @@ if isempty(currCA.Cells) || (~contParms.IsReady2Start && ~fileWasRead)
             end
             
         end
+        
+            case 2
+                DistributStartStr=(handles.DistributStartEdit.String);
+                DistributStepReStr=(handles.DistributStepEdit.String);
+                DistributStepImStr=(handles.DistributEndEdit.String);
+                DistributIncz0Str=(handles.z0Edit.String);
+                
+                if isempty(regexp(DistributIncz0Str,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')) || isempty(regexp(DistributStartStr,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')) || isempty(regexp(DistributStepReStr,'^[\+-]?\d+(\.?)(?(1)\d+|)$')) || isempty(regexp(DistributStepImStr,'^[\+-]?\d+(\.?)(?(1)\d+|)$'))
+                    error=true;
+                    regexprep(errorStr,', $','. ');
+                    errorStr=strcat(errorStr,' Ќе задана начальна€ конфигураци€: неправильный формат диапазона значений дл€ Z0 или точки z0; ');
+                else
+                    if ~error
+                        DistributStart=str2double(DistributStartStr);
+                        DistributStepRe=str2double(DistributStepReStr);
+                        DistributStepIm=str2double(DistributStepImStr);
+                        DistributIncz0=str2double(DistributIncz0Str);
+                        
+                        [currCA] = Initializations.Z0IncRangeInit(DistributStart,DistributStepRe,DistributStepIm,DistributIncz0,str2double(handles.NFieldEdit.String),currCA);
+                        
+                    end
+                end
+        end
+    
         
     else
         if isempty(regexp(handles.ParamReDeltaEdit.String,'^\d+(?<dot>\.?)(?(dot)\d+|)$')) || isempty(regexp(handles.ParamImDeltaEdit.String,'^\d+(?<dot>\.?)(?(dot)\d+|)$')) || isempty(regexp(handles.ParamRePointsEdit.String,'^\d+$')) || isempty(regexp(handles.ParamImPointsEdit.String,'^\d+$'))
@@ -3553,7 +3579,6 @@ else
             [zeq,zer]=fminsearch(mapz_zero_xy, [real(z0) imag(z0)],optimset('TolX',1e-9));
     
             currCA.Zbase=complex(zeq(1),zeq(2));
-            handles.BaseZEdit.String=num2str(currCA.Zbase);
         end
     end
     
@@ -3732,24 +3757,10 @@ end
 % --- Executes on selection change in BaseImagMenu.
 function BaseImagMenu_Callback(hObject, eventdata, handles)
 
-if hObject.Value==3
-    handles.UsersBaseImagEdit.Enable='on';
-else
-    handles.UsersBaseImagEdit.String='';
-    handles.UsersBaseImagEdit.Enable='off';
-end
-
-if hObject.Value==1
-    if str2double(handles.NFieldEdit.String)==1
-        handles.LambdaMenu.Enable='off';
-    else
-        handles.LambdaMenu.Enable='on';
-    end
-    handles.CountBaseZButton.Enable='on';
-else
+if str2double(handles.NFieldEdit.String)==1
     handles.LambdaMenu.Enable='off';
-    handles.CountBaseZButton.Enable='off';
-    handles.BaseZEdit.String='';
+else
+    handles.LambdaMenu.Enable='on';
 end
 
 % hObject    handle to BaseImagMenu (see GCBO)
@@ -4059,6 +4070,20 @@ else
     handles.ReadZ0SourceButton.Enable='off';
     
 end
+
+if handles.CustomIterFuncCB.Value==1
+    handles.BaseImagMenu.Enable='off';
+    handles.LambdaMenu.Enable='off';
+    
+    handles.UsersBaseImagEdit.Enable='on';
+else
+    handles.BaseImagMenu.Enable='on';
+    handles.LambdaMenu.Enable='on';
+    
+    handles.UsersBaseImagEdit.Enable='off';
+    handles.UsersBaseImagEdit.String='';
+end
+
 handles.DefaultCB.Value=0;
 setappdata(handles.output,'ContParms',contParms);
 setappdata(handles.output,'ResProc',resProc);
@@ -4066,6 +4091,12 @@ setappdata(handles.output,'ResProc',resProc);
 
 % --- Executes on selection change in DistributionTypeMenu.
 function DistributionTypeMenu_Callback(hObject, eventdata, handles)
+switch hObject.Value
+    case 1
+        handles.DistributionTypeText.String='ƒиапазон (от:шаг:до)';
+    case 2
+        handles.DistributionTypeText.String='ƒиапазон (от:шаг по Re:шаг по Im)';
+end
 % hObject    handle to DistributionTypeMenu (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4473,7 +4504,6 @@ if cell2mat(data(1))=='1'
     end
     
     CurrCA.Zbase=str2double(cell2mat(data(8)));
-    handles.BaseZEdit.String=num2str(CurrCA.Zbase);
     
     CurrCA.Miu0=str2double(cell2mat(data(9)));
     handles.Miu0Edit.String=num2str(CurrCA.Miu0);
@@ -4515,7 +4545,6 @@ else
         CalcGroup_SelectionChangedFcn(handles.MultipleCalcRB, [], handles)
         
         CurrCA.Zbase=str2double(cell2mat(data(2)));
-        handles.BaseZEdit.String=num2str(CurrCA.Zbase);
         
         ContParms.ImageFunc=str2func(cell2mat(data(3)));
         
@@ -4891,12 +4920,16 @@ ContParms=getappdata(handles.output,'ContParms');
 if ContParms.SingleOrMultipleCalc
     CurrCA.Base=@(z)(exp(i*z));
     CurrCA.Lambda = @(z_k)Miu0 + sum(z_k);
+    if strcmp(handles.LambdaMenu.Enable,'off')
+        handles.LambdaMenu.Value=5;
+    else
+        handles.LambdaMenu.Value=1;
+    end
 else
     handles.LambdaMenu.Value=5;
     ContParms.ImageFunc=@(z)exp(i*z)*(Miu+Miu0);
 end
 handles.BaseImagMenu.Value=1;
-handles.LambdaMenu.Value=1;
 handles.UsersBaseImagEdit.Enable='off';
 handles.UsersBaseImagEdit.String='';
 
@@ -4968,3 +5001,29 @@ setappdata(handles.output,'CurrCA',currCA);
 % hObject    handle to the selected object in NeighborhoodTemp 
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+
+
+% --- Executes on button press in CustomIterFuncCB.
+function CustomIterFuncCB_Callback(hObject, eventdata, handles)
+
+if hObject.Value==1
+    handles.BaseImagMenu.Enable='off';
+    handles.LambdaMenu.Enable='off';
+    
+    handles.UsersBaseImagEdit.Enable='on';
+else
+    handles.BaseImagMenu.Enable='on';
+    
+    handles.LambdaMenu.Enable='on';
+    if handles.NFieldEdit.String=='1'
+        handles.LambdaMenu.Enable='off';
+    end
+    
+    handles.UsersBaseImagEdit.Enable='off';
+    handles.UsersBaseImagEdit.String='';
+end
+% hObject    handle to CustomIterFuncCB (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of CustomIterFuncCB
