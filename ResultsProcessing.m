@@ -109,7 +109,20 @@ classdef ResultsProcessing
                        fprintf(fileID, '\nПараметр Мю=%f %fi\n',real(ca.Miu),imag(ca.Miu));
                        fprintf(fileID, 'Параметр Мю0=%f %fi\n',real(ca.Miu0),imag(ca.Miu0));
                        fprintf(fileID, 'Итерация Iter=%f\n\n\n',contParms.IterCount-1);
-                       fprintf(fileID, 'Значения ячеек:\n\n');
+                       fprintf(fileID, 'Конфигурация Z0:\n\n');
+                       fclose(fileID);
+                       
+                       Z=[];
+                       for j=1:length(ca.Cells)
+                           idx=cast(ca.Cells(j).Indexes,'double');
+                           Z=[Z ; [idx real(ca.Cells(j).z0) imag(ca.Cells(j).z0)]];
+                       end
+                       dlmwrite(ConfFileName,'x	y	k	Re	Im','-append','delimiter','');
+                       dlmwrite(ConfFileName,Z,'-append','delimiter','\t','precision',7);
+                       
+                       fileID = fopen(ConfFileName, 'a');
+                       fprintf(fileID, '\n\n');
+                       fprintf(fileID, 'Значения ячеек на итерации Iter=%f\n\n',contParms.IterCount-1);
                        fclose(fileID);
                
                        Z=[];

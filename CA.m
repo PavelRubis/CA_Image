@@ -22,7 +22,7 @@ function varargout = CA(varargin)
 
 % Edit the above text to modify the response to help CA
 
-% Last Modified by GUIDE v2.5 09-Dec-2020 22:35:43
+% Last Modified by GUIDE v2.5 25-Dec-2020 17:31:16
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -64,6 +64,8 @@ setappdata(hObject,'CurrCA',CurrCA);
 setappdata(hObject,'ContParms',ContParms);
 setappdata(hObject,'ResProc',ResProc);
 setappdata(hObject,'FileWasRead',FileWasRead);
+global NeighborWeights;
+NeighborWeights = [0 0 0 0 0 0 0 0];
 axis image;
 
 % This function has no output args, see OutputFcn.
@@ -96,6 +98,8 @@ varargout{1} = handles.output;
 
 % --- Executes on button press in StartButton.
 function StartButton_Callback(hObject, eventdata, handles)
+
+% isequal(NeighborWeights,[0 0 0 0 0 0 0 0]);
 
 SaveParamsButton_Callback(handles.SaveParamsButton, eventdata, handles)
 
@@ -705,7 +709,8 @@ handles.ReadModelingParmsFrmFile.Enable='off';
        PrecisionParms = ControlParams.GetSetPrecisionParms;
        
        modulesArr=arrayfun(@(cell,zbase) log(abs(cell.zPath(end)-zbase))/log(10),ca.Cells,zbase);
-       compareArr=-PrecisionParms(1):(2*PrecisionParms(1)+1)/255:PrecisionParms(1);
+       compareArr=min(modulesArr):(max(modulesArr)-min(modulesArr))/255:max(modulesArr);
+%        compareArr=-PrecisionParms(1):(2*PrecisionParms(1)+1)/255:PrecisionParms(1);
        
        [modulesArrSrt indxes]=sort(modulesArr);
        
@@ -719,7 +724,7 @@ handles.ReadModelingParmsFrmFile.Enable='off';
                ca.Cells(i).Color=[0 0 0];
                infVal=true;
            else
-               if ind==1 || isnan(modulesArr(i))
+               if modulesArr(i)>PrecisionParms(1) || isnan(modulesArr(i))
                    ca.Cells(i).Color=[1 1 1];
                else
                    ca.Cells(i).Color=colors(ind-1,:);
@@ -3208,7 +3213,7 @@ contParms = getappdata(handles.output,'ContParms');
 
 if contParms.SingleOrMultipleCalc
     Nerror=false;
-    if(isempty(regexp(handles.NFieldEdit.String,'^\d+$')) )%|| handles.NFieldEdit.String=='2'
+    if(isempty(regexp(handles.NFieldEdit.String,'^\d+$')) )
         Nerror=true;
         error=true;
         errorStr=strcat(errorStr,'N; ');
@@ -3263,7 +3268,7 @@ switch handles.BaseImagMenu.Value
 end
 
 else
-        userFuncStr=handles.UsersBaseImagEdit.String;
+    userFuncStr=handles.UsersBaseImagEdit.String;
             try 
                 varNum=0;
                 varStr='@(';
@@ -3360,6 +3365,11 @@ end
 
 if(isempty(regexp(handles.z0Edit.String,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')))
     numErrors(1)=true;
+else
+    if ~Nerror && handles.NFieldEdit.String=="1" && contParms.SingleOrMultipleCalc
+        currCA.Cells=CACell(str2double(handles.z0Edit.String), str2double(handles.z0Edit.String), [0 1 1], [0 0 0], 0, 1);
+        contParms.IsReady2Start=true;
+    end
 end
 
 fileWasRead = getappdata(handles.output,'FileWasRead');
@@ -3370,7 +3380,6 @@ if isempty(currCA.Cells) || (~contParms.IsReady2Start && ~fileWasRead)
         switch handles.DistributionTypeMenu.Value
             
             case 1
-                
                 DistributStart=str2double(handles.DistributStartEdit.String);
                 DistributStep=str2double(handles.DistributStepEdit.String);
                 DistributEnd=str2double(handles.DistributEndEdit.String);
@@ -3434,7 +3443,7 @@ if isempty(currCA.Cells) || (~contParms.IsReady2Start && ~fileWasRead)
                 DistributStepImStr=(handles.DistributEndEdit.String);
                 DistributIncz0Str=(handles.z0Edit.String);
                 
-                if isempty(regexp(DistributIncz0Str,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')) || isempty(regexp(DistributStartStr,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')) || isempty(regexp(DistributStepReStr,'^[\+-]?\d+(\.?)(?(1)\d+|)$')) || isempty(regexp(DistributStepImStr,'^[\+-]?\d+(\.?)(?(1)\d+|)$'))
+                if isempty(regexp(DistributIncz0Str,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')) || isempty(regexp(DistributStartStr,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')) || isempty(regexp(DistributStepReStr,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')) || isempty(regexp(DistributStepImStr,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$'))
                     error=true;
                     regexprep(errorStr,', $','. ');
                     errorStr=strcat(errorStr,' Не задана начальная конфигурация: неправильный формат диапазона значений для Z0 или точки z0; ');
@@ -3497,7 +3506,6 @@ if isempty(currCA.Cells) || (~contParms.IsReady2Start && ~fileWasRead)
                 contParms.ImRangeWindow=ImRange;
                 contParms.WindowCenterValue=complex(ReCenter,ImCenter);
                 contParms.SingleParams=[param1 param2];
-%                 msgbox('Начальная конфигурация КА была успешно задана диапазоном параметра "окна".','modal');
             end
         end
         
@@ -3523,7 +3531,6 @@ else
             ResultsProcessing.GetSetFieldOrient(1);
         end
     
-%     ResultsProcessing.GetSetCellOrient(0);
         if handles.GorOrientRB.Value==1
             ResultsProcessing.GetSetCellOrient(2);
         end
@@ -4093,7 +4100,7 @@ setappdata(handles.output,'ResProc',resProc);
 function DistributionTypeMenu_Callback(hObject, eventdata, handles)
 switch hObject.Value
     case 1
-        handles.DistributionTypeText.String='Диапазон (от:шаг:до)';
+        handles.DistributionTypeText.String='Диапазон (от:шаг по X:шаг по Y)';
     case 2
         handles.DistributionTypeText.String='Диапазон (от:шаг по Re:шаг по Im)';
 end
@@ -5027,3 +5034,36 @@ end
 % handles    structure with handles and user data (see GUIDATA)
 
 % Hint: get(hObject,'Value') returns toggle state of CustomIterFuncCB
+
+
+% --------------------------------------------------------------------
+function CASettingsMenuItem_Callback(hObject, eventdata, handles)
+% hObject    handle to CASettingsMenuItem (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
+% --------------------------------------------------------------------
+function SetNeighborWeightMenuItem_Callback(hObject, eventdata, handles)
+advancedCASettings = AdvancedCASettings;
+setappdata(advancedCASettings,'NeighborCount',4);
+% btn = advancedCASettings.Children(1);
+% btn.Callback= @f;
+
+% hObject    handle to SetNeighborWeightMenuItem (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+function f(hObject, eventdata, handles)
+currCA=getappdata(handles.output,'CurrCA');
+switch get(hObject,'Tag')
+    
+    case 'NeumannRB'
+        currCA.NeighborhoodType=1;
+    
+    case 'MooreRB'
+        currCA.NeighborhoodType=0;
+        
+end
+setappdata(handles.output,'CurrCA',currCA);
+

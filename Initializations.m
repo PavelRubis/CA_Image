@@ -83,7 +83,7 @@ classdef Initializations
             currCA=ca;
         end
         
-        function [currCA] = Z0IncRangeInit(StartPoint,ReStep,ImStep,z0,N,ca)
+        function [currCA] = Z0IncRangeInit(StartPoint,XStep,YStep,z0,N,ca)
             
             valuesArr=[];
             idxes=[];
@@ -133,23 +133,29 @@ classdef Initializations
                         y(1+i:N:length(y))=i;
                     end
                     idxes=arrayfun(@(x,y){[x y 0]}, x',y');
+                    xIndArr = x';
+                    yIndArr = y';
                 end
                 
-            ReRange = real(StartPoint):ReStep:real(StartPoint) + (ReStep *(cellCount-1));
-            ImRange = imag(StartPoint):ImStep:imag(StartPoint) +(ImStep *(cellCount-1));
-            valuesArr=arrayfun(@(re,im) complex(re,im),ReRange,ImRange);
-            valuesArr=valuesArr+z0;
+                if ca.FieldType
+                    ReRange = real(StartPoint):XStep:real(StartPoint) + (XStep *(cellCount-1));
+                    ImRange = imag(StartPoint):YStep:imag(StartPoint) +(YStep *(cellCount-1));
+                    valuesArr=arrayfun(@(re,im) complex(re,im),ReRange,ImRange);
+                else
+                    valuesArr=arrayfun(@(xInd,yInd) (StartPoint + complex(xInd*XStep,yInd*YStep)) ,xIndArr,yIndArr);
+                end
+                valuesArr=valuesArr+z0;
             
-            colors=cell(1,cellCount);
-            colors(:)=num2cell([0 0 0],[1 2]);
-            fieldTypeArr=zeros(1,cellCount);
-            fieldTypeArr(:)=ca.FieldType;
-            NArr=zeros(1,cellCount);
-            NArr(:)=N;
-            
-            ca.Cells=arrayfun(@(value, path, indexes, color, FieldType, N) CACell(value, path, indexes, color, FieldType, N) ,valuesArr,valuesArr,idxes,colors,fieldTypeArr,NArr);
-            
-            currCA=ca;
+                colors=cell(1,cellCount);
+                colors(:)=num2cell([0 0 0],[1 2]);
+                fieldTypeArr=zeros(1,cellCount);
+                fieldTypeArr(:)=ca.FieldType;
+                NArr=zeros(1,cellCount);
+                NArr(:)=N;
+                
+                ca.Cells=arrayfun(@(value, path, indexes, color, FieldType, N) CACell(value, path, indexes, color, FieldType, N) ,valuesArr,valuesArr,idxes,colors,fieldTypeArr,NArr);
+                
+                currCA=ca;
             
         end
         
