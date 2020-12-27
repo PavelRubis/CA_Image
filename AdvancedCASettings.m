@@ -46,6 +46,9 @@ end
 
 % --- Executes just before AdvancedCASettings is made visible.
 function AdvancedCASettings_OpeningFcn(hObject, eventdata, handles, varargin)
+    axis image;
+    set(gca, 'xtick', []);
+    set(gca, 'ytick', []);
 % This function has no output args, see OutputFcn.
 % hObject    handle to figure
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -53,6 +56,7 @@ function AdvancedCASettings_OpeningFcn(hObject, eventdata, handles, varargin)
 % varargin   command line arguments to AdvancedCASettings (see VARARGIN)
 
 % Choose default command line output for AdvancedCASettings
+
 handles.output = hObject;
 
 % Update handles structure
@@ -75,6 +79,7 @@ varargout{1} = handles.output;
 
 % --- Executes on button press in CancelBtn.
 function CancelBtn_Callback(hObject, eventdata, handles)
+    close(handles.output);
 
 % hObject    handle to CancelBtn (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -83,9 +88,58 @@ function CancelBtn_Callback(hObject, eventdata, handles)
 
 % --- Executes on button press in SetWeightBtn.
 function SetWeightBtn_Callback(hObject, eventdata, handles)
-if getappdata(handles.output,'NeighborCount')==4
-    NeighborWeights=[1 1 1 1 1 1 1 1];
-end 
+WeightsArr=str2double(handles.WeightsTable.Data(:,1));
+
+neighborHood = getappdata(handles.output, 'NeighborHood');
+
+neighborhoodsMatr = [
+                [0 0];
+                [0 1];
+                [1 0];
+                [1 1];
+                ];
+neighborhoodType = find(ismember(neighborHood == neighborhoodsMatr, [1 1], 'rows'));
+
+error = false;
+neighborsCount=0;
+switch neighborhoodType
+    case 1
+        neighborsCount=8;
+        if any(isnan(WeightsArr(1:8)))
+            error = true;
+        end
+
+    case 2
+        neighborsCount=4;
+        if any(isnan(WeightsArr(1:4)))
+            error = true;
+        end
+
+    case 3
+        neighborsCount=6;
+        if any(isnan(WeightsArr(1:6)))
+            error = true;
+        end
+
+    case 4
+        neighborsCount=3;
+        if any(isnan(WeightsArr(1:3)))
+            error = true;
+        end
+
+end
+if isnan(WeightsArr(neighborsCount + 1))
+    error = true;
+end
+
+if error
+    errordlg('Недопустимый формат весов ячеек.', 'Ошибки ввода:');
+else
+    CellularAutomat.GetSetWeights(WeightsArr(1:neighborsCount+1));
+    msgbox('Веса ячеек успешно заданы.');
+    close(handles.output);
+end
+
 % hObject    handle to SetWeightBtn (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)

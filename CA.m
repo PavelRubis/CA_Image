@@ -48,7 +48,7 @@ end
 function CA_OpeningFcn(hObject, eventdata, handles, varargin)
 set(hObject,'units','normalized','outerposition',[0 0 1 1])
 
-CurrCA = CellularAutomat(0, 1, 2, 1,@(z)(exp(i*z)),@(z_k)Miu0 + sum(z_k), 0, 0, 0);
+CurrCA = CellularAutomat(0, 1, 2, 1, @(z)(exp(i * z)), @(z_k)Miu0 + sum(z_k), 0, 0, 0, [1 1 1 1 1 1 1 1]);
 ContParms = ControlParams(1,1,0,0,' ',@(z)exp(i*z),'*(Miu+z)');
 ControlParams.GetSetCustomImag(0);
 
@@ -64,8 +64,6 @@ setappdata(hObject,'CurrCA',CurrCA);
 setappdata(hObject,'ContParms',ContParms);
 setappdata(hObject,'ResProc',ResProc);
 setappdata(hObject,'FileWasRead',FileWasRead);
-global NeighborWeights;
-NeighborWeights = [0 0 0 0 0 0 0 0];
 axis image;
 
 % This function has no output args, see OutputFcn.
@@ -98,8 +96,6 @@ varargout{1} = handles.output;
 
 % --- Executes on button press in StartButton.
 function StartButton_Callback(hObject, eventdata, handles)
-
-% isequal(NeighborWeights,[0 0 0 0 0 0 0 0]);
 
 SaveParamsButton_Callback(handles.SaveParamsButton, eventdata, handles)
 
@@ -189,7 +185,7 @@ handles.ReadModelingParmsFrmFile.Enable='off';
            ControlParams.GetSetMaxPeriod(str2double(handles.MaxPeriodEdit.String));
            
            %создание окна и матрицы функций базы
-           [WindowParam contParms z_eqArr] = ControlParams.MakeFuncsWithNumsForMultipleCalc(ca,contParms);
+           [WindowParam contParms z_eqArr] = DataFormatting.MakeFuncsWithNumsForMultipleCalc(ca, contParms);
 
            len=size(WindowParam);
            zParam=false;
@@ -391,7 +387,12 @@ handles.ReadModelingParmsFrmFile.Enable='off';
            return;
        end
        %подготовка обоих функций
-       MakeFuncsWithNums(ca);
+       
+       ca.Weights=CellularAutomat.GetSetWeights;
+       if isempty(ca.Weights)
+           ca.Weights=[1 1 1 1 1 1 1 1];
+       end
+        DataFormatting.MakeCAFuncsWithNums(ca);
        
        if length(ca.Cells)==1 %случай когда рассматривается одна ячейка/точка
            hold on;
@@ -576,7 +577,6 @@ handles.ReadModelingParmsFrmFile.Enable='off';
            return;
            
        end
-       
 %        profile on;
        %нахождение соседей каждой ячейки
        for i=1:length(ca.Cells)
@@ -1460,7 +1460,7 @@ contParms = getappdata(handles.output,'ContParms');
 FileWasRead=getappdata(handles.output,'FileWasRead');
 N1Path = getappdata(handles.output,'N1Path');
 
-ca = CellularAutomat(ca.FieldType,ca.NeighborhoodType,ca.BordersType, ca.N ,ca.Base,ca.Lambda, ca.Zbase, ca.Miu0, ca.Miu);
+ca = CellularAutomat(ca.FieldType, ca.NeighborhoodType, ca.BordersType, ca.N, ca.Base, ca.Lambda, ca.Zbase, ca.Miu0, ca.Miu, [1 1 1 1 1 1 1 1]);
 
 % ControlParams.GetSetCustomImag(false);
 contParms.IsReady2Start=false;
@@ -1498,6 +1498,15 @@ if contParms.SingleOrMultipleCalc
         handles.Z0SourcePathButton.Enable='on';
         handles.ReadZ0SourceButton.Enable='on';
         handles.MaxPeriodEdit.Enable='off';
+        handles.NFieldEdit.Enable = 'on';
+        handles.SquareFieldRB.Enable = 'on';
+        handles.HexFieldRB.Enable = 'on';
+        handles.GorOrientRB.Enable = 'on';
+        handles.VertOrientRB.Enable = 'on';
+        handles.DefaultCACB.Enable = 'on';
+        handles.CompletedBordersRB.Enable = 'on';
+        handles.DeathLineBordersRB.Enable = 'on';
+        handles.ClosedBordersRB.Enable = 'on';
     end
     
     handles.ParamRePointsEdit.Enable='off';
@@ -1508,15 +1517,6 @@ if contParms.SingleOrMultipleCalc
     handles.ParamImPointsEdit.Enable='off';
     handles.DefaultMultiParmCB.Enable='off';
     
-    handles.NFieldEdit.Enable='on';
-    handles.SquareFieldRB.Enable='on';
-    handles.HexFieldRB.Enable='on';
-    handles.GorOrientRB.Enable='on';
-    handles.VertOrientRB.Enable='on';
-    handles.DefaultCACB.Enable='on';
-    handles.CompletedBordersRB.Enable='on';
-    handles.DeathLineBordersRB.Enable='on';
-    handles.ClosedBordersRB.Enable='on';
 else
     handles.NFieldEdit.Enable='off';
     handles.SquareFieldRB.Enable='off';
@@ -1547,14 +1547,17 @@ else
     
 end
 
-if handles.BaseImagMenu.Value~=3
-    handles.UsersBaseImagEdit.Enable='off';
+if handles.CustomIterFuncCB.Value ~= 1
+    handles.UsersBaseImagEdit.Enable = 'off';
+    handles.LambdaMenu.Enable = 'on';
+    handles.BaseImagMenu.Enable = 'on';
 else
-    handles.UsersBaseImagEdit.Enable='on';
+    handles.LambdaMenu.Enable = 'off';
+    handles.BaseImagMenu.Enable = 'off';
+    handles.UsersBaseImagEdit.Enable = 'on';
 end
 
     handles.ReadModelingParmsFrmFile.Enable='on';
-    handles.BaseImagMenu.Enable='on';
     handles.DefaultFuncsCB.Enable='on';
     
     handles.z0Edit.Enable='on';
@@ -3211,6 +3214,7 @@ error=false;
 errorStr='Ошибки в текстовых полях: ';
 contParms = getappdata(handles.output,'ContParms');
 
+Nerror=false;
 if contParms.SingleOrMultipleCalc
     Nerror=false;
     if(isempty(regexp(handles.NFieldEdit.String,'^\d+$')) )
@@ -3222,115 +3226,121 @@ end
 
 currCA=getappdata(handles.output,'CurrCA');
 
-if handles.CustomIterFuncCB.Value~=1
-    
+if handles.CustomIterFuncCB.Value ~= 1
+
     ControlParams.GetSetCustomImag(false);
-switch handles.BaseImagMenu.Value
-    
-    case 1
-        currCA.Base=@(z)(exp(i*z));
-        handles.UsersBaseImagEdit.String='';
-        
-        if ~contParms.SingleOrMultipleCalc
-            ImageFuncStr=strcat(func2str(@(z)(exp(i*z))),contParms.Lambda);
-            contParms.ImageFunc=str2func(ImageFuncStr);
-        else
-            if str2double(handles.NFieldEdit.String)==1
-                currCA.Lambda=@(b)(Miu+Miu0);
+
+    switch handles.BaseImagMenu.Value
+
+        case 1
+            currCA.Base = @(z)(exp(i * z));
+            handles.UsersBaseImagEdit.String = '';
+
+            if ~contParms.SingleOrMultipleCalc
+                ImageFuncStr = strcat(func2str(@(z)(exp(i * z))), contParms.Lambda);
+                contParms.ImageFunc = str2func(ImageFuncStr);
+            else
+
+                if str2double(handles.NFieldEdit.String) == 1
+                    currCA.Lambda = @(b)(Miu + Miu0);
+                end
+
             end
-        end
-        
-    case 2
-        currCA.Base=@(z)(z^2+Miu);
-        handles.UsersBaseImagEdit.String='';
-        
-        if ~contParms.SingleOrMultipleCalc
-            ImageFuncStr=strcat(func2str(@(z)(z^2+Miu)),contParms.Lambda);
-            contParms.ImageFunc=str2func(ImageFuncStr);
-        else
-            if str2double(handles.NFieldEdit.String)==1
-                currCA.Lambda=@(b)1;
+
+        case 2
+            currCA.Base = @(z)(z^2 + Miu);
+            handles.UsersBaseImagEdit.String = '';
+
+            if ~contParms.SingleOrMultipleCalc
+                ImageFuncStr = strcat(func2str(@(z)(z^2 + Miu)), contParms.Lambda);
+                contParms.ImageFunc = str2func(ImageFuncStr);
+            else
+
+                if str2double(handles.NFieldEdit.String) == 1
+                    currCA.Lambda = @(b)1;
+                end
+
             end
-        end
-        
-    case 3
-        currCA.Base=@(z)Miu;
-        handles.UsersBaseImagEdit.String='';
-        
-        if ~contParms.SingleOrMultipleCalc
-            ImageFuncStr=strcat(func2str(@(z)Miu),contParms.Lambda);
-            contParms.ImageFunc=str2func(ImageFuncStr);
-        else
-            if str2double(handles.NFieldEdit.String)==1
-                currCA.Lambda=@(b)(Miu+Miu0);
+
+        case 3 
+            currCA.Base = @(z)Miu;
+            handles.UsersBaseImagEdit.String = '';
+
+            if ~contParms.SingleOrMultipleCalc
+                ImageFuncStr = strcat(func2str(@(z)Miu), contParms.Lambda);
+                contParms.ImageFunc = str2func(ImageFuncStr);
+            else
+
+                if str2double(handles.NFieldEdit.String) == 1
+                    currCA.Lambda = @(b)(Miu + Miu0);
+                end
+
             end
-        end
-end
+
+    end
 
 else
-    userFuncStr=handles.UsersBaseImagEdit.String;
-            try 
-                varNum=0;
-                varStr='@(';
-                
-                if contains(userFuncStr,'z')
-                    varNum=varNum+1;
-                    varStr=strcat(varStr,'z,');
-                end
-                
-                if contains(userFuncStr,'mu0')
-                    userFuncStr=strrep(userFuncStr,'mu0','Miu0');
-                    varNum=varNum+1;
-                    varStr=strcat(varStr,'Miu0,');
-                end
-                
-                if contains(userFuncStr,'mu')
-                    userFuncStr=strrep(userFuncStr,'mu','Miu');
-                    varNum=varNum+1;
-                    varStr=strcat(varStr,'Miu,');
-                end
-                
-                varStr=regexprep(varStr,',$','\)');
-                funcStr=strcat(varStr,userFuncStr);
-                testFunc=str2func(funcStr);
-                
-                switch varNum
-                    case 1
-                        testFunc(0);
-                    case 2
-                        testFunc(0,0);
-                    case 3
-                        testFunc(0,0,0);
-                    otherwise
-                        i_love_MATLAB^2;
-                end
-                
-                funcStr=strrep(funcStr,'@(z)','@(z)');
-                
-                funcStr=strrep(funcStr,'@(Miu)','@(z)');
-                funcStr=strrep(funcStr,'@(Miu0)','@(z)');
-                funcStr=strrep(funcStr,'@(Miu,Miu0)','@(z)');
-                
-                funcStr=strrep(funcStr,'@(z,Miu)','@(z)');
-                funcStr=strrep(funcStr,'@(z,Miu0)','@(z)');
-                funcStr=strrep(funcStr,'@(z,Miu0,Miu)','@(z)');
-                
-                currCA.Base=str2func(funcStr);
-                
-                if ~contParms.SingleOrMultipleCalc
-                    contParms.ImageFunc=str2func(funcStr);
-                else
-                    if str2double(handles.NFieldEdit.String)==1
-                        currCA.Lambda=@(b)1;
-                    end
-                end
-                
-                ControlParams.GetSetCustomImag(true);
-                handles.LambdaMenu.Enable='off';
-            catch
+    userFuncStr = handles.UsersBaseImagEdit.String;
+
+    [userFuncStrFormated, foundedNegbourCount, userFuncError] = DataFormatting.PreUserImagFormatting(userFuncStr,contParms);
+    if userFuncError
+        error=true;
+    else
+        neighborhood = [currCA.FieldType currCA.NeighborhoodType];
+        neighborhoodsMatr = [
+                    [0 0];
+                    [0 1];
+                    [1 0];
+                    [1 1];
+                    ];
+        neighborhoodType = find(ismember(neighborhood == neighborhoodsMatr, [1 1], 'rows'));
+        switch neighborhoodType
+        case 1
+
+            if foundedNegbourCount > 8
                 error=true;
-                errorStr=strcat(errorStr,'Недопустимый формат пользовательской функции; ');
             end
+
+        case 2
+
+            if foundedNegbourCount > 4
+                error = true;
+            end
+
+        case 3
+
+            if foundedNegbourCount > 6
+                error = true;
+            end
+
+        case 4
+
+            if foundedNegbourCount > 3
+                error = true;
+            end
+
+        end
+    end
+    
+    if error
+        errorStr = strcat(errorStr, 'Недопустимый формат пользовательской функции; ');
+    else
+        funcStr = userFuncStrFormated;
+        currCA.Base = str2func(funcStr);
+
+        if ~contParms.SingleOrMultipleCalc
+            contParms.ImageFunc = str2func(funcStr);
+        else
+
+            if str2double(handles.NFieldEdit.String) == 1
+                currCA.Lambda = @(b)1;
+            end
+
+        end
+
+        ControlParams.GetSetCustomImag(true);
+    end
+
 end
 
 numErrors=[0 0 0];
@@ -3378,86 +3388,52 @@ if isempty(currCA.Cells) || (~contParms.IsReady2Start && ~fileWasRead)
     if contParms.SingleOrMultipleCalc
         
         switch handles.DistributionTypeMenu.Value
-            
+
             case 1
-                DistributStart=str2double(handles.DistributStartEdit.String);
-                DistributStep=str2double(handles.DistributStepEdit.String);
-                DistributEnd=str2double(handles.DistributEndEdit.String);
-                
-        if (isnan(DistributStart) || isreal(DistributStart) || isempty(regexp(handles.DistributStepEdit.String,'^\d+(\.?)(?(1)\d+|)$')) || isnan(DistributEnd) || isreal(DistributEnd)) && (str2double(handles.NFieldEdit.String)~=1 ||(str2double(handles.NFieldEdit.String)==1 && numErrors(1)))
-            error=true;
-            regexprep(errorStr,', $','. ');
-            errorStr=strcat(errorStr,' Не задана начальная конфигурация: неправильный формат диапазона значений Z0 или точки z0; ');
-        else
-            if ~Nerror
-                ReRange=real(DistributStart):DistributStep:real(DistributEnd);
-                ImRange=imag(DistributStart):DistributStep:imag(DistributEnd);
-                rangeError=false;
-                rangeErrorStr='';
-                
-                if str2double(handles.NFieldEdit.String)==1 && ~isempty(handles.z0Edit.String)
-                    if(isempty(regexp(handles.z0Edit.String,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')))
-                        error=true;
-                        rangeError=true;
-                        errorStr=strcat(errorStr,'z0; ');
-                    else
-                        ReRange=real(str2double(handles.z0Edit.String));
-                        ImRange=imag(str2double(handles.z0Edit.String));
-                    end
-                end
-                
-                if ~rangeError
-                    [currCA,rangeError,rangeErrorStr] = Initializations.Z0RandRangeInit(ReRange, ImRange,str2double(handles.NFieldEdit.String),currCA,handles.DistributionTypeMenu.Value);
-                end
-                
-                if rangeError
-                    error=true;
-                    regexprep(errorStr,';$','.');
-                    errorStr=strcat(errorStr,rangeErrorStr);
+                DistributStartPoint = (handles.DistributStartEdit.String);
+                DistributEndPoint = (handles.DistributStepEdit.String);
+                DistributkParam = (handles.DistributEndEdit.String);
+
+                if (isempty(regexp(DistributStartPoint, '^\d+(\.?)(?(1)\d+|)$')) || isempty(regexp(DistributEndPoint, '^\d+(\.?)(?(1)\d+|)$')) || isempty(regexp(DistributkParam, '^\d+(\.?)(?(1)\d+|)$')))
+                    error = true;
+                    regexprep(errorStr, ', $', '. ');
+                    errorStr = strcat(errorStr, ' Не задана начальная конфигурация: неправильный формат параметров случайного диапазона значений Z0 или точки z0; ');
                 else
+
                     if ~error
-                        paramStart=complex(ReRange(1),ImRange(1));
-                        if str2double(handles.NFieldEdit.String)~=1
-                            paramStep=complex(ReRange(2)-ReRange(1),ImRange(2)-ImRange(1));
-                        else
-                            paramStep=1;
-                        end
-                        paramEnd=complex(ReRange(end),ImRange(end));
-                        paramStartSrt=strcat(num2str(paramStart),' :');
-                        paramEndSrt=strcat(' :',num2str(paramEnd));
-                        paramSrt=strcat(paramStartSrt,num2str(paramStep));
-                        paramSrt=strcat(paramSrt,paramEndSrt);
-                        paramSrt=strcat('  ',paramSrt);
-%                         msgbox(strcat('Начальная конфигурация КА была успешно задана диапазоном',paramSrt),'modal');
+                        rangeError = false;
+                        rangeErrorStr = '';
+
+                        [currCA] = Initializations.Z0RandRangeInit(str2double(DistributStartPoint), str2double(DistributEndPoint), str2double(DistributkParam), str2double(handles.NFieldEdit.String), currCA);
+
                     end
-                    
+
                 end
-                
-            end
-            
-        end
-        
+
             case 2
-                DistributStartStr=(handles.DistributStartEdit.String);
-                DistributStepReStr=(handles.DistributStepEdit.String);
-                DistributStepImStr=(handles.DistributEndEdit.String);
-                DistributIncz0Str=(handles.z0Edit.String);
-                
-                if isempty(regexp(DistributIncz0Str,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')) || isempty(regexp(DistributStartStr,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')) || isempty(regexp(DistributStepReStr,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')) || isempty(regexp(DistributStepImStr,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$'))
-                    error=true;
-                    regexprep(errorStr,', $','. ');
-                    errorStr=strcat(errorStr,' Не задана начальная конфигурация: неправильный формат диапазона значений для Z0 или точки z0; ');
+                DistributStartStr = (handles.DistributStartEdit.String);
+                DistributStepReStr = (handles.DistributStepEdit.String);
+                DistributStepImStr = (handles.DistributEndEdit.String);
+                DistributIncz0Str = (handles.z0Edit.String);
+
+                if isempty(regexp(DistributIncz0Str, '^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')) || isempty(regexp(DistributStartStr, '^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')) || isempty(regexp(DistributStepReStr, '^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')) || isempty(regexp(DistributStepImStr, '^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$'))
+                    error = true;
+                    regexprep(errorStr, ', $', '. ');
+                    errorStr = strcat(errorStr, ' Не задана начальная конфигурация: неправильный формат диапазона значений для Z0 или точки z0; ');
                 else
+
                     if ~error
-                        DistributStart=str2double(DistributStartStr);
-                        DistributStepRe=str2double(DistributStepReStr);
-                        DistributStepIm=str2double(DistributStepImStr);
-                        DistributIncz0=str2double(DistributIncz0Str);
-                        
-                        [currCA] = Initializations.Z0IncRangeInit(DistributStart,DistributStepRe,DistributStepIm,DistributIncz0,str2double(handles.NFieldEdit.String),currCA);
-                        
+                        DistributStart = str2double(DistributStartStr);
+                        DistributStepRe = str2double(DistributStepReStr);
+                        DistributStepIm = str2double(DistributStepImStr);
+                        DistributIncz0 = str2double(DistributIncz0Str);
+
+                        [currCA] = Initializations.Z0IncRangeInit(DistributStart, DistributStepRe, DistributStepIm, DistributIncz0, str2double(handles.NFieldEdit.String), currCA);
+
                     end
+
                 end
+
         end
     
         
@@ -3640,9 +3616,9 @@ if(contParms.SingleOrMultipleCalc)
     handles.Miu0Edit.String='0.25i+0';
     if str2double(handles.NFieldEdit.String)~=1
         handles.DistributionTypeMenu.Value=1;
-        handles.DistributStartEdit.String='-3-0.465i';
-        handles.DistributStepEdit.String='0.001';
-        handles.DistributEndEdit.String='-2.7-0.165i';
+        handles.DistributStartEdit.String='0';
+        handles.DistributStepEdit.String='1';
+        handles.DistributEndEdit.String='1';
     end
 else
     handles.z0Edit.String='0+0i';
@@ -3995,6 +3971,12 @@ else
     handles.VertOrientRB.Value=0;
     ResultsProcessing.GetSetCellOrient(0);
 end
+advancedCASettings=getappdata(handles.output,'AdvancedCASettings');
+if ~isempty(advancedCASettings)
+    if isvalid(advancedCASettings)
+        setappdata(advancedCASettings,'NeighborHood',[currCA.FieldType currCA.NeighborhoodType]);
+    end
+end
 setappdata(handles.output,'CurrCA',currCA);
 
 
@@ -4102,7 +4084,7 @@ switch hObject.Value
     case 1
         handles.DistributionTypeText.String='Диапазон (от:шаг по X:шаг по Y)';
     case 2
-        handles.DistributionTypeText.String='Диапазон (от:шаг по Re:шаг по Im)';
+        handles.DistributionTypeText.String='Диапазон (от:до:коэффициент k)';
 end
 % hObject    handle to DistributionTypeMenu (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -5004,6 +4986,12 @@ switch get(hObject,'Tag')
         currCA.NeighborhoodType=0;
         
 end
+advancedCASettings=getappdata(handles.output,'AdvancedCASettings');
+if ~isempty(advancedCASettings)
+    if isvalid(advancedCASettings)
+        setappdata(advancedCASettings,'NeighborHood',[currCA.FieldType currCA.NeighborhoodType]);
+    end
+end
 setappdata(handles.output,'CurrCA',currCA);
 % hObject    handle to the selected object in NeighborhoodTemp 
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -5046,24 +5034,19 @@ function CASettingsMenuItem_Callback(hObject, eventdata, handles)
 % --------------------------------------------------------------------
 function SetNeighborWeightMenuItem_Callback(hObject, eventdata, handles)
 advancedCASettings = AdvancedCASettings;
-setappdata(advancedCASettings,'NeighborCount',4);
+currCA=getappdata(handles.output,'CurrCA');
+
+setappdata(advancedCASettings,'NeighborHood',[currCA.FieldType currCA.NeighborhoodType]);
+setappdata(handles.output,'AdvancedCASettings',advancedCASettings);
+
+
 % btn = advancedCASettings.Children(1);
-% btn.Callback= @f;
+% btn.Callback= @GetNeighborsWeights;
 
 % hObject    handle to SetNeighborWeightMenuItem (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-function f(hObject, eventdata, handles)
-currCA=getappdata(handles.output,'CurrCA');
-switch get(hObject,'Tag')
-    
-    case 'NeumannRB'
-        currCA.NeighborhoodType=1;
-    
-    case 'MooreRB'
-        currCA.NeighborhoodType=0;
-        
-end
-setappdata(handles.output,'CurrCA',currCA);
+% function GetNeighborsWeights(hObject, eventdata, handles)
+% a=CellularAutomat.GetSetWeights;
 
