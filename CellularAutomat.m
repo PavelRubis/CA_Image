@@ -58,27 +58,29 @@ classdef CellularAutomat
                 [base, lambda] = CellularAutomat.GetSetFuncs; %получаем функции базового отображения и лямбды
 
                 if ~isempty(ControlParams.GetSetCustomImag)
+
                     if ControlParams.GetSetCustomImag
                         base = DataFormatting.MakeCACustomImagWithNeighbors(func2str(base), CA_cell);
                     end
+
                 end
 
                 basePart = base(z_last); % вычисление базы
 
-                neighborsZ = zeros(1, length(CA_cell.CurrNeighbors));
                 neighborsZ = arrayfun(@(neighbor) neighbor.zPath(end) * 1, CA_cell.CurrNeighbors);
-
-                if regexp(func2str(lambda), '^@\(z_k,n\)')% если лямбда завиисит от двух переменных (в случае D2 вторая переменная-массив единиц переменного знака)
-                    onesArr = ones(1, length(CA_cell.CurrNeighbors));
-                    onesArr(1:2:length(onesArr)) = -1;
-                    lambdaPart = lambda(neighborsZ, onesArr); % вычисление лямбды
-                else
-                    lambdaPart = lambda(neighborsZ); % вычисление лямбды
-                end
 
                 if ControlParams.GetSetCustomImag
                     z_new = basePart;
                 else
+
+                    if regexp(func2str(lambda), '^@\(z_k,n\)')% если лямбда завиисит от двух переменных (в случае D2 вторая переменная-массив единиц переменного знака)
+                        onesArr = ones(1, length(CA_cell.CurrNeighbors));
+                        onesArr(1:2:length(onesArr)) = -1;
+                        lambdaPart = lambda(neighborsZ, onesArr); % вычисление лямбды
+                    else
+                        lambdaPart = lambda(neighborsZ); % вычисление лямбды
+                    end
+
                     z_new = lambdaPart * basePart;
                 end
 

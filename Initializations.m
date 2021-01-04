@@ -13,6 +13,7 @@ classdef Initializations
                 cellCountTrue = (N * (N - 1) * 3) + 1;
             else
                 cellCount = N * N;
+                cellCountTrue=cellCount;
             end
 
             Re = 1 .* randn(cellCountTrue, 1) + (EndPoint - StartPoint);
@@ -141,7 +142,7 @@ classdef Initializations
             if ca.FieldType
                 valuesArr = arrayfun(@(iInd, jInd) (StartPoint + complex(iInd * XStep, jInd * YStep)), iIndArr, jIndArr);
             else
-                valuesArr = arrayfun(@(xInd, yInd) (StartPoint + complex(xInd * XStep, yInd * YStep)), xIndArr, yIndArr);
+                valuesArr = arrayfun(@(xInd, yInd) (StartPoint + xInd * XStep + yInd * YStep), xIndArr, yIndArr);
             end
 
             valuesArr = valuesArr + z0;

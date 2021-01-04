@@ -46,9 +46,11 @@ end
 
 % --- Executes just before AdvancedCASettings is made visible.
 function AdvancedCASettings_OpeningFcn(hObject, eventdata, handles, varargin)
+    axes(handles.axes2);
     axis image;
     set(gca, 'xtick', []);
     set(gca, 'ytick', []);
+    
 % This function has no output args, see OutputFcn.
 % hObject    handle to figure
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -62,9 +64,37 @@ handles.output = hObject;
 % Update handles structure
 guidata(hObject, handles);
 
-% UIWAIT makes AdvancedCASettings wait for user response (see UIRESUME)
-% uiwait(handles.figure1);
+tableData = get(handles.WeightsTable, 'data');
+neighborhoodsMatr = [
+                [0 0];
+                [0 1];
+                [1 0];
+                [1 1];
+                ];
+neighborhoodType = find(ismember(cell2mat(varargin(2)) == neighborhoodsMatr, [1 1], 'rows'));
 
+switch neighborhoodType
+    %4
+    case 2
+
+        tableData(5:end - 1, :) = [];
+
+    %6
+    case 3
+
+        tableData(7:end - 1, :) = [];
+
+    %3
+    case 4
+
+        tableData(4:end - 1, :) = [];
+
+end
+
+set(handles.WeightsTable, 'data',tableData);
+
+title(handles.axes2, strcat('\fontsize{11}', 'Шаблон окрестности:'));
+DataFormatting.DrawNeighborhood(neighborhoodType);
 
 % --- Outputs from this function are returned to the command line.
 function varargout = AdvancedCASettings_OutputFcn(hObject, eventdata, handles) 

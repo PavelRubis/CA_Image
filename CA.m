@@ -303,74 +303,7 @@ handles.ReadModelingParmsFrmFile.Enable='off';
            end
            zoom on;
             
-           if ~contParms.GetSetCustomImag
-               string_title = strrep(func2str(contParms.ImageFunc),contParms.Lambda,'');
-               string_title=strrep(string_title,'(exp(i*z))','\lambda\cdotexp(i*z)');
-               lambdaStr=contParms.Lambda;
-               lambdaStr(1)=[];
-               string_title= strcat(string_title,'  \lambda=',lambdaStr);
-           else
-               string_title= func2str(contParms.ImageFunc);
-           end
-           
-           string_title=strrep(string_title,'*','\cdot');
-           switch contParms.WindowParamName
-               case 'z0'
-                   string_title=strrep(string_title,'@(z)','z\rightarrow');
-                   string_title=strrep(string_title,'Miu0','\mu_{0}');
-                   string_title=strrep(string_title,'Miu','\mu');
-                   xlabel('Re(z_{0})');
-                   ylabel('Im(z_{0})');
-                   string_title=strcat(string_title,'  z_{0_{cntr}}=');
-                   string_title=strcat(string_title,num2str(complex(mean(contParms.ReRangeWindow),mean(contParms.ImRangeWindow))));
-                   string_title=strcat(string_title,'  \mu=');
-                   string_title=strcat(string_title,num2str(contParms.SingleParams(1)));
-                   string_title=strcat(string_title,'  \mu_{0}=');
-                   string_title=strcat(string_title,num2str(contParms.SingleParams(2)));
-               case 'Miu'
-                   string_title=strrep(string_title,'@(Miu,z,eq)','z\rightarrow');
-                   string_title=strrep(string_title,'Miu0','\mu_{0}');
-                   string_title=strrep(string_title,'Miu','\mu');
-                   string_title=strcat(string_title,'  \mu_{cntr}=');
-                   string_title=strcat(string_title,num2str(complex(mean(contParms.ReRangeWindow),mean(contParms.ImRangeWindow))));
-                   string_title=strcat(string_title,'  z_{0}=');
-                   string_title=strcat(string_title,num2str(contParms.SingleParams(1)));
-                   string_title=strcat(string_title,'  \mu_{0}=');
-                   string_title=strcat(string_title,num2str(contParms.SingleParams(2)));
-                   xlabelStr='Re(\mu)';
-                
-                   ylabelStr='Im(\mu)';
-               
-                   xlabel(xlabelStr);
-                   ylabel(ylabelStr);
-               case 'Miu0'
-                   string_title=strrep(string_title,'@(Miu0,z,eq)','z\rightarrow');
-                   string_title=strrep(string_title,'Miu0','\mu_{0}');
-                   string_title=strrep(string_title,'Miu','\mu');
-                   string_title=strcat(string_title,'  \mu_{0_{cntr}}=');
-                   string_title=strcat(string_title,num2str(complex(mean(contParms.ReRangeWindow),mean(contParms.ImRangeWindow))));
-                   string_title=strcat(string_title,'  z_{0}=');
-                   string_title=strcat(string_title,num2str(contParms.SingleParams(1)));
-                   string_title=strcat(string_title,'  \mu=');
-                   string_title=strcat(string_title,num2str(contParms.SingleParams(2)));
-                   
-                   xlabelStr='Re(\mu_{0})';
-                   ylabelStr='Im(\mu_{0})';
-               
-                   xlabel(xlabelStr);
-                   ylabel(ylabelStr);
-                   
-           end
-           
-           string_title=strrep(string_title,'eq','z^{*}');
-           
-           if contains(string_title,'z^{*}')
-               string_title=strcat(string_title,'  z^{*}=');
-               string_title=strcat(string_title,num2str(ca.Zbase));
-           end
-           
-           title(handles.CAField,strcat('\fontsize{16}',string_title));
-           handles.CAField.FontSize=11;
+           DataFormatting.PlotFormatting(contParms, ca, handles);
            
            graphics.Axs=handles.CAField;
            graphics.Clrbr=clrbr;
@@ -456,6 +389,7 @@ handles.ReadModelingParmsFrmFile.Enable='off';
            ms=20;
            clrmp=colormap(jet(length(N1Path)));
            
+           temp=N1Path;
            %% ВАЖНО: что делать с нулями в мнимой и множественной частях при логарифмировании
            if abs(max(N1Path(1,:)))>1e4 || abs(max(N1Path(2,:)))>1e4
                N1Path(1,find(N1Path(1,:)))=log(abs(N1Path(1,find(N1Path(1,:)))))/log(10);
@@ -519,40 +453,9 @@ handles.ReadModelingParmsFrmFile.Enable='off';
                    'TickLabels',{0,floor(iter*0.2),floor(iter*0.4),floor(iter*0.6),floor(iter*0.8),iter-1});
                clrbr.Label.String = 'Число итераций';
            end
-         
-           titleStr='';
-           switch func2str(ca.Base)
-               case '@(z)(exp(i*z))'
-                   titleStr='z\rightarrow\lambda\cdotexp(i\cdotz)';
-                   titleStr=strcat(titleStr,' ; \lambda=\mu_{0}+\mu');
-               case '@(z)(z^2+Miu)'
-                   titleStr='z\rightarrowz^{2}+c';
-               otherwise
-                   titleStr=func2str(ca.Base);
-                   titleStr=strrep(titleStr,'@(z)','z\rightarrow');
-           end
            
-           titleStr=strrep(titleStr,'Miu0','\mu_{0}');
-           titleStr=strrep(titleStr,'Miu','\mu');
-           titleStr=strrep(titleStr,'*','\cdot');
-       
-           if contains(titleStr,'eq')
-               titleStr=strrep(titleStr,'eq','z^{*}');
-           end
-       
-           titleStr=strcat(titleStr,' ; z_{0}=',num2str(ca.Cells(1).z0));
+           DataFormatting.PlotFormatting(contParms, ca, handles);
            
-           if isempty(ControlParams.GetSetCustomImag)
-               titleStr=strcat(titleStr,' ; \mu=',num2str(ca.Miu),' ; \mu_{0}=',num2str(ca.Miu0));
-           else
-               if ~ControlParams.GetSetCustomImag
-                   titleStr=strcat(titleStr,' ; \mu=',num2str(ca.Miu),' ; \mu_{0}=',num2str(ca.Miu0));
-               end
-           end
-           
-           title(handles.CAField,strcat('\fontsize{16}',titleStr));
-           
-           handles.CAField.FontSize=10;
            zoom on;
            contParms.LastIters=length(N1Path);
            contParms.Periods=period;
@@ -561,6 +464,7 @@ handles.ReadModelingParmsFrmFile.Enable='off';
            graphics.Clrbr=clrbr;
            graphics.Clrmp=clrmp;
            
+           N1Path=temp;
            if resProc.isSave
                resProc=SaveRes(resProc,ca,graphics,contParms,N1Path);
            end
@@ -688,16 +592,24 @@ handles.ReadModelingParmsFrmFile.Enable='off';
        
        %блок тестирования правильности нахождения элементов и всех типов границ
        
-       %рассчет поля КА
-       for i=1:itersCount
-           cellArr=arrayfun(@(cell)CellularAutomat.MakeIter(cell),cellArr);
-           
-           ca.Cells=cellArr;
-           for j=1:ca_L
-               cellArr(j)=UpdateNeighborsValues(ca,ca.Cells(j));
-%                cellArr(j)=FindCellsNeighbors(ca, ca.Cells(j));
-           end
-       end
+    %рассчет поля КА
+    for i = 1:itersCount
+
+        try
+            cellArr = arrayfun(@(cell)CellularAutomat.MakeIter(cell), cellArr);
+        catch ex
+            errordlg(getReport(ex), 'Ошибка:');
+            return;
+        end
+
+        ca.Cells = cellArr;
+
+        for j = 1:ca_L
+            cellArr(j) = UpdateNeighborsValues(ca, ca.Cells(j));
+        end
+
+    end
+
        
        %создание палитры
        colors=colormap([[1 1 1];jet(256);[0 0 0]]);
@@ -799,66 +711,8 @@ handles.ReadModelingParmsFrmFile.Enable='off';
            clrbr.TickLabels={''};
        end
        clrbr.Label.String='\fontsize{16}log_{10}(\midz_{t+1}-z^{*}\mid)';
-       
-       titleStr='';
-       switch func2str(ca.Base)
-           case '@(z)(exp(i*z))'
-               titleStr='z\rightarrow\lambda\cdotexp(i\cdotz)';
-           case '@(z)(z^2+Miu)'
-               titleStr='z\rightarrowz^{2}+\mu';
-           otherwise
-               titleStr=func2str(ca.Base);
-               titleStr=strrep(titleStr,'@(z)','z\rightarrow');
-       end
-       
-       if isempty(ControlParams.GetSetCustomImag)
-           switch handles.LambdaMenu.Value
-               case 1
-                   titleStr=strcat(titleStr,' ; \lambda=\mu_{0}+\Sigma_{k=1}^{n}\mu_{k}\cdotz_{k}^{t}');
-               case 2
-                   titleStr=strcat(titleStr,' ; \lambda=\mu+\mu_{0}\cdot\mid(1/n)\cdot\Sigma_{k=1}^{n}z_{k}^{t}-z^{*}(\mu)\mid');
-               case 3
-                   titleStr=strcat(titleStr,' ; \lambda=\mu+\mu_{0}\cdot\mid(1/n)\cdot\Sigma_{k=1}^{n}(-1^{k})\cdotz_{k}^{t}\mid');
-               case 4
-                   titleStr=strcat(titleStr,' ; \lambda=\mu+\mu_{0}\cdot( (1/n)\cdot\Sigma_{k=1}^{n}z_{k}^{t}-z^{*}(\mu) )');
-               case 5
-                   titleStr=strcat(titleStr,' ; \lambda=\mu_{0}+\mu');
-           end
-       else
-           if~ControlParams.GetSetCustomImag
-               switch handles.LambdaMenu.Value
-                   case 1
-                       titleStr=strcat(titleStr,' ; \lambda=\mu_{0}+\Sigma_{k=1}^{n}\mu_{k}\cdotz_{k}^{t}');
-                   case 2
-                       titleStr=strcat(titleStr,' ; \lambda=\mu+\mu_{0}\cdot\mid(1/n)\cdot\Sigma_{k=1}^{n}z_{k}^{t}-z^{*}(\mu)\mid');
-                   case 3
-                       titleStr=strcat(titleStr,' ; \lambda=\mu+\mu_{0}\cdot\mid(1/n)\cdot\Sigma_{k=1}^{n}(-1^{k})\cdotz_{k}^{t}\mid');
-                   case 4
-                       titleStr=strcat(titleStr,' ; \lambda=\mu+\mu_{0}\cdot( (1/n)\cdot\Sigma_{k=1}^{n}z_{k}^{t}-z^{*}(\mu) )');
-                   case 5
-                       titleStr=strcat(titleStr,' ; \lambda=\mu_{0}+\mu');
-               end
-           end
-       end
-       
-       titleStr=strrep(titleStr,'Miu0','\mu_{0}');
-       titleStr=strrep(titleStr,'Miu','\mu');
-       titleStr=strrep(titleStr,'*','\cdot');
-       titleStr=strcat(titleStr,' ');
-       
-       if contains(titleStr,'eq')
-           titleStr=strrep(titleStr,'eq','z^{*}');
-       end
-       
-       if contains(titleStr,'\mu_{0}')
-           titleStr=strcat(titleStr,' ; \mu_{0}=',num2str(ca.Miu0));
-       end
-       
-       if ~isempty(regexp(titleStr,'\\mu(?!_)'))
-           titleStr=strcat(titleStr,' ; \mu=',num2str(ca.Miu));
-       end
-       
-       title(handles.CAField,strcat('\fontsize{16}',titleStr));
+
+       DataFormatting.PlotFormatting(contParms, ca, handles);
        
        graphics.Axs=handles.CAField;
        graphics.Clrbr=clrbr;
@@ -3377,7 +3231,9 @@ if(isempty(regexp(handles.z0Edit.String,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(
     numErrors(1)=true;
 else
     if ~Nerror && handles.NFieldEdit.String=="1" && contParms.SingleOrMultipleCalc
-        currCA.Cells=CACell(str2double(handles.z0Edit.String), str2double(handles.z0Edit.String), [0 1 1], [0 0 0], 0, 1);
+        if isempty(currCA.Cells)
+            currCA.Cells=CACell(str2double(handles.z0Edit.String), str2double(handles.z0Edit.String), [0 1 1], [0 0 0], 0, 1);
+        end
         contParms.IsReady2Start=true;
     end
 end
@@ -3971,12 +3827,6 @@ else
     handles.VertOrientRB.Value=0;
     ResultsProcessing.GetSetCellOrient(0);
 end
-advancedCASettings=getappdata(handles.output,'AdvancedCASettings');
-if ~isempty(advancedCASettings)
-    if isvalid(advancedCASettings)
-        setappdata(advancedCASettings,'NeighborHood',[currCA.FieldType currCA.NeighborhoodType]);
-    end
-end
 setappdata(handles.output,'CurrCA',currCA);
 
 
@@ -4080,12 +3930,6 @@ setappdata(handles.output,'ResProc',resProc);
 
 % --- Executes on selection change in DistributionTypeMenu.
 function DistributionTypeMenu_Callback(hObject, eventdata, handles)
-switch hObject.Value
-    case 1
-        handles.DistributionTypeText.String='Диапазон (от:шаг по X:шаг по Y)';
-    case 2
-        handles.DistributionTypeText.String='Диапазон (от:до:коэффициент k)';
-end
 % hObject    handle to DistributionTypeMenu (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4986,12 +4830,6 @@ switch get(hObject,'Tag')
         currCA.NeighborhoodType=0;
         
 end
-advancedCASettings=getappdata(handles.output,'AdvancedCASettings');
-if ~isempty(advancedCASettings)
-    if isvalid(advancedCASettings)
-        setappdata(advancedCASettings,'NeighborHood',[currCA.FieldType currCA.NeighborhoodType]);
-    end
-end
 setappdata(handles.output,'CurrCA',currCA);
 % hObject    handle to the selected object in NeighborhoodTemp 
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -5033,15 +4871,11 @@ function CASettingsMenuItem_Callback(hObject, eventdata, handles)
 
 % --------------------------------------------------------------------
 function SetNeighborWeightMenuItem_Callback(hObject, eventdata, handles)
-advancedCASettings = AdvancedCASettings;
 currCA=getappdata(handles.output,'CurrCA');
+advancedCASettings = AdvancedCASettings('UserData', [currCA.FieldType currCA.NeighborhoodType]);
 
 setappdata(advancedCASettings,'NeighborHood',[currCA.FieldType currCA.NeighborhoodType]);
 setappdata(handles.output,'AdvancedCASettings',advancedCASettings);
-
-
-% btn = advancedCASettings.Children(1);
-% btn.Callback= @GetNeighborsWeights;
 
 % hObject    handle to SetNeighborWeightMenuItem (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB

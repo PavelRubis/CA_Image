@@ -12,21 +12,29 @@ classdef DataFormatting
                 varNum = 0;
                 varStr = '@(';
 
-                if ~isempty(regexp(userFuncStr, 'z\D'))
+                if ~isempty(regexp(userFuncStr, 'z\D')) || contParms.SingleOrMultipleCalc
                     varNum = varNum + 1;
                     varStr = strcat(varStr, 'z,');
                 end
 
                 if contains(userFuncStr, 'mu0')
                     userFuncStr = strrep(userFuncStr, 'mu0', 'Miu0');
-                    varNum = varNum + 1;
-                    varStr = strcat(varStr, 'Miu0,');
+
+                    if ~contParms.SingleOrMultipleCalc
+                        varNum = varNum + 1;
+                        varStr = strcat(varStr, 'Miu0,');
+                    end
+
                 end
 
-                if ~isempty(regexp(userFuncStr, 'mu[^\di]'))
-                    userFuncStr = strrep(userFuncStr, 'mu', 'Miu');
-                    varNum = varNum + 1;
-                    varStr = strcat(varStr, 'Miu,');
+                if ~isempty(regexp(userFuncStr, 'mu(?![\di])'))
+                    userFuncStr = regexprep(userFuncStr, 'mu(?![\di])', 'Miu');
+
+                    if ~contParms.SingleOrMultipleCalc
+                        varNum = varNum + 1;
+                        varStr = strcat(varStr, 'Miu,');
+                    end
+
                 end
 
                 varStr = regexprep(varStr, ',$', '\)');
@@ -35,6 +43,11 @@ classdef DataFormatting
                 neigborsWeightsCount = 0;
 
                 userFuncStrTest = userFuncStr;
+
+                if contParms.SingleOrMultipleCalc
+                    userFuncStrTest = strrep(userFuncStrTest, 'Miu0', '(1)');
+                    userFuncStrTest = strrep(userFuncStrTest, 'Miu', '(1)');
+                end
 
                 if ~isempty(regexp(userFuncStr, 'z[1-9]+'))
 
@@ -47,7 +60,7 @@ classdef DataFormatting
                     neigborsWeightsCount = max(str2double(neigborsIndxes));
 
                     for k = 1:neigborsWeightsCount
-                        userFuncStrTest = strrep(userFuncStrTest, strcat('z', num2str(k)), '(0)');
+                        userFuncStrTest = strrep(userFuncStrTest, strcat('z', num2str(k)), '(1)');
                     end
 
                 end
@@ -63,7 +76,7 @@ classdef DataFormatting
                     neigborsWeightsCount = max(str2double(neigborsWeightsIndxes));
 
                     for k = 1:neigborsWeightsCount
-                        userFuncStrTest = strrep(userFuncStrTest, strcat('mu', num2str(k)), '(0)');
+                        userFuncStrTest = strrep(userFuncStrTest, strcat('mu', num2str(k)), '(1)');
                     end
 
                 end
@@ -74,7 +87,7 @@ classdef DataFormatting
                         i_love_MATLAB^2;
                     end
 
-                    userFuncStrTest = strrep(userFuncStrTest, 'mui', '(0)');
+                    userFuncStrTest = strrep(userFuncStrTest, 'mui', '(1)');
                 end
 
                 if ~isempty(regexp(userFuncStr, 'nc'))
@@ -83,7 +96,7 @@ classdef DataFormatting
                         i_love_MATLAB^2;
                     end
 
-                    userFuncStrTest = strrep(userFuncStrTest, 'nc', '(0)');
+                    userFuncStrTest = strrep(userFuncStrTest, 'nc', '(1)');
                 end
 
                 funcStr = strcat(varStr, userFuncStr);
@@ -92,19 +105,19 @@ classdef DataFormatting
                 switch varNum
                     case 1
 
-                        if isnan(testFunc(0))
+                        if isnan(testFunc(1))
                             i_love_MATLAB^2;
                         end
 
                     case 2
 
-                        if isnan(testFunc(0, 0))
+                        if isnan(testFunc(1, 1))
                             i_love_MATLAB^2;
                         end
 
                     case 3
 
-                        if isnan(testFunc(0, 0, 0))
+                        if isnan(testFunc(1, 1, 1))
                             i_love_MATLAB^2;
                         end
 
@@ -148,10 +161,12 @@ classdef DataFormatting
             zBStr = strcat(zBStr, ')');
             lambdaFuncStr = strrep(lambdaFuncStr, 'Zbase', zBStr);
 
-            baseFuncStr = strrep(baseFuncStr, 'mui', strcat('(', num2str(ca.Weights(end)), ')'));
+            baseFuncStr = strrep(baseFuncStr, 'mui', strcat('(', num2str(ca.Weights(1)), ')'));
 
-            for k = 1:length(ca.Weights) - 1
-                baseFuncStr = strrep(baseFuncStr, strcat('mu', num2str(k)), strcat('(', num2str(ca.Weights(k)), ')'));
+            neighborsWeights = ca.Weights(2:end);
+
+            for k = 1:length(neighborsWeights)
+                baseFuncStr = strrep(baseFuncStr, strcat('mu', num2str(k)), strcat('(', num2str(neighborsWeights(k)), ')'));
             end
 
             baseFunc = str2func(baseFuncStr);
@@ -182,20 +197,6 @@ classdef DataFormatting
             end
 
             customImagStr = strrep(customImagStr, 'nc', strcat('(', num2str(length(CA_cell.CurrNeighbors)), ')'));
-
-            %             neiborsWeightsNotFound = regexp(customImagStr, 'mu[1-9]+', 'match');
-            %
-            %             if ~isempty(neiborsWeightsNotFound)
-            %                 customImagStr = regexprep(customImagStr, 'mu[1-9]+', '(0)');
-            %                 warningStr = '';
-            %
-            %                 for k = 1:length(neiborsWeightsNotFound)
-            %                     warningStr = strcat(warningStr, char(neiborsWeightsNotFound(k)), ';');
-            %                 end
-            %
-            %                 warningStr = regexprep(warningStr, ';$', '');
-            %                 warning(strcat(' cell with indexes', strcat(' ', num2str(CA_cell.Indexes), ' '), 'do not contains neighbors with weights', strcat(' ', warningStr, ' '), 'which are declared in the iterated function'));
-            %             end
 
             customImag = str2func(customImagStr);
 
@@ -274,6 +275,441 @@ classdef DataFormatting
             baseFuncStr = str2func(baseFuncStr);
             ControlParams.GetSetMultiCalcFunc(baseFuncStr);
             ContParms = contParms;
+        end
+
+        %форматирование графика
+        function PlotFormatting(contParms, ca, handles)
+
+            titleStr = '';
+
+            if ca.N == 1
+
+                switch func2str(ca.Base)
+                    case '@(z)(exp(i*z))'
+                        titleStr = 'z\rightarrow\lambda\cdotexp(i\cdotz)';
+                        titleStr = strcat(titleStr, ' ; \lambda=\mu_{0}+\mu');
+                    case '@(z)(z^2+Miu)'
+                        titleStr = 'z\rightarrow\lambda\cdotz^{2}+c';
+                        titleStr = strcat(titleStr, ' ; \lambda=\mu_{0}+\mu');
+                    case '@(z)Miu'
+                        titleStr = 'z\rightarrow\lambda\cdot\mu';
+                        titleStr = strcat(titleStr, ' ; \lambda=\mu_{0}+\mu');
+                    otherwise
+                        titleStr = func2str(ca.Base);
+                        titleStr = strrep(titleStr, '@(z)', 'z\rightarrow');
+                end
+
+                titleStr = strrep(titleStr, 'Miu0', '\mu_{0}');
+                titleStr = strrep(titleStr, 'Miu', '\mu');
+                titleStr = strrep(titleStr, '*', '\cdot');
+
+                titleStr = strcat(titleStr, ' ; z_{0}=', num2str(ca.Cells(1).z0));
+
+                if contains(titleStr, 'eq')
+                    titleStr = strrep(titleStr, 'eq', 'z^{*}');
+                    titleStr = strcat(titleStr, ' ; z^{*}', num2str(ca.Cells(1).Zbase));
+                end
+
+                if isempty(ControlParams.GetSetCustomImag)
+                    titleStr = strcat(titleStr, ' ; \mu=', num2str(ca.Miu), ' ; \mu_{0}=', num2str(ca.Miu0));
+                else
+
+                    if ~ControlParams.GetSetCustomImag
+                        titleStr = strcat(titleStr, ' ; \mu=', num2str(ca.Miu), ' ; \mu_{0}=', num2str(ca.Miu0));
+                    end
+
+                end
+
+                title(handles.CAField, strcat('\fontsize{16}', titleStr));
+                handles.CAField.FontSize = 10;
+            else
+
+                if contParms.SingleOrMultipleCalc
+
+                    switch func2str(ca.Base)
+                        case '@(z)(exp(i*z))'
+                            titleStr = 'z\rightarrow\lambda\cdotexp(i\cdotz)';
+                        case '@(z)(z^2+Miu)'
+                            titleStr = 'z\rightarrowz^{2}+\mu';
+                        case '@(z)Miu'
+                            titleStr = 'z\rightarrow\lambda\cdot\mu';
+                        otherwise
+                            titleStr = func2str(ca.Base);
+                            titleStr = strrep(titleStr, '@(z)', 'z\rightarrow');
+                    end
+
+                    if isempty(ControlParams.GetSetCustomImag)
+
+                        switch handles.LambdaMenu.Value
+                            case 1
+                                titleStr = strcat(titleStr, ' ; \lambda=\mu_{0}+\Sigma_{k=1}^{n}\mu_{k}\cdotz_{k}^{t}');
+                            case 2
+                                titleStr = strcat(titleStr, ' ; \lambda=\mu+\mu_{0}\cdot\mid(1/n)\cdot\Sigma_{k=1}^{n}z_{k}^{t}-z^{*}(\mu)\mid');
+                            case 3
+                                titleStr = strcat(titleStr, ' ; \lambda=\mu+\mu_{0}\cdot\mid(1/n)\cdot\Sigma_{k=1}^{n}(-1^{k})\cdotz_{k}^{t}\mid');
+                            case 4
+                                titleStr = strcat(titleStr, ' ; \lambda=\mu+\mu_{0}\cdot( (1/n)\cdot\Sigma_{k=1}^{n}z_{k}^{t}-z^{*}(\mu))');
+                            case 5
+                                titleStr = strcat(titleStr, ' ; \lambda=\mu_{0}+\mu');
+                        end
+
+                    else
+
+                        if ~ControlParams.GetSetCustomImag
+
+                            switch handles.LambdaMenu.Value
+                                case 1
+                                    titleStr = strcat(titleStr, ' ; \lambda=\mu_{0}+\Sigma_{k=1}^{n}\mu_{k}\cdotz_{k}^{t}');
+                                case 2
+                                    titleStr = strcat(titleStr, ' ; \lambda=\mu+\mu_{0}\cdot\mid(1/n)\cdot\Sigma_{k=1}^{n}z_{k}^{t}-z^{*}(\mu)\mid');
+                                case 3
+                                    titleStr = strcat(titleStr, ' ; \lambda=\mu+\mu_{0}\cdot\mid(1/n)\cdot\Sigma_{k=1}^{n}(-1^{k})\cdotz_{k}^{t}\mid');
+                                case 4
+                                    titleStr = strcat(titleStr, ' ; \lambda=\mu+\mu_{0}\cdot( (1/n)\cdot\Sigma_{k=1}^{n}z_{k}^{t}-z^{*}(\mu) )');
+                                case 5
+                                    titleStr = strcat(titleStr, ' ; \lambda=\mu_{0}+\mu');
+                            end
+
+                        end
+
+                    end
+
+                    titleStr = strrep(titleStr, 'Miu0', '\mu_{0}');
+                    titleStr = strrep(titleStr, 'Miu', '\mu');
+                    titleStr = strrep(titleStr, '*', '\cdot');
+                    titleStr = strcat(titleStr, ' ');
+
+                    if contains(titleStr, '\mu_{0}')
+                        titleStr = strcat(titleStr, ' ; \mu_{0}=', num2str(ca.Miu0));
+                    end
+
+                    if ~isempty(regexp(titleStr, '\\mu(?!_)'))
+                        titleStr = strcat(titleStr, ' ; \mu=', num2str(ca.Miu));
+                    end
+
+                    if contains(titleStr, 'z^{\cdot}(\mu)')
+                        titleStr = strrep(titleStr, 'z^{\cdot}(\mu)', 'z^{*}(\mu)');
+                        titleStr = strcat(titleStr, ' ; z^{*}(\mu)=', num2str(ca.Zbase));
+                    end
+
+                    if ~isempty(regexp(titleStr, 'mui'))
+                        titleStr = strrep(titleStr, 'mui', '\mu_{i}');
+                    end
+
+                    neigborsStrs = regexp(titleStr, 'z[1-9]+', 'match');
+
+                    if ~isempty(neigborsStrs)
+                        neigborsIndxes = regexp(cell2mat(neigborsStrs), '[1-9]+', 'match');
+                        neigborsCount = max(str2double(neigborsIndxes));
+
+                        for k = 1:neigborsCount
+                            titleStr = strrep(titleStr, strcat('z', num2str(k)), strcat('z_{', num2str(k), '}'));
+                        end
+
+                    end
+
+                    neigborsWeightsStrs = regexp(titleStr, 'mu[1-9]+', 'match');
+
+                    if ~isempty(neigborsWeightsStrs)
+                        neigborsWeightsIndxes = regexp(cell2mat(neigborsWeightsStrs), '[1-9]+', 'match');
+                        neigborsWeightsCount = max(str2double(neigborsWeightsIndxes));
+
+                        for k = 1:neigborsWeightsCount
+                            titleStr = strrep(titleStr, strcat('mu', num2str(k)), strcat('\mu_{', num2str(k), '}'));
+                        end
+
+                    end
+
+                    title(handles.CAField, strcat('\fontsize{16}', titleStr));
+                else
+
+                    if ~contParms.GetSetCustomImag
+                        titleStr = strrep(func2str(contParms.ImageFunc), contParms.Lambda, '');
+                        titleStr = strrep(titleStr, '(exp(i*z))', '\lambda\cdotexp(i*z)');
+                        lambdaStr = contParms.Lambda;
+                        lambdaStr(1) = [];
+                        titleStr = strcat(titleStr, '  \lambda=', lambdaStr);
+                    else
+                        titleStr = func2str(contParms.ImageFunc);
+                    end
+
+                    titleStr = strrep(titleStr, '*', '\cdot');
+
+                    switch contParms.WindowParamName
+                        case 'z0'
+                            titleStr = strrep(titleStr, '@(z)', 'z\rightarrow');
+                            titleStr = strrep(titleStr, 'Miu0', '\mu_{0}');
+                            titleStr = strrep(titleStr, 'Miu', '\mu');
+                            xlabel('Re(z_{0})');
+                            ylabel('Im(z_{0})');
+                            titleStr = strcat(titleStr, '  z_{0_{cntr}}=');
+                            titleStr = strcat(titleStr, num2str(complex(mean(contParms.ReRangeWindow), mean(contParms.ImRangeWindow))));
+                            titleStr = strcat(titleStr, '  \mu=');
+                            titleStr = strcat(titleStr, num2str(contParms.SingleParams(1)));
+                            titleStr = strcat(titleStr, '  \mu_{0}=');
+                            titleStr = strcat(titleStr, num2str(contParms.SingleParams(2)));
+                        case 'Miu'
+                            titleStr = strrep(titleStr, '@(Miu,z,eq)', 'z\rightarrow');
+                            titleStr = strrep(titleStr, 'Miu0', '\mu_{0}');
+                            titleStr = strrep(titleStr, 'Miu', '\mu');
+                            titleStr = strcat(titleStr, '  \mu_{cntr}=');
+                            titleStr = strcat(titleStr, num2str(complex(mean(contParms.ReRangeWindow), mean(contParms.ImRangeWindow))));
+                            titleStr = strcat(titleStr, '  z_{0}=');
+                            titleStr = strcat(titleStr, num2str(contParms.SingleParams(1)));
+                            titleStr = strcat(titleStr, '  \mu_{0}=');
+                            titleStr = strcat(titleStr, num2str(contParms.SingleParams(2)));
+                            xlabelStr = 'Re(\mu)';
+
+                            ylabelStr = 'Im(\mu)';
+
+                            xlabel(xlabelStr);
+                            ylabel(ylabelStr);
+                        case 'Miu0'
+                            titleStr = strrep(titleStr, '@(Miu0,z,eq)', 'z\rightarrow');
+                            titleStr = strrep(titleStr, 'Miu0', '\mu_{0}');
+                            titleStr = strrep(titleStr, 'Miu', '\mu');
+                            titleStr = strcat(titleStr, '  \mu_{0_{cntr}}=');
+                            titleStr = strcat(titleStr, num2str(complex(mean(contParms.ReRangeWindow), mean(contParms.ImRangeWindow))));
+                            titleStr = strcat(titleStr, '  z_{0}=');
+                            titleStr = strcat(titleStr, num2str(contParms.SingleParams(1)));
+                            titleStr = strcat(titleStr, '  \mu=');
+                            titleStr = strcat(titleStr, num2str(contParms.SingleParams(2)));
+
+                            xlabelStr = 'Re(\mu_{0})';
+                            ylabelStr = 'Im(\mu_{0})';
+
+                            xlabel(xlabelStr);
+                            ylabel(ylabelStr);
+
+                    end
+
+                    titleStr = strrep(titleStr, 'eq', 'z^{*}');
+
+                    if contains(titleStr, 'z^{*}')
+                        titleStr = strcat(titleStr, '  z^{*}=');
+                        titleStr = strcat(titleStr, num2str(ca.Zbase));
+                    end
+
+                    title(handles.CAField, strcat('\fontsize{16}', titleStr));
+                    handles.CAField.FontSize = 11;
+                end
+
+            end
+
+        end
+
+        function DrawNeighborhood(neighborhoodType)
+
+            switch neighborhoodType
+                    %8
+                case 1
+                    %центральная
+                    xArrCenter = [0 1 1 0];
+                    yArrCenter = [0 0 1 1];
+
+                    patch(xArrCenter, yArrCenter, [1 1 1]);
+                    text(0.4, 0.5, 'i', 'FontSize', 16);
+
+                    %юг
+                    xArr1 = [0 1 1 0];
+                    yArr1 = [-1 -1 0 0];
+
+                    patch(xArr1, yArr1, [1 1 1]);
+                    text(0.4, -0.5, '4', 'FontSize', 16);
+
+                    %юго-запад
+                    xArr2 = [-1 0 0 -1];
+                    yArr2 = [-1 -1 0 0];
+
+                    patch(xArr2, yArr2, [1 1 1]);
+                    text(-0.6, -0.5, '1', 'FontSize', 16);
+
+                    %запад
+                    xArr3 = [-1 0 0 -1];
+                    yArr3 = [0 0 1 1];
+
+                    patch(xArr3, yArr3, [1 1 1]);
+                    text(-0.6, 0.5, '2', 'FontSize', 16);
+
+                    %северо-запад
+                    xArr4 = [-1 0 0 -1];
+                    yArr4 = [1 1 2 2];
+
+                    patch(xArr4, yArr4, [1 1 1]);
+                    text(-0.6, 1.5, '3', 'FontSize', 16);
+
+                    %север
+                    xArr5 = [0 1 1 0];
+                    yArr5 = [1 1 2 2];
+
+                    patch(xArr5, yArr5, [1 1 1]);
+                    text(0.4, 1.5, '5', 'FontSize', 16);
+
+                    %северо-восток
+                    xArr6 = [1 2 2 1];
+                    yArr6 = [1 1 2 2];
+
+                    patch(xArr6, yArr6, [1 1 1]);
+                    text(1.4, 1.5, '8', 'FontSize', 16);
+
+                    %восток
+                    xArr7 = [1 2 2 1];
+                    yArr7 = [0 0 1 1];
+
+                    patch(xArr7, yArr7, [1 1 1]);
+                    text(1.4, 0.5, '7', 'FontSize', 16);
+
+                    %юго-восток
+                    xArr8 = [1 2 2 1];
+                    yArr8 = [-1 -1 0 0];
+
+                    patch(xArr8, yArr8, [1 1 1]);
+                    text(1.4, -0.5, '6', 'FontSize', 16);
+
+                    %4
+                case 2
+                    %центральная
+                    xArrCenter = [0 1 1 0];
+                    yArrCenter = [0 0 1 1];
+
+                    patch(xArrCenter, yArrCenter, [1 1 1]);
+                    text(0.4, 0.5, 'i', 'FontSize', 16);
+
+                    %снизу
+                    xArr1 = [0 1 1 0];
+                    yArr1 = [-1 -1 0 0];
+
+                    patch(xArr1, yArr1, [1 1 1]);
+                    text(0.4, -0.5, '2', 'FontSize', 16);
+
+                    %слева
+                    xArr2 = [-1 0 0 -1];
+                    yArr2 = [0 0 1 1];
+
+                    patch(xArr2, yArr2, [1 1 1]);
+                    text(-0.6, 0.5, '1', 'FontSize', 16);
+
+                    %сверху
+                    xArr3 = [0 1 1 0];
+                    yArr3 = [1 1 2 2];
+
+                    patch(xArr3, yArr3, [1 1 1]);
+                    text(0.4, 1.5, '3', 'FontSize', 16);
+
+                    %справа
+                    xArr4 = [1 2 2 1];
+                    yArr4 = [0 0 1 1];
+
+                    patch(xArr4, yArr4, [1 1 1]);
+                    text(1.4, 0.5, '4', 'FontSize', 16);
+
+                    %6
+                case 3
+                    %центральная
+                    dx = sqrt(3) / 2;
+                    dy = 1/2;
+
+                    xArrCenter = [0 0 + dx 0 + dx 0 0 - dx 0 - dx];
+                    yArrCenter = [0 0 + dy 0 + 3 * dy 0 + 4 * dy 0 + 3 * dy 0 + dy];
+
+                    patch(xArrCenter, yArrCenter, [1 1 1]);
+                    text(-dx / 4, 2 * dy, 'i', 'FontSize', 16);
+
+                    %низ лево
+                    xDiff = -(sqrt(3) / 2);
+                    yDiff = -3/2;
+                    xArr1 = [xDiff xDiff + dx xDiff + dx xDiff xDiff - dx xDiff - dx];
+                    yArr1 = [yDiff yDiff + dy yDiff + 3 * dy yDiff + 4 * dy yDiff + 3 * dy yDiff + dy];
+
+                    patch(xArr1, yArr1, [1 1 1]);
+                    text(xDiff + (-dx / 4), yDiff + (2 * dy), '6', 'FontSize', 16);
+
+                    %лево
+                    xDiff = -2 * (sqrt(3) / 2);
+                    yDiff = 0;
+                    xArr2 = [xDiff xDiff + dx xDiff + dx xDiff xDiff - dx xDiff - dx];
+                    yArr2 = [yDiff yDiff + dy yDiff + 3 * dy yDiff + 4 * dy yDiff + 3 * dy yDiff + dy];
+
+                    patch(xArr2, yArr2, [1 1 1]);
+                    text(xDiff + (-dx / 4), yDiff + (2 * dy), '5', 'FontSize', 16);
+
+                    %верх лево
+                    xDiff = -(sqrt(3) / 2);
+                    yDiff = 3/2;
+                    xArr3 = [xDiff xDiff + dx xDiff + dx xDiff xDiff - dx xDiff - dx];
+                    yArr3 = [yDiff yDiff + dy yDiff + 3 * dy yDiff + 4 * dy yDiff + 3 * dy yDiff + dy];
+
+                    patch(xArr3, yArr3, [1 1 1]);
+                    text(xDiff + (-dx / 4), yDiff + (2 * dy), '3', 'FontSize', 16);
+
+                    %верх право
+                    xDiff = (sqrt(3) / 2);
+                    yDiff = 3/2;
+                    xArr4 = [xDiff xDiff + dx xDiff + dx xDiff xDiff - dx xDiff - dx];
+                    yArr4 = [yDiff yDiff + dy yDiff + 3 * dy yDiff + 4 * dy yDiff + 3 * dy yDiff + dy];
+
+                    patch(xArr4, yArr4, [1 1 1]);
+                    text(xDiff + (-dx / 4), yDiff + (2 * dy), '1', 'FontSize', 16);
+
+                    %право
+                    xDiff = 2 * (sqrt(3) / 2);
+                    yDiff = 0;
+                    xArr5 = [xDiff xDiff + dx xDiff + dx xDiff xDiff - dx xDiff - dx];
+                    yArr5 = [yDiff yDiff + dy yDiff + 3 * dy yDiff + 4 * dy yDiff + 3 * dy yDiff + dy];
+
+                    patch(xArr5, yArr5, [1 1 1]);
+                    text(xDiff + (-dx / 4), yDiff + (2 * dy), '2', 'FontSize', 16);
+
+                    %низ право
+                    xDiff = (sqrt(3) / 2);
+                    yDiff = -3/2;
+                    xArr6 = [xDiff xDiff + dx xDiff + dx xDiff xDiff - dx xDiff - dx];
+                    yArr6 = [yDiff yDiff + dy yDiff + 3 * dy yDiff + 4 * dy yDiff + 3 * dy yDiff + dy];
+
+                    patch(xArr6, yArr6, [1 1 1]);
+                    text(xDiff + (-dx / 4), yDiff + (2 * dy), '4', 'FontSize', 16);
+
+                    %3
+                case 4
+                    %центральная
+                    dx = sqrt(3) / 2;
+                    dy = 1/2;
+
+                    xArrCenter = [0 0 + dx 0 + dx 0 0 - dx 0 - dx];
+                    yArrCenter = [0 0 + dy 0 + 3 * dy 0 + 4 * dy 0 + 3 * dy 0 + dy];
+
+                    patch(xArrCenter, yArrCenter, [1 1 1]);
+                    text(-dx / 4, 2 * dy, 'i', 'FontSize', 16);
+
+                    %низ лево
+                    xDiff = -(sqrt(3) / 2);
+                    yDiff = -3/2;
+                    xArr1 = [xDiff xDiff + dx xDiff + dx xDiff xDiff - dx xDiff - dx];
+                    yArr1 = [yDiff yDiff + dy yDiff + 3 * dy yDiff + 4 * dy yDiff + 3 * dy yDiff + dy];
+
+                    patch(xArr1, yArr1, [1 1 1]);
+                    text(xDiff + (-dx / 4), yDiff + (2 * dy), '3', 'FontSize', 16);
+
+                    %верх лево
+                    xDiff = -(sqrt(3) / 2);
+                    yDiff = 3/2;
+                    xArr2 = [xDiff xDiff + dx xDiff + dx xDiff xDiff - dx xDiff - dx];
+                    yArr2 = [yDiff yDiff + dy yDiff + 3 * dy yDiff + 4 * dy yDiff + 3 * dy yDiff + dy];
+
+                    patch(xArr2, yArr2, [1 1 1]);
+                    text(xDiff + (-dx / 4), yDiff + (2 * dy), '2', 'FontSize', 16);
+
+                    %право
+                    xDiff = 2 * (sqrt(3) / 2);
+                    yDiff = 0;
+                    xArr2 = [xDiff xDiff + dx xDiff + dx xDiff xDiff - dx xDiff - dx];
+                    yArr2 = [yDiff yDiff + dy yDiff + 3 * dy yDiff + 4 * dy yDiff + 3 * dy yDiff + dy];
+
+                    patch(xArr2, yArr2, [1 1 1]);
+                    text(xDiff + (-dx / 4), yDiff + (2 * dy), '1', 'FontSize', 16);
+
+            end
+
         end
 
     end
