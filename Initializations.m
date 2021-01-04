@@ -2,7 +2,7 @@ classdef Initializations
 
     methods (Static)
 
-        function [currCA] = Z0RandRangeInit(StartPoint, EndPoint, K, N, ca)
+        function [currCA] = Z0RandRangeInit(a, b, c, z0, DistributType, N, ca)
 
             valuesArr = [];
             idxes = [];
@@ -13,11 +13,8 @@ classdef Initializations
                 cellCountTrue = (N * (N - 1) * 3) + 1;
             else
                 cellCount = N * N;
-                cellCountTrue=cellCount;
+                cellCountTrue = cellCount;
             end
-
-            Re = 1 .* randn(cellCountTrue, 1) + (EndPoint - StartPoint);
-            Im = 1 .* randn(cellCountTrue, 1) + ((EndPoint * K)-(StartPoint * K));
 
             if ca.FieldType
 
@@ -47,6 +44,8 @@ classdef Initializations
                 idxes = arrayfun(@(i, j, k){[i j k]}, i', j', k');
                 idxes = [{[0 0 0]} idxes];
                 cellCount = cellCountTrue;
+                xArr = [0; i];
+                yArr = [0; j];
             else
                 x = zeros(cellCount, 1);
                 y = zeros(cellCount, 1);
@@ -62,9 +61,28 @@ classdef Initializations
                 end
 
                 idxes = arrayfun(@(x, y){[x y 0]}, x', y');
+                xArr = x;
+                yArr = y;
             end
 
-            valuesArr = arrayfun(@(re, im) complex(re, im), Re, Im)';
+            switch DistributType
+                case 1
+                    valuesArr = arrayfun(@(x, y) z0 + a + b * x + c * y, xArr, yArr)';
+                case 2
+                    p1Arr = zeros(cellCount, 1);
+                    p2Arr = p1Arr;
+                    p1Arr = arrayfun(@(p1) unifrnd(0, 1), p1Arr);
+                    p2Arr = arrayfun(@(p2) unifrnd(0, 1), p2Arr);
+
+                    valuesArr = arrayfun(@(p1, p2) z0 + a + (b - a) * p1 + sqrt(-1) * c * (a + ((b - a) * p2)), p1Arr, p2Arr)';
+                case 3
+                    p1Arr = zeros(cellCount, 1);
+                    p2Arr = p1Arr;
+                    p1Arr = arrayfun(@(p1) normrnd(a, b), p1Arr);
+                    p2Arr = arrayfun(@(p2) normrnd(a, b), p2Arr);
+
+                    valuesArr = arrayfun(@(p1, p2) z0 + c * (p1 + sqrt(-1) * p2), p1Arr, p2Arr)';
+            end
 
             colors = cell(1, cellCount);
             colors(:) = num2cell([0 0 0], [1 2]);
@@ -78,6 +96,7 @@ classdef Initializations
             currCA = ca;
         end
 
+        %{
         function [currCA] = Z0IncRangeInit(StartPoint, XStep, YStep, z0, N, ca)
 
             valuesArr = [];
@@ -159,6 +178,8 @@ classdef Initializations
             currCA = ca;
 
         end
+
+        %}
 
         function [ca, FileWasRead] = Z0FileInit(currCA, N, path, fileWasRead)
             ca = currCA;

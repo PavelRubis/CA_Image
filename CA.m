@@ -173,6 +173,7 @@ handles.ReadZ0SourceButton.Enable='off';
 handles.SingleCalcRB.Enable='off';
 handles.MultipleCalcRB.Enable='off';
 handles.ReadModelingParmsFrmFile.Enable='off';
+handles.CASettingsMenuItem.Enable='off';
 
        ControlParams.GetSetPrecisionParms([str2double(handles.InfValueEdit.String) str2double(strcat('1e-',handles.ConvergValueEdit.String))]);
         
@@ -1422,6 +1423,7 @@ end
     
     handles.SingleCalcRB.Enable='on';
     handles.MultipleCalcRB.Enable='on';
+    handles.CASettingsMenuItem.Enable='on';
 % hObject    handle to ResetButton (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3242,29 +3244,43 @@ fileWasRead = getappdata(handles.output,'FileWasRead');
 if isempty(currCA.Cells) || (~contParms.IsReady2Start && ~fileWasRead)
     
     if contParms.SingleOrMultipleCalc
-        
+
+        aParam = (handles.DistributStartEdit.String);
+        bParam = (handles.DistributStepEdit.String);
+        cParam = (handles.DistributEndEdit.String);
+
         switch handles.DistributionTypeMenu.Value
-
             case 1
-                DistributStartPoint = (handles.DistributStartEdit.String);
-                DistributEndPoint = (handles.DistributStepEdit.String);
-                DistributkParam = (handles.DistributEndEdit.String);
-
-                if (isempty(regexp(DistributStartPoint, '^\d+(\.?)(?(1)\d+|)$')) || isempty(regexp(DistributEndPoint, '^\d+(\.?)(?(1)\d+|)$')) || isempty(regexp(DistributkParam, '^\d+(\.?)(?(1)\d+|)$')))
+                if (isnan(str2num(aParam)) || isinf(str2num(aParam)) || isnan(str2num(bParam)) || isinf(str2num(bParam)) || isnan(str2num(cParam)) || isinf(str2num(cParam)))
                     error = true;
                     regexprep(errorStr, ', $', '. ');
-                    errorStr = strcat(errorStr, ' Не задана начальная конфигурация: неправильный формат параметров случайного диапазона значений Z0 или точки z0; ');
-                else
-
-                    if ~error
-                        rangeError = false;
-                        rangeErrorStr = '';
-
-                        [currCA] = Initializations.Z0RandRangeInit(str2double(DistributStartPoint), str2double(DistributEndPoint), str2double(DistributkParam), str2double(handles.NFieldEdit.String), currCA);
-
-                    end
-
+                    errorStr = strcat(errorStr, ' Не задана начальная конфигурация: неправильный формат параметров равномерного случайного диапазона значений Z0 или точки z0; ');
                 end
+            case 2
+                if (str2double(aParam) >= str2double(bParam) || isempty(regexp(aParam, '^\d+(\.?)(?(1)\d+|)$')) || isempty(regexp(bParam, '^\d+(\.?)(?(1)\d+|)$')) || isempty(regexp(cParam, '^\d+(\.?)(?(1)\d+|)$')))
+                    error = true;
+                    regexprep(errorStr, ', $', '. ');
+                    errorStr = strcat(errorStr, ' Не задана начальная конфигурация: неправильный формат параметров случайного однородного диапазона значений Z0 или точки z0; ');
+                end
+            case 3
+                if (str2double(bParam) <= 0 || isempty(regexp(aParam, '^\d+(\.?)(?(1)\d+|)$')) || isempty(regexp(bParam, '^\d+(\.?)(?(1)\d+|)$')) || isempty(regexp(cParam, '^\d+(\.?)(?(1)\d+|)$')))
+                    error = true;
+                    regexprep(errorStr, ', $', '. ');
+                    errorStr = strcat(errorStr, ' Не задана начальная конфигурация: неправильный формат параметров случайного нормального диапазона значений Z0 или точки z0; ');
+                end
+
+        end
+
+        if ~error
+            rangeError = false;
+            rangeErrorStr = '';
+
+            [currCA] = Initializations.Z0RandRangeInit(str2double(aParam), str2double(bParam), str2double(cParam), str2double(handles.z0Edit.String), handles.DistributionTypeMenu.Value, str2double(handles.NFieldEdit.String), currCA);
+        end
+%{
+         switch handles.DistributionTypeMenu.Value
+
+            case 1
 
             case 2
                 DistributStartStr = (handles.DistributStartEdit.String);
@@ -3290,9 +3306,8 @@ if isempty(currCA.Cells) || (~contParms.IsReady2Start && ~fileWasRead)
 
                 end
 
-        end
-    
-        
+        end 
+%}  
     else
         if isempty(regexp(handles.ParamReDeltaEdit.String,'^\d+(?<dot>\.?)(?(dot)\d+|)$')) || isempty(regexp(handles.ParamImDeltaEdit.String,'^\d+(?<dot>\.?)(?(dot)\d+|)$')) || isempty(regexp(handles.ParamRePointsEdit.String,'^\d+$')) || isempty(regexp(handles.ParamImPointsEdit.String,'^\d+$'))
             error=true;
