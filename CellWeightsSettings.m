@@ -1,35 +1,35 @@
-function varargout = AdvancedCASettings(varargin)
-% ADVANCEDCASETTINGS MATLAB code for AdvancedCASettings.fig
-%      ADVANCEDCASETTINGS, by itself, creates a new ADVANCEDCASETTINGS or raises the existing
+function varargout = CellWeightsSettings(varargin)
+% CELLWEIGHTSSETTINGS MATLAB code for CellWeightsSettings.fig
+%      CELLWEIGHTSSETTINGS, by itself, creates a new CELLWEIGHTSSETTINGS or raises the existing
 %      singleton*.
 %
-%      H = ADVANCEDCASETTINGS returns the handle to a new ADVANCEDCASETTINGS or the handle to
+%      H = CELLWEIGHTSSETTINGS returns the handle to a new CELLWEIGHTSSETTINGS or the handle to
 %      the existing singleton*.
 %
-%      ADVANCEDCASETTINGS('CALLBACK',hObject,eventData,handles,...) calls the local
-%      function named CALLBACK in ADVANCEDCASETTINGS.M with the given input arguments.
+%      CELLWEIGHTSSETTINGS('CALLBACK',hObject,eventData,handles,...) calls the local
+%      function named CALLBACK in CELLWEIGHTSSETTINGS.M with the given input arguments.
 %
-%      ADVANCEDCASETTINGS('Property','Value',...) creates a new ADVANCEDCASETTINGS or raises the
+%      CELLWEIGHTSSETTINGS('Property','Value',...) creates a new CELLWEIGHTSSETTINGS or raises the
 %      existing singleton*.  Starting from the left, property value pairs are
-%      applied to the GUI before AdvancedCASettings_OpeningFcn gets called.  An
+%      applied to the GUI before CellWeightsSettings_OpeningFcn gets called.  An
 %      unrecognized property name or invalid value makes property application
-%      stop.  All inputs are passed to AdvancedCASettings_OpeningFcn via varargin.
+%      stop.  All inputs are passed to CellWeightsSettings_OpeningFcn via varargin.
 %
 %      *See GUI Options on GUIDE's Tools menu.  Choose "GUI allows only one
 %      instance to run (singleton)".
 %
 % See also: GUIDE, GUIDATA, GUIHANDLES
 
-% Edit the above text to modify the response to help AdvancedCASettings
+% Edit the above text to modify the response to help CellWeightsSettings
 
-% Last Modified by GUIDE v2.5 25-Dec-2020 18:50:57
+% Last Modified by GUIDE v2.5 07-Jan-2021 18:52:45
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
 gui_State = struct('gui_Name',       mfilename, ...
                    'gui_Singleton',  gui_Singleton, ...
-                   'gui_OpeningFcn', @AdvancedCASettings_OpeningFcn, ...
-                   'gui_OutputFcn',  @AdvancedCASettings_OutputFcn, ...
+                   'gui_OpeningFcn', @CellWeightsSettings_OpeningFcn, ...
+                   'gui_OutputFcn',  @CellWeightsSettings_OutputFcn, ...
                    'gui_LayoutFcn',  [] , ...
                    'gui_Callback',   []);
 if nargin && ischar(varargin{1})
@@ -44,8 +44,8 @@ end
 % End initialization code - DO NOT EDIT
 
 
-% --- Executes just before AdvancedCASettings is made visible.
-function AdvancedCASettings_OpeningFcn(hObject, eventdata, handles, varargin)
+% --- Executes just before CellWeightsSettings is made visible.
+function CellWeightsSettings_OpeningFcn(hObject, eventdata, handles, varargin)
     axes(handles.axes2);
     axis image;
     set(gca, 'xtick', []);
@@ -55,9 +55,9 @@ function AdvancedCASettings_OpeningFcn(hObject, eventdata, handles, varargin)
 % hObject    handle to figure
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-% varargin   command line arguments to AdvancedCASettings (see VARARGIN)
+% varargin   command line arguments to CellWeightsSettings (see VARARGIN)
 
-% Choose default command line output for AdvancedCASettings
+% Choose default command line output for CellWeightsSettings
 
 handles.output = hObject;
 
@@ -78,16 +78,20 @@ switch neighborhoodType
     case 2
 
         tableData(5:end - 1, :) = [];
+        handles.WeightsTable.RowName(6:end)=[];
+
 
     %6
     case 3
 
         tableData(7:end - 1, :) = [];
+        handles.WeightsTable.RowName(8:end)=[];
 
     %3
     case 4
 
         tableData(4:end - 1, :) = [];
+        handles.WeightsTable.RowName(5:end)=[];
 
 end
 
@@ -97,7 +101,7 @@ title(handles.axes2, strcat('\fontsize{11}', 'Шаблон окрестности:'));
 DataFormatting.DrawNeighborhood(neighborhoodType);
 
 % --- Outputs from this function are returned to the command line.
-function varargout = AdvancedCASettings_OutputFcn(hObject, eventdata, handles) 
+function varargout = CellWeightsSettings_OutputFcn(hObject, eventdata, handles) 
 % varargout  cell array for returning output args (see VARARGOUT);
 % hObject    handle to figure
 % eventdata  reserved - to be defined in a future version of MATLAB

@@ -4,7 +4,7 @@ classdef ResultsProcessing
         isSave logical = 0% сохраняем ли результаты
         isSaveCA logical = 0% сохраняем ли КА
         isSaveFig logical = 0% сохраняем ли фигуру
-        ResPath (1, :) char%путь к сохраняемым результатам
+        ResPath (1, :) char% путь к сохраняемым результатам
         CellsValuesFileFormat logical% формат файла для записи значений ячеек (1-txt,0-xls)
         FigureFileFormat {mustBeInteger, mustBeInRange(FigureFileFormat, [1, 3])}% формат картинки поля
     end
@@ -346,6 +346,21 @@ classdef ResultsProcessing
     end
 
     methods (Static)
+        %%
+        % метод get-set для задания цветовой палитры (ColorMap) и на основе каких данных будет строиться colorbar поля КА (VisualiseData)
+        function [vData clrMap] = GetSetVisualizationSettings(settingS)
+            persistent colorMap;
+            persistent visualiseData;
+
+            if nargin
+                visualiseData = cell2mat(settingS(1));
+                colorMap = cell2mat(settingS(2));
+            end
+
+            vData = visualiseData;
+            clrMap = colorMap;
+        end
+
         %%
         % метод get-set для статической переменной ориентации ячейки (0-не задана(квадрат), 1-вертикальная, 2-горизонтальная)
         function out = GetSetCellOrient(Cellorient)

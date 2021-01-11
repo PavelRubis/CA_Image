@@ -22,14 +22,14 @@ classdef Initializations
                 i = i';
                 i_old = i;
 
-                for c = 1:(cellCount / (N - 1)) - 1
+                for g = 1:(cellCount / (N - 1)) - 1
                     i = [i; i_old];
                 end
 
                 j = ones(N * (N - 1), 1);
 
-                for c = 0:N - 1
-                    j(1 + ((N - 1) * c):(N - 1) * (c + 1), :) = c;
+                for g = 0:N - 1
+                    j(1 + ((N - 1) * g):(N - 1) * (g + 1), :) = g;
                 end
 
                 j_old = j;

@@ -22,7 +22,7 @@ function varargout = CA(varargin)
 
 % Edit the above text to modify the response to help CA
 
-% Last Modified by GUIDE v2.5 25-Dec-2020 17:31:16
+% Last Modified by GUIDE v2.5 07-Jan-2021 18:20:50
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -55,6 +55,7 @@ ControlParams.GetSetCustomImag(0);
 ResProc = ResultsProcessing(' ',1,1);
 ResultsProcessing.GetSetCellOrient(0);
 ResultsProcessing.GetSetFieldOrient(0);
+ResultsProcessing.GetSetVisualizationSettings({2, 'jet'});
 
 FileWasRead=false;
 
@@ -150,6 +151,9 @@ handles.DefaultCACB.Enable='off';
 handles.CompletedBordersRB.Enable='off';
 handles.DeathLineBordersRB.Enable='off';
 handles.ClosedBordersRB.Enable='off';
+handles.NeumannRB.Enable ='off';
+handles.MooreRB.Enable ='off';
+handles.CustomIterFuncCB.Enable  ='off';
     
 handles.BaseImagMenu.Enable='off';
 handles.UsersBaseImagEdit.Enable='off';
@@ -175,559 +179,566 @@ handles.MultipleCalcRB.Enable='off';
 handles.ReadModelingParmsFrmFile.Enable='off';
 handles.CASettingsMenuItem.Enable='off';
 
-       ControlParams.GetSetPrecisionParms([str2double(handles.InfValueEdit.String) str2double(strcat('1e-',handles.ConvergValueEdit.String))]);
-        
-       handles.CancelParamsButton.Enable='off';
-       itersCount=str2double(handles.IterCountEdit.String); %число итераций
-       contParms.IterCount=contParms.IterCount+itersCount;
-       
-       if ~contParms.SingleOrMultipleCalc% в случае мультирассчета
-           
-           ControlParams.GetSetMaxPeriod(str2double(handles.MaxPeriodEdit.String));
-           
-           %создание окна и матрицы функций базы
-           [WindowParam contParms z_eqArr] = DataFormatting.MakeFuncsWithNumsForMultipleCalc(ca, contParms);
+switch ResultsProcessing.GetSetVisualizationSettings
 
-           len=size(WindowParam);
-           zParam=false;
-           Z_Old=[];
-           
-           switch contParms.WindowParamName
-               case 'z0' 
-                   z_New=WindowParam;
-                   Z_Old=z_New;
-                   zParam=true;
-               case {'Miu','Miu0'}
-                   z_New=zeros(len);
-                   z_New(:)=str2double(handles.z0Edit.String);
-                   Z_Old=z_New;
-           end
-           
-           fStepNew=zeros(len);
-           Delta=zeros(len);
-           
-           ZParam=zeros(len);
-           ZParam(:)=zParam;
-           Z_Old_1=Inf(len);
-           
-           FStep=zeros(len);
-           ItersCount=zeros(len);
-           ItersCount(:)=itersCount;
-           Pathes=cell(len);
-           
-%            profile on;
-           %мультирассчет через arrayfun
-           [z_New fStepNew Pathes] = arrayfun(@ControlParams.MakeMultipleCalcIter,WindowParam,Z_Old,Z_Old_1,ItersCount,ZParam,z_eqArr);
-%            profile viewer;
-           
-           zRes=z_New;
-           PrecisionParms = ControlParams.GetSetPrecisionParms;
-           fcodeIndicate=zeros(len);
-           Fcode=zeros(len);
-           Periods=zeros(len);
-           Iters=zeros(len);
-           
-           [Fcode,Iters,Periods]=arrayfun(@ControlParams.CheckConvergence,Pathes);
-           contParms.Periods=Periods;
-           contParms.LastIters=Iters;
-           fcodeIndicate=find(Fcode==1);
-%            if isempty(fcodeIndicate)
-%                fcodeIndicate=find(Fcode>=1);
-%            end
-           posSteps=unique(fStepNew(fcodeIndicate));
-           fcodeIndicate=find(Fcode==-1);
-           negSteps=unique(fStepNew(fcodeIndicate));
-           
-           
-           chaosCodeIndicate=find(Fcode==2);
-           fStepNew(chaosCodeIndicate)=-1;
-               
-           periodCodeIndicate=find(Fcode==3);
-           fStepNew(periodCodeIndicate)=Periods(periodCodeIndicate);
-           
-           maxPosSteps=zeros(len);
-           minNegStep=min(negSteps);
-           clmp=[];
-           if ~isempty(posSteps)
-               maxPosSteps(:)=max(posSteps);%+(10-mod(max(posSteps),10));
-               
-               periodCodeIndicate=find(Fcode==3);
-               fStepNew(periodCodeIndicate)=maxPosSteps(periodCodeIndicate)+Periods(periodCodeIndicate);
-               
-               if~isempty(negSteps)
-                   chaosCodeIndicate=find(Fcode==2);
-                   fStepNew(chaosCodeIndicate)=max(negSteps)+1;
-                   clmp = [flipud(gray(max(negSteps)));flipud(winter(floor((max(negSteps)*((max(posSteps)+2)/max(negSteps))))))];%(max(posSteps)-mod(max(posSteps),10))
-               else
-                   clmp = flipud(winter(floor((max(posSteps)-mod(max(posSteps),10)))));
-               end
-               
-           else
-               if~isempty(negSteps)
-                   clmp = flipud(gray(max(negSteps)));
-               end
-           end
-           
-           if ~isempty(chaosCodeIndicate)
-               clmp=[spring(1); clmp];
-               Fcode(chaosCodeIndicate)=-1;
-           end
-           
-           if ~isempty(periodCodeIndicate)
-               clmp=[clmp; autumn(max(Periods(periodCodeIndicate)))];
-               Fcode(periodCodeIndicate)=1;
-           end
-           
-           clrmp = colormap(clmp);
-               
-           [Re,Im]=meshgrid(contParms.ReRangeWindow,contParms.ImRangeWindow);
-           pcolor(Re, Im, (fStepNew.*Fcode));
-           
-           shading flat;
-           clrbr = colorbar;
-           if ~isempty(periodCodeIndicate)
-               lim = clrbr.Limits;
-               ticks=clrbr.Ticks;
-               ticksDelta=ticks(2)-ticks(1);
-               
-               if lim(2)>max(posSteps)+ticksDelta/5
-                   ticks=ticks(find(ticks<=max(posSteps)));
-                   ticks=[ticks max(posSteps)+ticksDelta/5:ticksDelta/5:lim(2)];
-                   clrbr.Ticks=ticks;
-                   
-                   lables=clrbr.TickLabels';
-                   lables=arrayfun(@(num)str2double(cell2mat(num)),lables);
-                   newLables=[lables(find(lables<=max(posSteps))) (lables(find(lables>max(posSteps)))-max(posSteps))];
-                   clrbr.TickLabels={newLables};
-               end
-               
-           end
-           zoom on;
-            
-           DataFormatting.PlotFormatting(contParms, ca, handles);
-           
-           graphics.Axs=handles.CAField;
-           graphics.Clrbr=clrbr;
-           graphics.Clrmp=clrmp;
-           
-           if resProc.isSave
-               resProc=SaveRes(resProc,ca,graphics,contParms,zRes);
-           end
-           handles.ResetButton.Enable='on';
-           setappdata(handles.output,'CurrCA',ca);
-           setappdata(handles.output,'ContParms',contParms);
-           setappdata(handles.output,'ResProc',resProc);
-           handles.SaveAllModelParamsB.Enable='on';
-           return;
-       end
-       %подготовка обоих функций
-       
-       ca.Weights=CellularAutomat.GetSetWeights;
-       if isempty(ca.Weights)
-           ca.Weights=[1 1 1 1 1 1 1 1];
-       end
-        DataFormatting.MakeCAFuncsWithNums(ca);
-       
-       if length(ca.Cells)==1 %случай когда рассматривается одна ячейка/точка
-           hold on;
-           N1Path = getappdata(handles.output,'N1Path');
-           msg=[];
-           
-           N1PathOld=complex(N1Path(1,:),N1Path(2,:));
-           len=length(N1Path(1,:));
-           N1Path=[N1Path nan(2,itersCount)];
-           
-           for i=1:itersCount
-               ca.Cells(1)=CellularAutomat.MakeIter(ca.Cells(1));
-               N1Path(1,i+len)=real(ca.Cells(1).zPath(end));
-               N1Path(2,i+len)=imag(ca.Cells(1).zPath(end));
-               
-               path=complex(N1Path(1,:),N1Path(2,:));
-               [fCode iter period] = ControlParams.CheckConvergence(path);
-               if fCode~=2
-                   str=strcat('Точка ',num2str(ca.Cells(1).z0));
-                   switch fCode
-                       case -1
-                           ca.Cells(1).zPath=ca.Cells(1).zPath(:,1:iter-1);
-                           str=strcat(str,' уходит в бесконечность на итерации:');
-                           str=strcat(str,'  ');
-                           msg=strcat(str,num2str(iter-1));
-                       case 1
-                           str=strcat(str,' сходится к аттрактору на итерации:');
-                           str=strcat(str,'  ');
-                           msg=strcat(str,num2str(iter-1));
-                       otherwise
-                           str=strcat(str,' имеет период: ');
-                           strcat(str,num2str(period))
-                           str=strcat(str,', найденный на итерации:');
-                           str=strcat(str,'  ');
-                           msg=strcat(str,num2str(iter-1));
-                   end
-                   break;
-               end
-           end
-           
-           if fCode==-1
-               N1Path=N1Path(:,1:iter-1);
-           else
-               N1Path=N1Path(:,1:iter);
-           end
-           
-           N1PathNew=complex(N1Path(1,:),N1Path(2,:));
-           N1PathOld=[N1PathOld nan(1,length(N1PathNew)-length(N1PathOld))];
-           ind=length(find(N1PathOld==N1PathNew));
-           if ind<length(N1PathNew)
-               temp=N1PathNew(ind:length(N1PathNew));
-               tempNew=zeros(2,length(temp));
-               tempNew(1,:)=real(temp);
-               tempNew(2,:)=imag(temp);
-               N1PathNew=tempNew;
-           else
-               N1PathNew=[];
-           end
-           N1PathOld(end)=[];
-           
-           ms=20;
-           clrmp=colormap(jet(length(N1Path)));
-           
-           temp=N1Path;
-           %% ВАЖНО: что делать с нулями в мнимой и множественной частях при логарифмировании
-           if abs(max(N1Path(1,:)))>1e4 || abs(max(N1Path(2,:)))>1e4
-               N1Path(1,find(N1Path(1,:)))=log(abs(N1Path(1,find(N1Path(1,:)))))/log(10);
-               N1Path(2,find(N1Path(2,:)))=log(abs(N1Path(2,find(N1Path(2,:)))))/log(10);
-               xlabel('log(Re(z))');
-               ylabel('log(Im(z))');
-           else
-               xlabel('Re(z)');
-               ylabel('Im(z)');
-           end
-           %%           
-           for i=1:length(N1Path)
-               plot(N1Path(1,i),N1Path(2,i),'o','MarkerSize', ms,'Color',clrmp(i,:));
-               if ms~=2
-                   ms=ms-2;
-               end
-           end
-           
-           imStep=(abs(max(N1Path(2,:))-min(N1Path(2,:)))/length(N1Path(2,:)))*0.2*length(N1Path(2,:));
-           reStep=(abs(max(N1Path(1,:))-min(N1Path(1,:)))/length(N1Path(1,:)))*0.2*length(N1Path(1,:));
-           
-           if ~isempty(N1PathNew)
-               if (any(N1PathNew(1,:)<min(real(N1PathOld))) || any(N1PathNew(1,:)>max(real(N1PathOld))))
-                   handles.CAField.XLim=[min(N1Path(1,:)) max(N1Path(1,:))];
-               end
-               
-               if (any(N1PathNew(2,:)<min(imag(N1PathOld))) || any(N1PathNew(2,:)>max(imag(N1PathOld))))
-                   handles.CAField.YLim=[min(N1Path(2,:)) max(N1Path(2,:))];
-               end
-           end
-           
-           handles.CAField.YTick=[min(N1Path(2,:)):imStep:max(N1Path(2,:))];
-           handles.CAField.XTick=[min(N1Path(1,:)):reStep:max(N1Path(1,:))];
-           
-           ImLength=max(N1Path(2,:))-min(N1Path(2,:));
-           ReLength=max(N1Path(1,:))-min(N1Path(1,:));
-           
-           Coeff=ReLength-ImLength;
-           if Coeff~=0
-               if Coeff<0
-                   Coeff=abs(Coeff);
-                   if ~isempty(N1PathNew)
-                       handles.CAField.XLim=[min(N1Path(1,:))-Coeff/2 max(N1Path(1,:))+Coeff/2];
-                   end
-               else
-                   if ~isempty(N1PathNew)
-                       handles.CAField.YLim=[min(N1Path(2,:))-Coeff/2 max(N1Path(2,:))+Coeff/2];
-                   end
-               end
-           end
-           xticks('auto');
-           yticks('auto');
-           
-           handles.CAField.XGrid='on';
-           handles.CAField.YGrid='on';
+    case 1
+        ControlParams.GetSetPrecisionParms([str2double(strcat('1e', handles.InfValueEdit.String)) str2double(strcat('1e-', handles.ConvergValueEdit.String))]);
+    case 2
+        ControlParams.GetSetPrecisionParms([str2double(handles.InfValueEdit.String) str2double(strcat('1e-', handles.ConvergValueEdit.String))]);
+end
 
-           if iter<15
-               clrbr = colorbar('Ticks',[1:iter]/iter,'TickLabels',{1:iter});
-           else
-               clrbr = colorbar('Ticks',[0,0.2,0.4,0.6,0.8,1],...
-                   'TickLabels',{0,floor(iter*0.2),floor(iter*0.4),floor(iter*0.6),floor(iter*0.8),iter-1});
-               clrbr.Label.String = 'Число итераций';
-           end
-           
-           DataFormatting.PlotFormatting(contParms, ca, handles);
-           
-           zoom on;
-           contParms.LastIters=length(N1Path);
-           contParms.Periods=period;
-           
-           graphics.Axs=handles.CAField;
-           graphics.Clrbr=clrbr;
-           graphics.Clrmp=clrmp;
-           
-           N1Path=temp;
-           if resProc.isSave
-               resProc=SaveRes(resProc,ca,graphics,contParms,N1Path);
-           end
-           
-           handles.ResetButton.Enable='on';
-           setappdata(handles.output,'CurrCA',ca);
-           setappdata(handles.output,'ContParms',contParms);
-           setappdata(handles.output,'N1Path',N1Path);
-           setappdata(handles.output,'ResProc',resProc);
-           handles.SaveAllModelParamsB.Enable='on';
-           if ~isempty(msg)
-               msgbox(msg,'modal');
-           end
-           return;
-           
-       end
-%        profile on;
-       %нахождение соседей каждой ячейки
-       for i=1:length(ca.Cells)
-           ca.Cells(i)=FindCellsNeighbors(ca, ca.Cells(i));
-       end
-       
-       cellArr=ca.Cells;
-       ca_L=length(ca.Cells);
-       
-       %блок тестирования правильности нахождения элементов и работы всех типов границ
-       bordersType=zeros(1,ca_L);
-       bordersType(:)=ca.BordersType;
-       fieldType=bordersType;
-       fieldType(:)=ca.FieldType;
-       nArr=fieldType;
-       nArr(:)=ca.N;
-       
-       [isIntrnl,isIntrnlPlus,isCorner,isCornerAx,isEdg,isZero,isTrueCell,errorCellsInfo]=arrayfun(@TestingScripts.CheckNeighborsAndBorderType,ca.Cells,nArr,fieldType,bordersType);
-       
-       switch ca.BordersType
-           
-           case 1
-               
-               if ca.FieldType == 1
-                   %внутренние ячейки:
-                   Intrnl = length(find(isIntrnl))==((3*ca.N^2)-(15*ca.N)+18);
-               
-                   %внутренние ячейки с соседями из другой фигуры:
-                   IntrnlPlus = length(find(isIntrnlPlus))== 6*ca.N-12;
-               
-                   %мертвые ячейки:
-                   Edg = length(find(isEdg))== 6*ca.N-12 + 6;
-               
-                   %нулевая ячейка:
-                   Zero = length(find(isZero))==1;
-               
-                   all([Intrnl IntrnlPlus Edg Zero])
-               else
-                   Intrnl = length(find(isIntrnl))==(ca.N-2)^2;
-                   Edg = length(find(isEdg))==(ca.N)^2 - (ca.N-2)^2;
-                   
-                   all([Intrnl Edg])
-               end
-               
-           case 2
-               
-               if ca.FieldType == 1
-                   %внутренние ячейки:
-                   Intrnl = length(find(isIntrnl))==((3*ca.N^2)-(15*ca.N)+18);
-               
-                   %внутренние ячейки с соседями из другой фигуры:
-                   IntrnlPlus = length(find(isIntrnlPlus))== 6*ca.N-12;
-               
-                   %ячейки на ребре:
-                   Edg = length(find(isEdg))== 6*ca.N-12;
-               
-                   %угловые ячейки:
-                   Corner = length(find(isCorner))==3;
-               
-                   %осевые  угловые ячейки:
-                   CornerAx = length(find(isCornerAx))==3;
-               
-                   %нулевая ячейка:
-                   Zero = length(find(isZero))==1;
-               
-                   all([Intrnl IntrnlPlus Edg Corner CornerAx Zero])
-               else
-                   TrueCell=all(isTrueCell); 
-                   
-                   Intrnl = length(find(isIntrnl))==(ca.N-2)^2;
-                   
-                   Edg = length(find(isEdg))==(ca.N)^2 - (ca.N-2)^2 - 4;
-                   
-                   Corner = length(find(isCorner))==4;
-                   
-                   all([TrueCell Intrnl Edg Corner])
-               end
-               
-           case 3
-               
-               if ca.FieldType == 1
-                   %внутренние ячейки:
-                   Intrnl = length(find(isIntrnl))==((3*ca.N^2)-(15*ca.N)+18);
-               
-                   %внутренние ячейки с соседями из другой фигуры:
-                   IntrnlPlus = length(find(isIntrnlPlus))== 6*ca.N-12;
-               
-                   %ячейки на ребре c четырьмя соседями:
-                   Edg = length(find(isEdg))== 6*ca.N-12;
-               
-                   %ячейки c тремя соседями:
-                   Corner = length(find(isCorner))==6;
-               
-                   %нулевая ячейка:
-                   Zero = length(find(isZero))==1;
-               
-                   all([Intrnl IntrnlPlus Edg Corner Zero])
-               else
-                   Intrnl = length(find(isIntrnl))==(ca.N-2)^2;
-                   
-                   Edg = length(find(isEdg))==(ca.N)^2 - (ca.N-2)^2 - 4;
-                   
-                   Corner = length(find(isCorner))==4;
-                   
-                   all([Intrnl Edg Corner])
-               end
-               
-       end
-       
-       %блок тестирования правильности нахождения элементов и всех типов границ
-       
-    %рассчет поля КА
-    for i = 1:itersCount
+handles.CancelParamsButton.Enable = 'off';
+itersCount = str2double(handles.IterCountEdit.String); %число итераций
+contParms.IterCount = contParms.IterCount + itersCount;
 
-        try
-            cellArr = arrayfun(@(cell)CellularAutomat.MakeIter(cell), cellArr);
-        catch ex
-            errordlg(getReport(ex), 'Ошибка:');
-            return;
+ControlParams.GetSetMaxPeriod(str2double(handles.MaxPeriodEdit.String));
+
+if ~contParms.SingleOrMultipleCalc% в случае мультирассчета
+
+    %создание окна и матрицы функций базы
+    [WindowParam contParms z_eqArr] = DataFormatting.MakeFuncsWithNumsForMultipleCalc(ca, contParms);
+
+    len = size(WindowParam);
+    zParam = false;
+    Z_Old = [];
+
+    switch contParms.WindowParamName
+        case 'z0'
+            z_New = WindowParam;
+            Z_Old = z_New;
+            zParam = true;
+        case {'Miu', 'Miu0'}
+            z_New = zeros(len);
+            z_New(:) = str2double(handles.z0Edit.String);
+            Z_Old = z_New;
+    end
+
+    fStepNew = zeros(len);
+    Delta = zeros(len);
+
+    ZParam = zeros(len);
+    ZParam(:) = zParam;
+    Z_Old_1 = Inf(len);
+
+    FStep = zeros(len);
+    ItersCount = zeros(len);
+    ItersCount(:) = itersCount;
+    Pathes = cell(len);
+
+    profile on;
+    %мультирассчет через arrayfun
+    [z_New fStepNew Fcode Iters Periods] = arrayfun(@ControlParams.MakeMultipleCalcIter, WindowParam, Z_Old, Z_Old_1, ItersCount, ZParam, z_eqArr);
+    profile viewer;
+
+    zRes = z_New;
+    PrecisionParms = ControlParams.GetSetPrecisionParms;
+
+    contParms.Periods = Periods;
+    contParms.LastIters = Iters;
+    fcodeIndicate = find(Fcode == 1);
+    %            if isempty(fcodeIndicate)
+    %                fcodeIndicate=find(Fcode>=1);
+    %            end
+    posSteps = unique(fStepNew(fcodeIndicate));
+    fcodeIndicate = find(Fcode == -1);
+    negSteps = unique(fStepNew(fcodeIndicate));
+
+    chaosCodeIndicate = find(Fcode == 2);
+    fStepNew(chaosCodeIndicate) = -1;
+
+    periodCodeIndicate = find(Fcode == 3);
+    fStepNew(periodCodeIndicate) = Periods(periodCodeIndicate);
+
+    maxPosSteps = zeros(len);
+    minNegStep = min(negSteps);
+    clmp = [];
+
+    if ~isempty(posSteps)
+        maxPosSteps(:) = max(posSteps); %+(10-mod(max(posSteps),10));
+
+        periodCodeIndicate = find(Fcode == 3);
+        fStepNew(periodCodeIndicate) = maxPosSteps(periodCodeIndicate) + Periods(periodCodeIndicate);
+
+        if ~isempty(negSteps)
+            chaosCodeIndicate = find(Fcode == 2);
+            fStepNew(chaosCodeIndicate) = max(negSteps) + 1;
+            clmp = [flipud(gray(max(negSteps))); flipud(winter(floor((max(negSteps) * ((max(posSteps) + 2) / max(negSteps))))))]; %(max(posSteps)-mod(max(posSteps),10))
+        else
+            clmp = flipud(winter(floor((max(posSteps) - mod(max(posSteps), 10)))));
         end
 
-        ca.Cells = cellArr;
+    else
 
-        for j = 1:ca_L
-            cellArr(j) = UpdateNeighborsValues(ca, ca.Cells(j));
+        if ~isempty(negSteps)
+            clmp = flipud(gray(max(negSteps)));
         end
 
     end
 
-       
-       %создание палитры
-       colors=colormap([[1 1 1];jet(256);[0 0 0]]);
-       
-       modulesArr=zeros(1,ca_L);
-       zbase=zeros(1,ca_L);
-       zbase(:)=ca.Zbase;
-       
-       PrecisionParms = ControlParams.GetSetPrecisionParms;
-       
-       modulesArr=arrayfun(@(cell,zbase) log(abs(cell.zPath(end)-zbase))/log(10),ca.Cells,zbase);
-       compareArr=min(modulesArr):(max(modulesArr)-min(modulesArr))/255:max(modulesArr);
-%        compareArr=-PrecisionParms(1):(2*PrecisionParms(1)+1)/255:PrecisionParms(1);
-       
-       [modulesArrSrt indxes]=sort(modulesArr);
-       
-       infVal=false;
-       %присваивание цветов ячейкам в соответсвии с рассчитанной выше величиной
-       for i=1:ca_L
-           
-           ind=find(compareArr>modulesArr(i),1,'first');
-           
-           if isempty(ind)
-               ca.Cells(i).Color=[0 0 0];
-               infVal=true;
-           else
-               if modulesArr(i)>PrecisionParms(1) || isnan(modulesArr(i))
-                   ca.Cells(i).Color=[1 1 1];
-               else
-                   ca.Cells(i).Color=colors(ind-1,:);
-               end
-           end
-       end
-       
-       %отрисовка поля
-       arrayfun(@(cell) ResultsProcessing.DrawCell(cell),ca.Cells);
-       
-       colors=arrayfun(@(cell) {cell.Color},ca.Cells(indxes));
-       colors=cell2mat(colors');
-%        [colors,ia,ic] = unique(colors,'rows');
-       
-       if any(modulesArr<-PrecisionParms(1))
-           colors=[colors;[1 1 1]];
-       end
-%        if infVal
-%            colors(1,:)=[];
-%            colors=[colors;[0 0 0]];
-%        end
-       
-       clrmp = colormap(colors);
-       
-       modulesArr=sort(modulesArr);
-       clrbr = colorbar;
-       
-       indx=modulesArr<PrecisionParms(1);
-       finitModulesArr=modulesArr(find(indx));
-       
-       indx=~isnan(finitModulesArr);
-       finitModulesArr=finitModulesArr(find(indx));
-       
-       if length(finitModulesArr) >= 2
-           minMod=min(finitModulesArr);
-           maxMod=max(finitModulesArr);
-           NotInfModArrLen=length(finitModulesArr);
-           InfModArrLen=length(modulesArr)-NotInfModArrLen;
-           
-           k=NotInfModArrLen/length(modulesArr);
-           
-           newLables=minMod:((maxMod-minMod)/(11*k)):maxMod;
-           
-           if InfModArrLen~=0
-               infLablesPart=zeros(1,11-length(newLables));
-               infLablesPart(:)=inf;
-               
-               if maxMod~=minMod
-                   newLables(end)=[];
-                   NotInfLabsStr=num2str(newLables);
-                   NotInfLabsStr=regexprep(NotInfLabsStr,'\s+',''',''');
-                   NotInfLabsStr=strcat('{''',NotInfLabsStr,''',''''',',''');
-                   
-                   InfLabsStr=num2str(infLablesPart);
-                   InfLabsStr=strrep(InfLabsStr,'  ',''',''');
-                   InfLabsStr=strcat(InfLabsStr,'''}');
-                   
-                   newLables=strcat(NotInfLabsStr,InfLabsStr);
-                   
-               else
-                   newLables=[minMod infLablesPart];
-               end
-           end
-           
-           if ischar(newLables)
-               eval(strcat('clrbr.TickLabels=',newLables,';'));
-           else
-               clrbr.TickLabels={newLables};
-           end
-           
-       else
-           clrbr.TickLabels={''};
-       end
-       clrbr.Label.String='\fontsize{16}log_{10}(\midz_{t+1}-z^{*}\mid)';
+    if ~isempty(chaosCodeIndicate)
+        clmp = [spring(1); clmp];
+        Fcode(chaosCodeIndicate) = -1;
+    end
 
-       DataFormatting.PlotFormatting(contParms, ca, handles);
-       
-       graphics.Axs=handles.CAField;
-       graphics.Clrbr=clrbr;
-       graphics.Clrmp=clrmp;
-       
-       if resProc.isSave
-           resProc=SaveRes(resProc,ca,graphics,contParms,[]);
-       end
+    if ~isempty(periodCodeIndicate)
+        clmp = [clmp; autumn(max(Periods(periodCodeIndicate)))];
+        Fcode(periodCodeIndicate) = 1;
+    end
+
+    clrmp = colormap(clmp);
+
+    [Re, Im] = meshgrid(contParms.ReRangeWindow, contParms.ImRangeWindow);
+    pcolor(Re, Im, (fStepNew .* Fcode));
+
+    shading flat;
+    clrbr = colorbar;
+
+    if ~isempty(periodCodeIndicate)
+        lim = clrbr.Limits;
+        ticks = clrbr.Ticks;
+        ticksDelta = ticks(2) - ticks(1);
+
+        if lim(2) > max(posSteps) + ticksDelta / 5
+            ticks = ticks(find(ticks <= max(posSteps)));
+            ticks = [ticks max(posSteps) + ticksDelta / 5:ticksDelta / 5:lim(2)];
+            clrbr.Ticks = ticks;
+
+            lables = clrbr.TickLabels';
+            lables = arrayfun(@(num)str2double(cell2mat(num)), lables);
+            newLables = [lables(find(lables <= max(posSteps))) (lables(find(lables > max(posSteps))) - max(posSteps))];
+            clrbr.TickLabels = {newLables};
+        end
+
+    end
+
+    zoom on;
+
+    DataFormatting.PlotFormatting(contParms, ca, handles);
+
+    graphics.Axs = handles.CAField;
+    graphics.Clrbr = clrbr;
+    graphics.Clrmp = clrmp;
+
+    if resProc.isSave
+        resProc = SaveRes(resProc, ca, graphics, contParms, zRes);
+    end
+
+    handles.ResetButton.Enable = 'on';
+    setappdata(handles.output, 'CurrCA', ca);
+    setappdata(handles.output, 'ContParms', contParms);
+    setappdata(handles.output, 'ResProc', resProc);
+    handles.SaveAllModelParamsB.Enable = 'on';
+    return;
+end
+
+%подготовка обоих функций
+
+ca.Weights = CellularAutomat.GetSetWeights;
+
+if isempty(ca.Weights)
+    ca.Weights = [1 1 1 1 1 1 1 1];
+end
+
+DataFormatting.MakeCAFuncsWithNums(ca);
+
+if length(ca.Cells) == 1%случай когда рассматривается одна ячейка/точка
+    hold on;
+    N1Path = getappdata(handles.output, 'N1Path');
+    msg = [];
+
+    N1PathOld = complex(N1Path(1, :), N1Path(2, :));
+    len = length(N1Path(1, :));
+    N1Path = [N1Path nan(2, itersCount)];
+
+    for i = 1:itersCount
+        ca.Cells(1) = CellularAutomat.MakeIter(ca.Cells(1));
+        N1Path(1, i + len) = real(ca.Cells(1).zPath(end));
+        N1Path(2, i + len) = imag(ca.Cells(1).zPath(end));
+
+        path = complex(N1Path(1, :), N1Path(2, :));
+        [fCode iter period] = ControlParams.CheckConvergence(path);
+
+        if fCode ~= 2
+            str = strcat('Точка ', num2str(ca.Cells(1).z0));
+
+            switch fCode
+                case - 1
+                    ca.Cells(1).zPath = ca.Cells(1).zPath(:, 1:iter - 1);
+                    str = strcat(str, ' уходит в бесконечность на итерации:');
+                    str = strcat(str, '  ');
+                    msg = strcat(str, num2str(iter - 1));
+                case 1
+                    str = strcat(str, ' сходится к аттрактору на итерации:');
+                    str = strcat(str, '  ');
+                    msg = strcat(str, num2str(iter - 1));
+                otherwise
+                    str = strcat(str, ' имеет период: ');
+                    strcat(str, num2str(period))
+                    str = strcat(str, ', найденный на итерации:');
+                    str = strcat(str, '  ');
+                    msg = strcat(str, num2str(iter - 1));
+            end
+
+            break;
+        end
+
+    end
+
+    if fCode == -1
+        N1Path = N1Path(:, 1:iter - 1);
+    else
+        N1Path = N1Path(:, 1:iter);
+    end
+
+    N1PathNew = complex(N1Path(1, :), N1Path(2, :));
+    N1PathOld = [N1PathOld nan(1, length(N1PathNew) - length(N1PathOld))];
+    ind = length(find(N1PathOld == N1PathNew));
+
+    if ind < length(N1PathNew)
+        temp = N1PathNew(ind:length(N1PathNew));
+        tempNew = zeros(2, length(temp));
+        tempNew(1, :) = real(temp);
+        tempNew(2, :) = imag(temp);
+        N1PathNew = tempNew;
+    else
+        N1PathNew = [];
+    end
+
+    N1PathOld(end) = [];
+
+    ms = 20;
+    clrmp = colormap(jet(length(N1Path)));
+
+    temp = N1Path;
+    %% ВАЖНО: что делать с нулями в мнимой и множественной частях при логарифмировании
+    if abs(max(N1Path(1, :))) > 1e4 || abs(max(N1Path(2, :))) > 1e4
+        N1Path(1, find(N1Path(1, :))) = log(abs(N1Path(1, find(N1Path(1, :))))) / log(10);
+        N1Path(2, find(N1Path(2, :))) = log(abs(N1Path(2, find(N1Path(2, :))))) / log(10);
+        xlabel('log(Re(z))');
+        ylabel('log(Im(z))');
+    else
+        xlabel('Re(z)');
+        ylabel('Im(z)');
+    end
+
+    %%
+    for i = 1:length(N1Path)
+        plot(N1Path(1, i), N1Path(2, i), 'o', 'MarkerSize', ms, 'Color', clrmp(i, :));
+
+        if ms ~= 2
+            ms = ms - 2;
+        end
+
+    end
+
+    imStep = (abs(max(N1Path(2, :)) - min(N1Path(2, :))) / length(N1Path(2, :))) * 0.2 * length(N1Path(2, :));
+    reStep = (abs(max(N1Path(1, :)) - min(N1Path(1, :))) / length(N1Path(1, :))) * 0.2 * length(N1Path(1, :));
+
+    if ~isempty(N1PathNew)
+
+        if (any(N1PathNew(1, :) < min(real(N1PathOld))) || any(N1PathNew(1, :) > max(real(N1PathOld))))
+            handles.CAField.XLim = [min(N1Path(1, :)) max(N1Path(1, :))];
+        end
+
+        if (any(N1PathNew(2, :) < min(imag(N1PathOld))) || any(N1PathNew(2, :) > max(imag(N1PathOld))))
+            handles.CAField.YLim = [min(N1Path(2, :)) max(N1Path(2, :))];
+        end
+
+    end
+
+    handles.CAField.YTick = [min(N1Path(2, :)):imStep:max(N1Path(2, :))];
+    handles.CAField.XTick = [min(N1Path(1, :)):reStep:max(N1Path(1, :))];
+
+    ImLength = max(N1Path(2, :)) - min(N1Path(2, :));
+    ReLength = max(N1Path(1, :)) - min(N1Path(1, :));
+
+    Coeff = ReLength - ImLength;
+
+    if Coeff ~= 0
+
+        if Coeff < 0
+            Coeff = abs(Coeff);
+
+            if ~isempty(N1PathNew)
+                handles.CAField.XLim = [min(N1Path(1, :)) - Coeff / 2 max(N1Path(1, :)) + Coeff / 2];
+            end
+
+        else
+
+            if ~isempty(N1PathNew)
+                handles.CAField.YLim = [min(N1Path(2, :)) - Coeff / 2 max(N1Path(2, :)) + Coeff / 2];
+            end
+
+        end
+
+    end
+
+    xticks('auto');
+    yticks('auto');
+
+    handles.CAField.XGrid = 'on';
+    handles.CAField.YGrid = 'on';
+
+    if iter < 15
+        clrbr = colorbar('Ticks', [1:iter] / iter, 'TickLabels', {1:iter});
+    else
+        clrbr = colorbar('Ticks', [0, 0.2, 0.4, 0.6, 0.8, 1], ...
+            'TickLabels', {0, floor(iter * 0.2), floor(iter * 0.4), floor(iter * 0.6), floor(iter * 0.8), iter - 1});
+        clrbr.Label.String = 'Число итераций';
+    end
+
+    DataFormatting.PlotFormatting(contParms, ca, handles);
+
+    zoom on;
+    contParms.LastIters = length(N1Path);
+    contParms.Periods = period;
+
+    graphics.Axs = handles.CAField;
+    graphics.Clrbr = clrbr;
+    graphics.Clrmp = clrmp;
+
+    N1Path = temp;
+
+    if resProc.isSave
+        resProc = SaveRes(resProc, ca, graphics, contParms, N1Path);
+    end
+
+    handles.ResetButton.Enable = 'on';
+    setappdata(handles.output, 'CurrCA', ca);
+    setappdata(handles.output, 'ContParms', contParms);
+    setappdata(handles.output, 'N1Path', N1Path);
+    setappdata(handles.output, 'ResProc', resProc);
+    handles.SaveAllModelParamsB.Enable = 'on';
+
+    if ~isempty(msg)
+        msgbox(msg, 'modal');
+    end
+
+    return;
+
+end
+
+%        profile on;
+%нахождение соседей каждой ячейки
+for i = 1:length(ca.Cells)
+    ca.Cells(i) = FindCellsNeighbors(ca, ca.Cells(i));
+end
+
+cellArr = ca.Cells;
+ca_L = length(ca.Cells);
+
+%блок тестирования правильности нахождения элементов и работы всех типов границ
+bordersType = zeros(1, ca_L);
+bordersType(:) = ca.BordersType;
+fieldType = bordersType;
+fieldType(:) = ca.FieldType;
+nArr = fieldType;
+nArr(:) = ca.N;
+
+[isIntrnl, isIntrnlPlus, isCorner, isCornerAx, isEdg, isZero, isTrueCell, errorCellsInfo] = arrayfun(@TestingScripts.CheckNeighborsAndBorderType, ca.Cells, nArr, fieldType, bordersType);
+
+switch ca.BordersType
+
+    case 1
+
+        if ca.FieldType == 1
+            %внутренние ячейки:
+            Intrnl = length(find(isIntrnl)) == ((3 * ca.N^2) - (15 * ca.N) + 18);
+
+            %внутренние ячейки с соседями из другой фигуры:
+            IntrnlPlus = length(find(isIntrnlPlus)) == 6 * ca.N - 12;
+
+            %мертвые ячейки:
+            Edg = length(find(isEdg)) == 6 * ca.N - 12 + 6;
+
+            %нулевая ячейка:
+            Zero = length(find(isZero)) == 1;
+
+            all([Intrnl IntrnlPlus Edg Zero])
+        else
+            Intrnl = length(find(isIntrnl)) == (ca.N - 2)^2;
+            Edg = length(find(isEdg)) == (ca.N)^2 - (ca.N - 2)^2;
+
+            all([Intrnl Edg])
+        end
+
+    case 2
+
+        if ca.FieldType == 1
+            %внутренние ячейки:
+            Intrnl = length(find(isIntrnl)) == ((3 * ca.N^2) - (15 * ca.N) + 18);
+
+            %внутренние ячейки с соседями из другой фигуры:
+            IntrnlPlus = length(find(isIntrnlPlus)) == 6 * ca.N - 12;
+
+            %ячейки на ребре:
+            Edg = length(find(isEdg)) == 6 * ca.N - 12;
+
+            %угловые ячейки:
+            Corner = length(find(isCorner)) == 3;
+
+            %осевые  угловые ячейки:
+            CornerAx = length(find(isCornerAx)) == 3;
+
+            %нулевая ячейка:
+            Zero = length(find(isZero)) == 1;
+
+            all([Intrnl IntrnlPlus Edg Corner CornerAx Zero])
+        else
+            TrueCell = all(isTrueCell);
+
+            Intrnl = length(find(isIntrnl)) == (ca.N - 2)^2;
+
+            Edg = length(find(isEdg)) == (ca.N)^2 - (ca.N - 2)^2 - 4;
+
+            Corner = length(find(isCorner)) == 4;
+
+            all([TrueCell Intrnl Edg Corner])
+        end
+
+    case 3
+
+        if ca.FieldType == 1
+            %внутренние ячейки:
+            Intrnl = length(find(isIntrnl)) == ((3 * ca.N^2) - (15 * ca.N) + 18);
+
+            %внутренние ячейки с соседями из другой фигуры:
+            IntrnlPlus = length(find(isIntrnlPlus)) == 6 * ca.N - 12;
+
+            %ячейки на ребре c четырьмя соседями:
+            Edg = length(find(isEdg)) == 6 * ca.N - 12;
+
+            %ячейки c тремя соседями:
+            Corner = length(find(isCorner)) == 6;
+
+            %нулевая ячейка:
+            Zero = length(find(isZero)) == 1;
+
+            all([Intrnl IntrnlPlus Edg Corner Zero])
+        else
+            Intrnl = length(find(isIntrnl)) == (ca.N - 2)^2;
+
+            Edg = length(find(isEdg)) == (ca.N)^2 - (ca.N - 2)^2 - 4;
+
+            Corner = length(find(isCorner)) == 4;
+
+            all([Intrnl Edg Corner])
+        end
+
+end
+
+%блок тестирования правильности нахождения элементов и всех типов границ
+%рассчет поля КА
+for i = 1:itersCount
+
+    try
+        cellArr = arrayfun(@(cell)CellularAutomat.MakeIter(cell), cellArr);
+    catch ex
+        errordlg(getReport(ex), 'Ошибка:');
+        return;
+    end
+
+    ca.Cells = cellArr;
+
+    for j = 1:ca_L
+        cellArr(j) = UpdateNeighborsValues(ca, ca.Cells(j));
+    end
+
+end
+
+
+modulesArr = zeros(1, ca_L);
+zbase = zeros(1, ca_L);
+zbase(:) = ca.Zbase;
+PrecisionParms = ControlParams.GetSetPrecisionParms;
+
+cellsValsArr = arrayfun(@(cell) cell.zPath(end), ca.Cells);
+cellsValsArr = round(cellsValsArr * (1 / PrecisionParms(2))) / (1 / PrecisionParms(2));
+
+[visualiseData, clrMap] = ResultsProcessing.GetSetVisualizationSettings;
+switch visualiseData
+    case 1
+        modulesArr = arrayfun(@(val) abs(val), cellsValsArr);
+        colorBarTitle = '\fontsize{16}\midz\mid';
+    case 2
+        modulesArr = arrayfun(@(val, zbase) log(abs(val - zbase)) / log(10), cellsValsArr, zbase);
+        colorBarTitle = '\fontsize{16}log_{10}(\midz-z^{*}\mid)';
+end
+
+[modulesArrSrt indxes] = sort(modulesArr);
+
+infValCACellsIndxes = find(modulesArr > PrecisionParms(1) | isnan(modulesArr));
+
+for ind = 1:length(infValCACellsIndxes)
+    ca.Cells(infValCACellsIndxes(ind)).Color = [0 0 0];
+end
+
+minusinfValCACellsIndxes = find(modulesArr < -PrecisionParms(1));
+
+for ind = 1:length(minusinfValCACellsIndxes)
+    ca.Cells(minusinfValCACellsIndxes(ind)).Color = [1 1 1];
+end
+
+modulesArrNanInfFiltered = modulesArr;
+modulesArrNanInfFiltered(infValCACellsIndxes) = [];
+modulesArrNanInfFiltered(minusinfValCACellsIndxes) = [];
+modulesArrNanInfFiltered = sort(modulesArrNanInfFiltered);
+
+%создание палитры
+eval(strcat('colors=colormap(', clrMap, '(', num2str(length(modulesArrNanInfFiltered)), '));'));
+
+for index = 1:length(modulesArrNanInfFiltered)
+    sameValCACellsindxes = find(modulesArr == modulesArrNanInfFiltered(index));
+    for ind = 1:length(sameValCACellsindxes)
+        ca.Cells(sameValCACellsindxes(ind)).Color = colors(index, :);
+    end
+end
+
+%отрисовка поля
+arrayfun(@(cell) ResultsProcessing.DrawCell(cell), ca.Cells);
+colors = arrayfun(@(cell) {cell.Color}, ca.Cells(indxes));
+colors = cell2mat(colors');
+
+if ~isempty(infValCACellsIndxes)
+    colors = [colors; [0 0 0]];
+end
+
+if ~isempty(minusinfValCACellsIndxes)
+    colors = [[1 1 1]; colors];
+end
+
+visualValsArr = modulesArr;
+visualValsArr(infValCACellsIndxes) = inf;
+visualValsArr(minusinfValCACellsIndxes) = -inf;
+visualValsArr = sort(visualValsArr);
+
+[unqVisualValsArr unqVisualValsArrIndxs] = unique(visualValsArr);
+unqColors = colors(unqVisualValsArrIndxs', :);
+
+clrbr = colorbar;
+clrmp = colormap(unqColors);
+clrbr.Ticks = [0:1 / length(unqVisualValsArr):1 - (1 / length(unqVisualValsArr))];
+clrbr.TickLabels = unqVisualValsArr;
+
+clrbr.Label.String = colorBarTitle;
+
+DataFormatting.PlotFormatting(contParms, ca, handles);
+
+graphics.Axs = handles.CAField;
+graphics.Clrbr = clrbr;
+graphics.Clrmp = clrmp;
+
+if resProc.isSave
+    resProc = SaveRes(resProc, ca, graphics, contParms, []);
+end
+
+setappdata(handles.output, 'CurrCA', ca);
+setappdata(handles.output, 'ContParms', contParms);
+setappdata(handles.output, 'ResProc', resProc);
+handles.ResetButton.Enable = 'on';
+handles.SaveAllModelParamsB.Enable = 'on';
+
       
-       setappdata(handles.output,'CurrCA',ca);
-       setappdata(handles.output,'ContParms',contParms);
-       setappdata(handles.output,'ResProc',resProc);
-       handles.ResetButton.Enable='on';
-       handles.SaveAllModelParamsB.Enable='on';
 
 
 % hObject    handle to StartButton (see GCBO)
@@ -1306,9 +1317,9 @@ end
 function ResetButton_Callback(hObject, eventdata, handles)
 axes(handles.CAField);
 cla reset;
-axis image
-set(gca,'xtick',[])
-set(gca,'ytick',[])
+axis image;
+set(gca,'xtick',[]);
+set(gca,'ytick',[]);
 
 ca = getappdata(handles.output,'CurrCA');
 contParms = getappdata(handles.output,'ContParms');
@@ -1353,7 +1364,6 @@ if contParms.SingleOrMultipleCalc
         handles.Z0SourcePathButton.Enable='on';
         handles.ReadZ0SourceButton.Enable='on';
         handles.MaxPeriodEdit.Enable='off';
-        handles.NFieldEdit.Enable = 'on';
         handles.SquareFieldRB.Enable = 'on';
         handles.HexFieldRB.Enable = 'on';
         handles.GorOrientRB.Enable = 'on';
@@ -1362,8 +1372,12 @@ if contParms.SingleOrMultipleCalc
         handles.CompletedBordersRB.Enable = 'on';
         handles.DeathLineBordersRB.Enable = 'on';
         handles.ClosedBordersRB.Enable = 'on';
+        handles.NeumannRB.Enable = 'on';
+        handles.MooreRB.Enable = 'on';
     end
     
+    handles.CustomIterFuncCB.Enable = 'on';
+    handles.NFieldEdit.Enable = 'on';
     handles.ParamRePointsEdit.Enable='off';
     handles.ParamNameMenu.Enable='off';
     handles.ParamReDeltaEdit.Enable='off';
@@ -1402,9 +1416,10 @@ else
     
 end
 
+handles.CustomIterFuncCB.Enable='on';
+
 if handles.CustomIterFuncCB.Value ~= 1
     handles.UsersBaseImagEdit.Enable = 'off';
-    handles.LambdaMenu.Enable = 'on';
     handles.BaseImagMenu.Enable = 'on';
 else
     handles.LambdaMenu.Enable = 'off';
@@ -2004,17 +2019,26 @@ if(~isempty(regexp(handles.NFieldEdit.String,'^\d+$')))
         handles.DistributStartEdit.Enable='off';
         handles.DistributStepEdit.Enable='off';
         handles.DistributEndEdit.Enable='off';
+        handles.Z0SourcePathButton.Enable='off';
+        handles.ReadZ0SourceButton.Enable='off';
+        handles.SquareFieldRB.Enable ='off';
+        handles.HexFieldRB.Enable='off';
+        handles.GorOrientRB.Enable ='off';
+        handles.VertOrientRB.Enable ='off';
+        handles.DefaultCACB.Enable ='off';
+        handles.CompletedBordersRB.Enable ='off';
+        handles.DeathLineBordersRB.Enable ='off';
+        handles.ClosedBordersRB.Enable ='off';
+        handles.NeumannRB.Enable ='off';
+        handles.MooreRB.Enable ='off';
+        handles.LambdaMenu.Enable='off';
+        handles.LambdaMenu.Value=5;
         
         handles.DistributStartEdit.String='';
         handles.DistributStepEdit.String='';
         handles.DistributEndEdit.String='';
         handles.Z0SourcePathEdit.String='';
         
-        handles.LambdaMenu.Enable='off';
-        handles.LambdaMenu.Value=5;
-        
-        handles.Z0SourcePathButton.Enable='off';
-        handles.ReadZ0SourceButton.Enable='off';
         handles.MaxPeriodEdit.Enable='on';
         
     else
@@ -2022,28 +2046,23 @@ if(~isempty(regexp(handles.NFieldEdit.String,'^\d+$')))
         handles.DistributStartEdit.Enable='on';
         handles.DistributStepEdit.Enable='on';
         handles.DistributEndEdit.Enable='on';
-        if handles.CustomIterFuncCB.Value==0
-            handles.LambdaMenu.Enable='on';
-        else
-            
-        end 
-        
-        if contParms.SingleOrMultipleCalc
-            handles.MaxPeriodEdit.String='';
-            handles.MaxPeriodEdit.Enable='off';
-        end
-        
         handles.Z0SourcePathButton.Enable='on';
         handles.ReadZ0SourceButton.Enable='on';
+        handles.MaxPeriodEdit.Enable='off';
+        handles.SquareFieldRB.Enable = 'on';
+        handles.HexFieldRB.Enable = 'on';
+        handles.GorOrientRB.Enable = 'on';
+        handles.VertOrientRB.Enable = 'on';
+        handles.DefaultCACB.Enable = 'on';
+        handles.CompletedBordersRB.Enable = 'on';
+        handles.DeathLineBordersRB.Enable = 'on';
+        handles.ClosedBordersRB.Enable = 'on';
+        handles.NeumannRB.Enable = 'on';
+        handles.MooreRB.Enable = 'on';
+        if handles.CustomIterFuncCB.Value==0
+            handles.LambdaMenu.Enable='on';
+        end
     end
-else
-%     handles.DistributionTypeMenu.Enable='on';
-%     handles.DistributStartEdit.Enable='on';
-%     handles.DistributStepEdit.Enable='on';
-%     handles.DistributEndEdit.Enable='on';
-%         
-%     handles.Z0SourcePathButton.Enable='on';
-%     handles.ReadZ0SourceButton.Enable='on';
 end
 % hObject    handle to NFieldEdit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -3119,11 +3138,11 @@ if handles.CustomIterFuncCB.Value ~= 1
             end
 
         case 3 
-            currCA.Base = @(z)Miu;
+            currCA.Base = @(z)1;
             handles.UsersBaseImagEdit.String = '';
 
             if ~contParms.SingleOrMultipleCalc
-                ImageFuncStr = strcat(func2str(@(z)Miu), contParms.Lambda);
+                ImageFuncStr = strcat(func2str(@(z)1), contParms.Lambda);
                 contParms.ImageFunc = str2func(ImageFuncStr);
             else
 
@@ -3249,25 +3268,38 @@ if isempty(currCA.Cells) || (~contParms.IsReady2Start && ~fileWasRead)
         bParam = (handles.DistributStepEdit.String);
         cParam = (handles.DistributEndEdit.String);
 
-        switch handles.DistributionTypeMenu.Value
-            case 1
-                if (isnan(str2num(aParam)) || isinf(str2num(aParam)) || isnan(str2num(bParam)) || isinf(str2num(bParam)) || isnan(str2num(cParam)) || isinf(str2num(cParam)))
-                    error = true;
-                    regexprep(errorStr, ', $', '. ');
-                    errorStr = strcat(errorStr, ' Не задана начальная конфигурация: неправильный формат параметров равномерного случайного диапазона значений Z0 или точки z0; ');
-                end
-            case 2
-                if (str2double(aParam) >= str2double(bParam) || isempty(regexp(aParam, '^\d+(\.?)(?(1)\d+|)$')) || isempty(regexp(bParam, '^\d+(\.?)(?(1)\d+|)$')) || isempty(regexp(cParam, '^\d+(\.?)(?(1)\d+|)$')))
-                    error = true;
-                    regexprep(errorStr, ', $', '. ');
-                    errorStr = strcat(errorStr, ' Не задана начальная конфигурация: неправильный формат параметров случайного однородного диапазона значений Z0 или точки z0; ');
-                end
-            case 3
-                if (str2double(bParam) <= 0 || isempty(regexp(aParam, '^\d+(\.?)(?(1)\d+|)$')) || isempty(regexp(bParam, '^\d+(\.?)(?(1)\d+|)$')) || isempty(regexp(cParam, '^\d+(\.?)(?(1)\d+|)$')))
-                    error = true;
-                    regexprep(errorStr, ', $', '. ');
-                    errorStr = strcat(errorStr, ' Не задана начальная конфигурация: неправильный формат параметров случайного нормального диапазона значений Z0 или точки z0; ');
-                end
+        if isempty(aParam) || isempty(bParam) || isempty(cParam)
+            error = true;
+            regexprep(errorStr, ', $', '. ');
+            errorStr = strcat(errorStr, ' Не задана начальная конфигурация: неправильный формат параметров диапазона значений Z0 или точки z0; ');
+        else
+
+            switch handles.DistributionTypeMenu.Value
+                case 1
+
+                    if (isnan(str2num(aParam)) || isinf(str2num(aParam)) || isnan(str2num(bParam)) || isinf(str2num(bParam)) || isnan(str2num(cParam)) || isinf(str2num(cParam)))
+                        error = true;
+                        regexprep(errorStr, ', $', '. ');
+                        errorStr = strcat(errorStr, ' Не задана начальная конфигурация: неправильный формат параметров равномерного случайного диапазона значений Z0 или точки z0; ');
+                    end
+
+                case 2
+
+                    if (str2double(aParam) >= str2double(bParam) || isempty(regexp(aParam, '^\d+(\.?)(?(1)\d+|)$')) || isempty(regexp(bParam, '^\d+(\.?)(?(1)\d+|)$')) || isempty(regexp(cParam, '^\d+(\.?)(?(1)\d+|)$')))
+                        error = true;
+                        regexprep(errorStr, ', $', '. ');
+                        errorStr = strcat(errorStr, ' Не задана начальная конфигурация: неправильный формат параметров случайного однородного диапазона значений Z0 или точки z0; ');
+                    end
+
+                case 3
+
+                    if (str2double(bParam) <= 0 || isempty(regexp(aParam, '^\d+(\.?)(?(1)\d+|)$')) || isempty(regexp(bParam, '^\d+(\.?)(?(1)\d+|)$')) || isempty(regexp(cParam, '^\d+(\.?)(?(1)\d+|)$')))
+                        error = true;
+                        regexprep(errorStr, ', $', '. ');
+                        errorStr = strcat(errorStr, ' Не задана начальная конфигурация: неправильный формат параметров случайного нормального диапазона значений Z0 или точки z0; ');
+                    end
+
+            end
 
         end
 
@@ -3887,6 +3919,9 @@ if strcmp(get(hObject,'Tag'),'SingleCalcRB')
     handles.Z0SourcePathButton.Enable='on';
     handles.ReadZ0SourceButton.Enable='on';
     
+    handles.NeumannRB.Enable = 'on';
+    handles.MooreRB.Enable = 'on';
+    
 else
     contParms.SingleOrMultipleCalc=0;
     
@@ -3922,6 +3957,9 @@ else
     
     handles.Z0SourcePathButton.Enable='off';
     handles.ReadZ0SourceButton.Enable='off';
+    
+    handles.NeumannRB.Enable='off';
+    handles.MooreRB.Enable='off';
     
 end
 
@@ -4887,15 +4925,20 @@ function CASettingsMenuItem_Callback(hObject, eventdata, handles)
 % --------------------------------------------------------------------
 function SetNeighborWeightMenuItem_Callback(hObject, eventdata, handles)
 currCA=getappdata(handles.output,'CurrCA');
-advancedCASettings = AdvancedCASettings('UserData', [currCA.FieldType currCA.NeighborhoodType]);
+cellWeightsSettings = CellWeightsSettings('UserData', [currCA.FieldType currCA.NeighborhoodType]);
 
-setappdata(advancedCASettings,'NeighborHood',[currCA.FieldType currCA.NeighborhoodType]);
-setappdata(handles.output,'AdvancedCASettings',advancedCASettings);
+setappdata(cellWeightsSettings, 'NeighborHood', [currCA.FieldType currCA.NeighborhoodType]);
+setappdata(handles.output, 'CellWeightsSettings', cellWeightsSettings);
 
 % hObject    handle to SetNeighborWeightMenuItem (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% function GetNeighborsWeights(hObject, eventdata, handles)
-% a=CellularAutomat.GetSetWeights;
 
+
+% --------------------------------------------------------------------
+function VisualizationSettingsMenuItem_Callback(hObject, eventdata, handles)
+visualizationSettings = VisualizationSettings;
+% hObject    handle to VisualizationSettingsMenuItem (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)

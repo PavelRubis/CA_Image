@@ -81,11 +81,11 @@ classdef ControlParams%класс параметров управления и множественного элементарног
         end
 
         %метод мультирасчета
-        function [z_New fStepLast path] = MakeMultipleCalcIter(windowParam, z_Old, z_Old_1, itersCount, zParam, z_eq)
+        function [z_New fStepLast fCodeNew iter period] = MakeMultipleCalcIter(windowParam, z_Old, z_Old_1, itersCount, zParam, z_eq)
             PrecisionParms = ControlParams.GetSetPrecisionParms;
             func = ControlParams.GetSetMultiCalcFunc;
-            path = nan(1, itersCount);
-            path(1) = z_Old;
+            pointPath = nan(1, itersCount);
+            pointPath(1) = z_Old;
             fStepLast = 1;
 
             while (fStepLast ~= itersCount)
@@ -105,7 +105,7 @@ classdef ControlParams%класс параметров управления и множественного элементарног
 
                 z_Old_1 = z_Old;
                 z_Old = z_New;
-                path(fStepLast) = z_New;
+                pointPath(fStepLast) = z_New;
 
                 if zParam
                     windowParam = z_New;
@@ -113,7 +113,66 @@ classdef ControlParams%класс параметров управления и множественного элементарног
 
             end
 
-            path = {path};
+            [fCodeNew iter period] = ControlParams.CheckConvergence(pointPath);
+
+        end
+
+        function [fCodeNew iter period] = CheckConvergence(pointPath)
+
+            fCodeNew = [];
+            PrecisionParms = ControlParams.GetSetPrecisionParms;
+            MaxPeriod = ControlParams.GetSetMaxPeriod;
+
+            pointPath = pointPath(find(~isnan(pointPath)));
+
+            %уход в бесконечность
+            if (log(pointPath(end)) / log(10) > PrecisionParms(1)) || isnan(pointPath(end)) || isinf(pointPath(end))%бесконечность
+                fCodeNew = -1;
+                iter = length(pointPath);
+                period = 0;
+                return;
+            end
+
+            %сходимость
+            c = 3:length(pointPath);
+            converg = abs(pointPath(c - 1) - pointPath(c)) <= PrecisionParms(2);
+
+            if any(converg)
+                iter = c(find(converg, 1, 'first'));
+                fCodeNew = 1;
+                period = 1;
+                return;
+            end
+
+            %период и мб сходимость
+            for n = 2:length(pointPath)
+
+                q = min(n, MaxPeriod);
+                qArr = 1:q - 1;
+                r = abs(pointPath(n - qArr) - pointPath(n));
+
+                if r(1) < PrecisionParms(2) || norm(r) < 2 * q * PrecisionParms(2)
+                    iter = n - 1;
+                    fCodeNew = 1;
+                    period = 1;
+                    return;
+                else
+                    [minR prd] = min(r);
+
+                    if minR < PrecisionParms(2)
+                        iter = n - prd;
+                        fCodeNew = 3;
+                        period = prd;
+                        return;
+                    end
+
+                end
+
+            end
+
+            fCodeNew = 2;
+            iter = length(pointPath);
+            period = Inf;
         end
 
         function [z_eq] = CountZBaze(miu, z0)
@@ -133,64 +192,6 @@ classdef ControlParams%класс параметров управления и множественного элементарног
             mapz_zero_xy = @(z) mapz_zero(z(1) + i * z(2));
             [zeq, zer] = fminsearch(mapz_zero_xy, [real(z0) imag(z0)], optimset('TolX', 1e-9));
             z_eq = complex(zeq(1), zeq(2));
-        end
-
-        function [fCodeNew iter period] = CheckConvergence(path)
-
-            fCodeNew = [];
-            PrecisionParms = ControlParams.GetSetPrecisionParms;
-            MaxPeriod = ControlParams.GetSetMaxPeriod;
-
-            if iscell(path)
-                path = cell2mat(path);
-            end
-
-            path = path(find(~isnan(path)));
-
-            if isempty(path)
-                path = 0;
-            end
-
-            if (log(path(end)) / log(10) > PrecisionParms(1)) || isnan(path(end)) || isinf(path(end))%бесконечность
-                fCodeNew = -1;
-                iter = length(path);
-                period = 0;
-                return;
-            end
-
-            %период
-            for p = 2:MaxPeriod
-
-                if p >= length(path)
-                    break;
-                end
-
-                k = p + 1:length(path);
-                prd = abs(path(k) - path(k - p)) < PrecisionParms(2);
-
-                if any(prd)
-                    iter = k(find(prd, 1, 'first'));
-                    fCodeNew = 3;
-                    period = p;
-                    return;
-                end
-
-            end
-
-            %сходимость
-            c = 3:length(path);
-            converg = abs(path(c - 1) - path(c)) < PrecisionParms(2);
-
-            if any(converg)
-                iter = c(find(converg, 1, 'first'));
-                fCodeNew = 1;
-                period = 1;
-                return;
-            end
-
-            fCodeNew = 2;
-            iter = length(path);
-            period = Inf;
         end
 
     end

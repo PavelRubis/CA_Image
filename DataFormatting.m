@@ -515,28 +515,28 @@ classdef DataFormatting
                     yArr1 = [-1 -1 0 0];
 
                     patch(xArr1, yArr1, [1 1 1]);
-                    text(0.4, -0.5, '4', 'FontSize', 16);
+                    text(0.4, -0.5, '1', 'FontSize', 16);
 
                     %юго-запад
                     xArr2 = [-1 0 0 -1];
                     yArr2 = [-1 -1 0 0];
 
                     patch(xArr2, yArr2, [1 1 1]);
-                    text(-0.6, -0.5, '1', 'FontSize', 16);
+                    text(-0.6, -0.5, '2', 'FontSize', 16);
 
                     %запад
                     xArr3 = [-1 0 0 -1];
                     yArr3 = [0 0 1 1];
 
                     patch(xArr3, yArr3, [1 1 1]);
-                    text(-0.6, 0.5, '2', 'FontSize', 16);
+                    text(-0.6, 0.5, '3', 'FontSize', 16);
 
                     %северо-запад
                     xArr4 = [-1 0 0 -1];
                     yArr4 = [1 1 2 2];
 
                     patch(xArr4, yArr4, [1 1 1]);
-                    text(-0.6, 1.5, '3', 'FontSize', 16);
+                    text(-0.6, 1.5, '4', 'FontSize', 16);
 
                     %север
                     xArr5 = [0 1 1 0];
@@ -550,7 +550,7 @@ classdef DataFormatting
                     yArr6 = [1 1 2 2];
 
                     patch(xArr6, yArr6, [1 1 1]);
-                    text(1.4, 1.5, '8', 'FontSize', 16);
+                    text(1.4, 1.5, '6', 'FontSize', 16);
 
                     %восток
                     xArr7 = [1 2 2 1];
@@ -564,7 +564,7 @@ classdef DataFormatting
                     yArr8 = [-1 -1 0 0];
 
                     patch(xArr8, yArr8, [1 1 1]);
-                    text(1.4, -0.5, '6', 'FontSize', 16);
+                    text(1.4, -0.5, '8', 'FontSize', 16);
 
                     %4
                 case 2
@@ -580,14 +580,14 @@ classdef DataFormatting
                     yArr1 = [-1 -1 0 0];
 
                     patch(xArr1, yArr1, [1 1 1]);
-                    text(0.4, -0.5, '2', 'FontSize', 16);
+                    text(0.4, -0.5, '1', 'FontSize', 16);
 
                     %слева
                     xArr2 = [-1 0 0 -1];
                     yArr2 = [0 0 1 1];
 
                     patch(xArr2, yArr2, [1 1 1]);
-                    text(-0.6, 0.5, '1', 'FontSize', 16);
+                    text(-0.6, 0.5, '2', 'FontSize', 16);
 
                     %сверху
                     xArr3 = [0 1 1 0];
@@ -622,7 +622,7 @@ classdef DataFormatting
                     yArr1 = [yDiff yDiff + dy yDiff + 3 * dy yDiff + 4 * dy yDiff + 3 * dy yDiff + dy];
 
                     patch(xArr1, yArr1, [1 1 1]);
-                    text(xDiff + (-dx / 4), yDiff + (2 * dy), '6', 'FontSize', 16);
+                    text(xDiff + (-dx / 4), yDiff + (2 * dy), '1', 'FontSize', 16);
 
                     %лево
                     xDiff = -2 * (sqrt(3) / 2);
@@ -631,7 +631,7 @@ classdef DataFormatting
                     yArr2 = [yDiff yDiff + dy yDiff + 3 * dy yDiff + 4 * dy yDiff + 3 * dy yDiff + dy];
 
                     patch(xArr2, yArr2, [1 1 1]);
-                    text(xDiff + (-dx / 4), yDiff + (2 * dy), '5', 'FontSize', 16);
+                    text(xDiff + (-dx / 4), yDiff + (2 * dy), '2', 'FontSize', 16);
 
                     %верх лево
                     xDiff = -(sqrt(3) / 2);
@@ -649,7 +649,7 @@ classdef DataFormatting
                     yArr4 = [yDiff yDiff + dy yDiff + 3 * dy yDiff + 4 * dy yDiff + 3 * dy yDiff + dy];
 
                     patch(xArr4, yArr4, [1 1 1]);
-                    text(xDiff + (-dx / 4), yDiff + (2 * dy), '1', 'FontSize', 16);
+                    text(xDiff + (-dx / 4), yDiff + (2 * dy), '4', 'FontSize', 16);
 
                     %право
                     xDiff = 2 * (sqrt(3) / 2);
@@ -658,7 +658,7 @@ classdef DataFormatting
                     yArr5 = [yDiff yDiff + dy yDiff + 3 * dy yDiff + 4 * dy yDiff + 3 * dy yDiff + dy];
 
                     patch(xArr5, yArr5, [1 1 1]);
-                    text(xDiff + (-dx / 4), yDiff + (2 * dy), '2', 'FontSize', 16);
+                    text(xDiff + (-dx / 4), yDiff + (2 * dy), '5', 'FontSize', 16);
 
                     %низ право
                     xDiff = (sqrt(3) / 2);
@@ -667,7 +667,7 @@ classdef DataFormatting
                     yArr6 = [yDiff yDiff + dy yDiff + 3 * dy yDiff + 4 * dy yDiff + 3 * dy yDiff + dy];
 
                     patch(xArr6, yArr6, [1 1 1]);
-                    text(xDiff + (-dx / 4), yDiff + (2 * dy), '4', 'FontSize', 16);
+                    text(xDiff + (-dx / 4), yDiff + (2 * dy), '6', 'FontSize', 16);
 
                     %3
                 case 4
@@ -688,7 +688,7 @@ classdef DataFormatting
                     yArr1 = [yDiff yDiff + dy yDiff + 3 * dy yDiff + 4 * dy yDiff + 3 * dy yDiff + dy];
 
                     patch(xArr1, yArr1, [1 1 1]);
-                    text(xDiff + (-dx / 4), yDiff + (2 * dy), '3', 'FontSize', 16);
+                    text(xDiff + (-dx / 4), yDiff + (2 * dy), '1', 'FontSize', 16);
 
                     %верх лево
                     xDiff = -(sqrt(3) / 2);
@@ -706,7 +706,7 @@ classdef DataFormatting
                     yArr2 = [yDiff yDiff + dy yDiff + 3 * dy yDiff + 4 * dy yDiff + 3 * dy yDiff + dy];
 
                     patch(xArr2, yArr2, [1 1 1]);
-                    text(xDiff + (-dx / 4), yDiff + (2 * dy), '1', 'FontSize', 16);
+                    text(xDiff + (-dx / 4), yDiff + (2 * dy), '3', 'FontSize', 16);
 
             end
 
