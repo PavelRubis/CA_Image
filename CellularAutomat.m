@@ -118,7 +118,7 @@ classdef CellularAutomat
                 ca.Zbase = zbase;
                 ca.Miu0 = miu0;
                 ca.Miu = miu;
-                ca.Weights = weights
+                ca.Weights = weights;
             end
 
         end

@@ -4,6 +4,7 @@ classdef ResultsProcessing
         isSave logical = 0% сохраняем ли результаты
         isSaveCA logical = 0% сохраняем ли КА
         isSaveFig logical = 0% сохраняем ли фигуру
+        Filename (1, :) char = []
         ResPath (1, :) char% путь к сохраняемым результатам
         CellsValuesFileFormat logical% формат файла для записи значений ячеек (1-txt,0-xls)
         FigureFileFormat {mustBeInteger, mustBeInRange(FigureFileFormat, [1, 3])}% формат картинки поля
@@ -29,61 +30,82 @@ classdef ResultsProcessing
                 if obj.isSaveCA
 
                     if length(ca.Cells) == 1
-                        ConfFileName = strcat('\Modeling-', datestr(clock));
-                        ConfFileName = strcat(ConfFileName, '-N-1-Path.txt');
-                        ConfFileName = strrep(ConfFileName, ':', '-');
-                        ConfFileName = strcat(obj.ResPath, ConfFileName);
+                        PrecisionParms = ControlParams.GetSetPrecisionParms;
+                        lastIter = 1;
 
-                        fileID = fopen(ConfFileName, 'w');
-                        fprintf(fileID, strcat('Одиночное Моделирование от-', datestr(clock)));
-                        fprintf(fileID, '\n\nРебро N=1');
-                        fprintf(fileID, strcat('\nБазовое отображение: ', func2str(ca.Base)));
+                        if isempty(obj.Filename)
+                            obj.Filename = strcat('\Modeling-', datestr(clock));
+                            obj.Filename = strcat(obj.Filename, '-N-1-Path.txt');
+                            obj.Filename = strrep(obj.Filename, ':', '-');
+                            obj.Filename = strcat(obj.ResPath, obj.Filename);
 
-                        customImagCheck = isempty(ControlParams.GetSetCustomImag);
+                            fileID = fopen(obj.Filename, 'a');
+                            fprintf(fileID, strcat('Одиночное Моделирование от-', datestr(clock)));
+                            fprintf(fileID, '\n\nРебро N=1');
+                            fprintf(fileID, strcat('\nБазовое отображение: ', func2str(ca.Base)));
 
-                        if customImagCheck
-                            fprintf(fileID, strcat('\nФактор лямбда: ', func2str(ca.Lambda)));
-                        else
-
-                            if ControlParams.GetSetCustomImag
-                                fprintf(fileID, '\nФактор лямбда: 1');
-                            else
+                            if ~ControlParams.GetSetCustomImag
                                 fprintf(fileID, strcat('\nФактор лямбда: ', func2str(ca.Lambda)));
                             end
 
+                            fprintf(fileID, strcat('\n\n\nМаксимальный период=', num2str(ControlParams.GetSetMaxPeriod), ';Порог бесконечности=', num2str(PrecisionParms(1)), ';Порог сходимости=', num2str(PrecisionParms(2))));
+                            fprintf(fileID, strcat('\nz0=', num2str(ca.Cells(1).z0), '\nmu=', num2str(ca.Miu), '\nmu0=', num2str(ca.Miu0)));
+
+                            fprintf(fileID, '\nКоличество итераций T=%f\n', length(Res) - 1);
+
+                            switch contParms.Periods
+                                case 0
+                                    fprintf(fileID, '\n\nИтог: уходящая в бесконечность траектория\n');
+                                case 1
+                                    fprintf(fileID, '\n\nИтог: сходящаяся к аттрактору траектория\n');
+                                case inf
+                                    fprintf(fileID, '\n\nИтог: хаотичная траектория\n');
+                                otherwise
+                                    fprintf(fileID, strcat('\n\nИтог: траектория с периодом: ', num2str(contParms.Periods), '\n'));
+                            end
+
+                            fprintf(fileID, 'Re\tIm\tFate\tlength\n');
+                            fclose(fileID);
+
+                            dlmwrite(obj.Filename, [real(ca.Cells(1).zPath(1)) imag(ca.Cells(1).zPath(end)) contParms.Periods contParms.LastIters], '-append', 'delimiter', '\t');
+
+                            fileID = fopen(obj.Filename, 'a');
+                            fprintf(fileID, '\n\nТраектория:\n');
+                            fprintf(fileID, 'iter\tRe\tIm\n');
+                            fclose(fileID);
+                        else
+                            %8,12 15 17
+                            txtCell = txt2Cell(obj);
+                            lastIter = str2double(regexp(txtCell{end-2},'^\d+\s','match'));
+                            
+                            txtCell{8} = strcat('Максимальный период = ', num2str(ControlParams.GetSetMaxPeriod), ' ; Порог бесконечности = ', num2str(PrecisionParms(1)), ' ; Порог сходимости = ', num2str(PrecisionParms(2)));
+                            txtCell{12} = strcat('Количество итераций T=', num2str(length(Res) - 1));
+
+                            finishStr = '';
+
+                            switch contParms.Periods
+                                case 0
+                                    finishStr = 'уходящая в бесконечность траектория';
+                                case 1
+                                    finishStr = 'сходящаяся к аттрактору траектория';
+                                case inf
+                                    finishStr = 'хаотичная траектория';
+                                otherwise
+                                    finishStr = strcat('траектория с периодом: ', num2str(contParms.Periods));
+                            end
+
+                            txtCell{15} = strcat('Итог: ', finishStr);
+                            txtCell{17} = cell2mat(strcat({num2str(real(ca.Cells(1).zPath(end)))}, {'	'}, {num2str(imag(ca.Cells(1).zPath(end)))}, {'	'}, {num2str(contParms.Periods)}, {'	'}, {num2str(contParms.LastIters)}));
+
+                            cell2Txt(obj, txtCell);
                         end
 
-                        PrecisionParms = ControlParams.GetSetPrecisionParms;
-
-                        fprintf(fileID, strcat('\n\n\nМаксимальный период=', num2str(ControlParams.GetSetMaxPeriod), ';Порог бесконечности=', num2str(10^PrecisionParms(1)), ';Порог сходимости=', num2str(PrecisionParms(2))));
-                        fprintf(fileID, strcat('\nz0=', num2str(ca.Cells(1).z0), '\nmu=', num2str(ca.Miu), '\nmu0=', num2str(ca.Miu0)));
-
-                        fprintf(fileID, '\nКоличество итераций T=%f\n', length(Res) - 1);
-
-                        switch contParms.Periods
-                            case 0
-                                fprintf(fileID, '\n\nИтог: уходящая в бесконечность траектория\n');
-                            case 1
-                                fprintf(fileID, '\n\nИтог: сходящаяся к аттрактору траектория\n');
-                            case inf
-                                fprintf(fileID, '\n\nИтог: хаотичная траектория\n');
-                            otherwise
-                                fprintf(fileID, strcat('\n\nИтог: траектория с периодом: ', num2str(contParms.Periods), '\n'));
-                        end
-
-                        fprintf(fileID, 'Re	Im	Fate	length\n');
-                        fclose(fileID);
-                        dlmwrite(ConfFileName, [real(ca.Cells(1).zPath(1)) imag(ca.Cells(1).zPath(end)) contParms.Periods contParms.LastIters], '-append', 'delimiter', '\t');
-
-                        fileID = fopen(ConfFileName, 'a');
-                        fprintf(fileID, '\n\nТраектория:\n');
-                        fclose(fileID);
-                        iters = 1:length(Res(1, :));
+                        iters = lastIter:(lastIter-1) + length(Res(1, :));
                         iters = iters';
                         Res = Res';
                         Res = [iters Res];
-                        dlmwrite(ConfFileName, 'iter	Re	Im', '-append', 'delimiter', '');
-                        dlmwrite(ConfFileName, Res, '-append', 'delimiter', '\t', 'precision', 7);
+                        dlmwrite(obj.Filename, Res, '-append', 'delimiter', '\t', 'precision', 7);
+                        dlmwrite(obj.Filename, ' ', '-append');
                     else
                         ConfFileName = strcat('\Modeling-', datestr(clock));
                         ConfFileName = strcat(ConfFileName, '-CA.txt');
@@ -159,17 +181,6 @@ classdef ResultsProcessing
                     fprintf(fileID, strcat('Множественное Моделирование от- ', datestr(clock)));
 
                     fprintf(fileID, strcat('\n\nОтображение: ', func2str(contParms.ImageFunc)));
-
-                    %                    customImagCheck=isempty(ControlParams.GetSetCustomImag);
-                    %                    if customImagCheck
-                    %                        fprintf(fileID, strcat('\nФактор лямбда: ',func2str(ca.Lambda)));
-                    %                    else
-                    %                        if ControlParams.GetSetCustomImag
-                    %                            fprintf(fileID, '\nФактор лямбда: 1');
-                    %                        else
-                    %                            fprintf(fileID, strcat('\nФактор лямбда: ',func2str(ca.Lambda)));
-                    %                        end
-                    %                    end
 
                     PrecisionParms = ControlParams.GetSetPrecisionParms;
 
@@ -343,12 +354,59 @@ classdef ResultsProcessing
             filename = ConfFileName;
         end
 
+        function A = txt2Cell(obj)
+            fileID = fopen(obj.Filename, 'r');
+            i = 1;
+            tline = fgetl(fileID);
+            A{i} = tline;
+
+            while ischar(tline)
+                i = i + 1;
+                tline = fgetl(fileID);
+                A{i} = tline;
+            end
+
+            fclose(fileID);
+        end
+
+        function cell2Txt(obj, A)
+            fileID = fopen(obj.Filename, 'w');
+
+            for i = 1:numel(A)
+
+                if A{i + 1} == -1
+                    fprintf(fileID, '%s\n\n', A{i});
+                    break
+                else
+                    fprintf(fileID, '%s\n', A{i});
+                end
+
+            end
+
+            fclose(fileID);
+
+        end
+
     end
 
     methods (Static)
         %%
         % метод get-set для задания цветовой палитры (ColorMap) и на основе каких данных будет строиться colorbar поля КА (VisualiseData)
         function [vData clrMap] = GetSetVisualizationSettings(settingS)
+            persistent colorMap;
+            persistent visualiseData;
+
+            if nargin
+                visualiseData = cell2mat(settingS(1));
+                colorMap = cell2mat(settingS(2));
+            end
+
+            vData = visualiseData;
+            clrMap = colorMap;
+        end
+        %%
+        % метод get-set для задания цветовой палитры (ColorMap) и типа визуализации траектории точки (VisualiseData)
+        function [vData clrMap] = GetSetPointsVisualizationSettings(settingS)
             persistent colorMap;
             persistent visualiseData;
 

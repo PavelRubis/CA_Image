@@ -22,7 +22,7 @@ function varargout = CA(varargin)
 
 % Edit the above text to modify the response to help CA
 
-% Last Modified by GUIDE v2.5 07-Jan-2021 18:20:50
+% Last Modified by GUIDE v2.5 16-Feb-2021 01:42:39
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -48,6 +48,17 @@ end
 function CA_OpeningFcn(hObject, eventdata, handles, varargin)
 set(hObject,'units','normalized','outerposition',[0 0 1 1])
 
+xLabel = 'Re(z)';
+xFunc = @(z)z(1, :);
+yLabel = 'Im(z)';
+yFunc = @(z)z(2, :);
+
+VisOptions = PointPathVisualisationOptions('jet', xFunc, yFunc, xLabel, yLabel);
+setappdata(hObject, 'VisOptions', VisOptions);
+
+saveRes = SaveResults();
+setappdata(hObject, 'SaveResults', saveRes);
+
 CurrCA = CellularAutomat(0, 1, 2, 1, @(z)(exp(i * z)), @(z_k)Miu0 + sum(z_k), 0, 0, 0, [1 1 1 1 1 1 1 1]);
 ContParms = ControlParams(1,1,0,0,' ',@(z)exp(i*z),'*(Miu+z)');
 ControlParams.GetSetCustomImag(0);
@@ -56,6 +67,7 @@ ResProc = ResultsProcessing(' ',1,1);
 ResultsProcessing.GetSetCellOrient(0);
 ResultsProcessing.GetSetFieldOrient(0);
 ResultsProcessing.GetSetVisualizationSettings({2, 'jet'});
+ResultsProcessing.GetSetPointsVisualizationSettings({1, 'jet'});
 
 FileWasRead=false;
 
@@ -97,8 +109,49 @@ varargout{1} = handles.output;
 
 % --- Executes on button press in StartButton.
 function StartButton_Callback(hObject, eventdata, handles)
-
+%%
 SaveParamsButton_Callback(handles.SaveParamsButton, eventdata, handles)
+
+IteratedObject = getappdata(handles.output, 'IIteratedObject');
+calcParams = getappdata(handles.output, 'calcParams');
+saveRes = getappdata(handles.output, 'SaveResults');
+[saveRes] = SaveResults.IsReady2Start(saveRes);
+
+visualOptions = getappdata(handles.output, 'VisOptions');
+%visualOptions = PointPathVisualisationOptions.GetSetPointPathVisualisationOptions;
+
+if any([isempty(IteratedObject) isempty(calcParams) isempty(saveRes)])
+    return;
+end
+
+IteratedObject = BeforeModeling(IteratedObject);
+for iter=1:calcParams.IterCount
+
+    IteratedObject = Iteration(IteratedObject);
+
+    if ~IsContinue(IteratedObject)
+        break;
+    end
+    
+end
+
+[res visualOptions] = PrepareDataAndAxes(visualOptions, IteratedObject, handles);
+
+
+if saveRes.IsSave
+    saveRes = SavePointResults(saveRes, res, IteratedObject, calcParams);
+end
+
+AfterModeling(IteratedObject, handles);
+
+setappdata(handles.output, 'IIteratedObject', IteratedObject);
+setappdata(handles.output, 'VisOptions', visualOptions);
+setappdata(handles.output, 'SaveResults',saveRes);
+handles.ResetButton.Enable='on';
+
+return;
+%%
+%legacy
 
 contParms = getappdata(handles.output,'ContParms');
 resProc = getappdata(handles.output,'ResProc');
@@ -179,7 +232,9 @@ handles.MultipleCalcRB.Enable='off';
 handles.ReadModelingParmsFrmFile.Enable='off';
 handles.CASettingsMenuItem.Enable='off';
 
-switch ResultsProcessing.GetSetVisualizationSettings
+visualizationSettings = ResultsProcessing.GetSetVisualizationSettings;
+
+switch visualizationSettings(1)
 
     case 1
         ControlParams.GetSetPrecisionParms([str2double(strcat('1e', handles.InfValueEdit.String)) str2double(strcat('1e-', handles.ConvergValueEdit.String))]);
@@ -225,10 +280,13 @@ if ~contParms.SingleOrMultipleCalc% в случае мультирассчета
     ItersCount(:) = itersCount;
     Pathes = cell(len);
 
-    profile on;
+    wb = waitbar(0,'Выполняется расчет...','WindowStyle','modal');
+%     profile on;
     %мультирассчет через arrayfun
     [z_New fStepNew Fcode Iters Periods] = arrayfun(@ControlParams.MakeMultipleCalcIter, WindowParam, Z_Old, Z_Old_1, ItersCount, ZParam, z_eqArr);
-    profile viewer;
+%     profile viewer;
+    waitbar(1,wb,'Отрисовка...');
+    axes(handles.CAField);
 
     zRes = z_New;
     PrecisionParms = ControlParams.GetSetPrecisionParms;
@@ -236,9 +294,7 @@ if ~contParms.SingleOrMultipleCalc% в случае мультирассчета
     contParms.Periods = Periods;
     contParms.LastIters = Iters;
     fcodeIndicate = find(Fcode == 1);
-    %            if isempty(fcodeIndicate)
-    %                fcodeIndicate=find(Fcode>=1);
-    %            end
+    
     posSteps = unique(fStepNew(fcodeIndicate));
     fcodeIndicate = find(Fcode == -1);
     negSteps = unique(fStepNew(fcodeIndicate));
@@ -320,6 +376,7 @@ if ~contParms.SingleOrMultipleCalc% в случае мультирассчета
     graphics.Clrmp = clrmp;
 
     if resProc.isSave
+        waitbar(1,wb,'Сохранение выходных данных...');
         resProc = SaveRes(resProc, ca, graphics, contParms, zRes);
     end
 
@@ -328,10 +385,10 @@ if ~contParms.SingleOrMultipleCalc% в случае мультирассчета
     setappdata(handles.output, 'ContParms', contParms);
     setappdata(handles.output, 'ResProc', resProc);
     handles.SaveAllModelParamsB.Enable = 'on';
+    delete(wb);
     return;
 end
 
-%подготовка обоих функций
 
 ca.Weights = CellularAutomat.GetSetWeights;
 
@@ -339,10 +396,11 @@ if isempty(ca.Weights)
     ca.Weights = [1 1 1 1 1 1 1 1];
 end
 
+%подготовка обоих функций
 DataFormatting.MakeCAFuncsWithNums(ca);
 
 if length(ca.Cells) == 1%случай когда рассматривается одна ячейка/точка
-    hold on;
+
     N1Path = getappdata(handles.output, 'N1Path');
     msg = [];
 
@@ -355,8 +413,8 @@ if length(ca.Cells) == 1%случай когда рассматривается одна ячейка/точка
         N1Path(1, i + len) = real(ca.Cells(1).zPath(end));
         N1Path(2, i + len) = imag(ca.Cells(1).zPath(end));
 
-        path = complex(N1Path(1, :), N1Path(2, :));
-        [fCode iter period] = ControlParams.CheckConvergence(path);
+        pointPath = complex(N1Path(1, :), N1Path(2, :));
+        [fCode iter period] = ControlParams.CheckConvergence(pointPath);
 
         if fCode ~= 2
             str = strcat('Точка ', num2str(ca.Cells(1).z0));
@@ -373,7 +431,7 @@ if length(ca.Cells) == 1%случай когда рассматривается одна ячейка/точка
                     msg = strcat(str, num2str(iter - 1));
                 otherwise
                     str = strcat(str, ' имеет период: ');
-                    strcat(str, num2str(period))
+                    str = strcat(str, num2str(period));
                     str = strcat(str, ', найденный на итерации:');
                     str = strcat(str, '  ');
                     msg = strcat(str, num2str(iter - 1));
@@ -391,6 +449,7 @@ if length(ca.Cells) == 1%случай когда рассматривается одна ячейка/точка
     end
 
     N1PathNew = complex(N1Path(1, :), N1Path(2, :));
+    N1PathOldVisual = [real(N1PathOld);imag(N1PathOld)];
     N1PathOld = [N1PathOld nan(1, length(N1PathNew) - length(N1PathOld))];
     ind = length(find(N1PathOld == N1PathNew));
 
@@ -403,104 +462,127 @@ if length(ca.Cells) == 1%случай когда рассматривается одна ячейка/точка
     else
         N1PathNew = [];
     end
-
-    N1PathOld(end) = [];
-
-    ms = 20;
-    clrmp = colormap(jet(length(N1Path)));
-
-    temp = N1Path;
-    %% ВАЖНО: что делать с нулями в мнимой и множественной частях при логарифмировании
-    if abs(max(N1Path(1, :))) > 1e4 || abs(max(N1Path(2, :))) > 1e4
-        N1Path(1, find(N1Path(1, :))) = log(abs(N1Path(1, find(N1Path(1, :))))) / log(10);
-        N1Path(2, find(N1Path(2, :))) = log(abs(N1Path(2, find(N1Path(2, :))))) / log(10);
-        xlabel('log(Re(z))');
-        ylabel('log(Im(z))');
-    else
-        xlabel('Re(z)');
-        ylabel('Im(z)');
-    end
-
-    %%
-    for i = 1:length(N1Path)
-        plot(N1Path(1, i), N1Path(2, i), 'o', 'MarkerSize', ms, 'Color', clrmp(i, :));
-
-        if ms ~= 2
-            ms = ms - 2;
-        end
-
-    end
-
-    imStep = (abs(max(N1Path(2, :)) - min(N1Path(2, :))) / length(N1Path(2, :))) * 0.2 * length(N1Path(2, :));
-    reStep = (abs(max(N1Path(1, :)) - min(N1Path(1, :))) / length(N1Path(1, :))) * 0.2 * length(N1Path(1, :));
-
+    
     if ~isempty(N1PathNew)
+        axes(handles.CAField);
+        cla reset;
 
-        if (any(N1PathNew(1, :) < min(real(N1PathOld))) || any(N1PathNew(1, :) > max(real(N1PathOld))))
-            handles.CAField.XLim = [min(N1Path(1, :)) max(N1Path(1, :))];
+        N1PathOld(end) = [];
+        newPartPathLength = length(N1PathNew);
+
+        [vSettings1 vSettings2]  = ResultsProcessing.GetSetPointsVisualizationSettings;
+        N1PathNewVisual = N1PathNew;
+
+        switch vSettings1
+            case 1
+                xlabel('Re(z)');
+                ylabel('Im(z)');
+            case 2
+                xlabel('\midz\mid');
+                N1PathNewVisual(1, :) = abs(complex(N1PathNewVisual(1, :), N1PathNewVisual(2, :)));
+                ylabel('\phi(z)');
+                N1PathNewVisual(2, :) = angle(complex(N1PathNewVisual(1, :), N1PathNewVisual(2, :)));
+
+                N1PathOldVisual(1, :) = abs(complex(N1PathOldVisual(1, :), N1PathOldVisual(2, :)));
+                N1PathOldVisual(2, :) = angle(complex(N1PathOldVisual(1, :), N1PathOldVisual(2, :)));
+            case 3
+                xlabel('lg\midz+1\mid');
+                N1PathNewVisual(1, :) = log(abs(complex(N1PathNewVisual(1, :), N1PathNewVisual(2, :)) + 1))/log(10);
+                ylabel('\phi(z)');
+                N1PathNewVisual(2, :) = angle(complex(N1PathNewVisual(1, :), N1PathNewVisual(2, :)));
+
+                N1PathOldVisual(1, :) = log(abs(complex(N1PathOldVisual(1, :), N1PathOldVisual(2, :)) + 1)) / log(10);
+                N1PathOldVisual(2, :) = angle(complex(N1PathOldVisual(1, :), N1PathOldVisual(2, :)));
+            case 4
+                xlabel('lg\midRe+1\mid');
+                N1PathNewVisual(1, :) = log(abs(N1PathNewVisual(1, :) + 1)) / log(10);
+                xlabel('lg\midIm+1\mid');
+                N1PathNewVisual(2, :) = log(abs(N1PathNewVisual(2, :) + 1)) / log(10);
+
+                N1PathOldVisual(1, :) = log(abs(N1PathOldVisual(1, :) + 1)) / log(10);
+                N1PathOldVisual(2, :) = log(abs(N1PathOldVisual(2, :) + 1)) / log(10);
+                
+
         end
+        N1PathOldVisual=complex(N1PathOldVisual(1,:),N1PathOldVisual(1,:));
+        eval(strcat('clrmp = colormap(', vSettings2, '(newPartPathLength));'));
+        ms = 20;
 
-        if (any(N1PathNew(2, :) < min(imag(N1PathOld))) || any(N1PathNew(2, :) > max(imag(N1PathOld))))
-            handles.CAField.YLim = [min(N1Path(2, :)) max(N1Path(2, :))];
-        end
 
-    end
+        %%
+        hold on;
+        for i = 1:length(N1PathNewVisual)
+            plot(N1PathNewVisual(1, i), N1PathNewVisual(2, i), 'o', 'MarkerSize', ms, 'Color', clrmp(i, :));
 
-    handles.CAField.YTick = [min(N1Path(2, :)):imStep:max(N1Path(2, :))];
-    handles.CAField.XTick = [min(N1Path(1, :)):reStep:max(N1Path(1, :))];
-
-    ImLength = max(N1Path(2, :)) - min(N1Path(2, :));
-    ReLength = max(N1Path(1, :)) - min(N1Path(1, :));
-
-    Coeff = ReLength - ImLength;
-
-    if Coeff ~= 0
-
-        if Coeff < 0
-            Coeff = abs(Coeff);
-
-            if ~isempty(N1PathNew)
-                handles.CAField.XLim = [min(N1Path(1, :)) - Coeff / 2 max(N1Path(1, :)) + Coeff / 2];
+            if ms ~= 2
+                ms = ms - 2;
             end
 
+        end
+
+        imStep = (abs(max(N1PathNewVisual(2, :)) - min(N1PathNewVisual(2, :))) / length(N1PathNewVisual(2, :))) * 0.2 * length(N1PathNewVisual(2, :));
+        reStep = (abs(max(N1PathNewVisual(1, :)) - min(N1PathNewVisual(1, :))) / length(N1PathNewVisual(1, :))) * 0.2 * length(N1PathNewVisual(1, :));
+
+        if (any(N1PathNewVisual(1, :) < min(real(N1PathOldVisual))) || any(N1PathNewVisual(1, :) > max(real(N1PathOldVisual))))
+            handles.CAField.XLim = [min(N1PathNewVisual(1, :)) max(N1PathNewVisual(1, :))];
+        end
+
+        if (any(N1PathNewVisual(2, :) < min(imag(N1PathOldVisual))) || any(N1PathNewVisual(2, :) > max(imag(N1PathOldVisual))))
+            handles.CAField.YLim = [min(N1PathNewVisual(2, :)) max(N1PathNewVisual(2, :))];
+        end
+
+        handles.CAField.YTick = [min(N1PathNewVisual(2, :)):imStep:max(N1PathNewVisual(2, :))];
+        handles.CAField.XTick = [min(N1PathNewVisual(1, :)):reStep:max(N1PathNewVisual(1, :))];
+
+        ImLength = max(N1PathNewVisual(2, :)) - min(N1PathNewVisual(2, :));
+        ReLength = max(N1PathNewVisual(1, :)) - min(N1PathNewVisual(1, :));
+
+        Coeff = ReLength - ImLength;
+
+        if Coeff ~= 0
+
+            if Coeff < 0
+                Coeff = abs(Coeff);
+
+                handles.CAField.XLim = [min(N1PathNewVisual(1, :)) - Coeff / 2 max(N1PathNewVisual(1, :)) + Coeff / 2];
+
+            else
+                
+                handles.CAField.YLim = [min(N1PathNewVisual(2, :)) - Coeff / 2 max(N1PathNewVisual(2, :)) + Coeff / 2];
+
+            end
+
+        end
+
+        xticks('auto');
+        yticks('auto');
+
+        handles.CAField.XGrid = 'on';
+        handles.CAField.YGrid = 'on';
+
+        if newPartPathLength < 15
+            clrbr = colorbar('Ticks', [1:newPartPathLength] / newPartPathLength, 'TickLabels', {1:newPartPathLength});
         else
-
-            if ~isempty(N1PathNew)
-                handles.CAField.YLim = [min(N1Path(2, :)) - Coeff / 2 max(N1Path(2, :)) + Coeff / 2];
-            end
-
+            clrbr = colorbar('Ticks', [0, 0.2, 0.4, 0.6, 0.8, 1], ...
+                'TickLabels', {0, floor(newPartPathLength * 0.2), floor(newPartPathLength * 0.4), floor(newPartPathLength * 0.6), floor(newPartPathLength * 0.8), newPartPathLength - 1});
+            clrbr.Label.String = 'Число итераций';
         end
 
-    end
+        zoom on;
+        graphics.Axs = handles.CAField;
+        graphics.Clrbr = clrbr;
+        graphics.Clrmp = clrmp;
 
-    xticks('auto');
-    yticks('auto');
+        DataFormatting.PlotFormatting(contParms, ca, handles);
 
-    handles.CAField.XGrid = 'on';
-    handles.CAField.YGrid = 'on';
+        contParms.LastIters = length(N1Path);
+        contParms.Periods = period;
 
-    if iter < 15
-        clrbr = colorbar('Ticks', [1:iter] / iter, 'TickLabels', {1:iter});
-    else
-        clrbr = colorbar('Ticks', [0, 0.2, 0.4, 0.6, 0.8, 1], ...
-            'TickLabels', {0, floor(iter * 0.2), floor(iter * 0.4), floor(iter * 0.6), floor(iter * 0.8), iter - 1});
-        clrbr.Label.String = 'Число итераций';
-    end
-
-    DataFormatting.PlotFormatting(contParms, ca, handles);
-
-    zoom on;
-    contParms.LastIters = length(N1Path);
-    contParms.Periods = period;
-
-    graphics.Axs = handles.CAField;
-    graphics.Clrbr = clrbr;
-    graphics.Clrmp = clrmp;
-
-    N1Path = temp;
-
-    if resProc.isSave
-        resProc = SaveRes(resProc, ca, graphics, contParms, N1Path);
+        N1PathNew(1,1) = [];
+        N1PathNew(2,1) = [];
+        if resProc.isSave
+            resProc = SaveRes(resProc, ca, graphics, contParms, N1PathNew);
+        end
     end
 
     handles.ResetButton.Enable = 'on';
@@ -629,6 +711,8 @@ end
 
 %блок тестирования правильности нахождения элементов и всех типов границ
 %рассчет поля КА
+
+wb = waitbar(0,'Выполняется расчет...','WindowStyle','modal');
 for i = 1:itersCount
 
     try
@@ -643,9 +727,12 @@ for i = 1:itersCount
     for j = 1:ca_L
         cellArr(j) = UpdateNeighborsValues(ca, ca.Cells(j));
     end
+    waitbar(i/itersCount,wb,'Выполняется расчет...','WindowStyle','modal');
 
 end
 
+waitbar(1,wb,'Отрисовка...','WindowStyle','modal');
+axes(handles.CAField);
 
 modulesArr = zeros(1, ca_L);
 zbase = zeros(1, ca_L);
@@ -729,6 +816,7 @@ graphics.Clrbr = clrbr;
 graphics.Clrmp = clrmp;
 
 if resProc.isSave
+    waitbar(1,wb,'Сохранение выходных данных...','WindowStyle','modal');
     resProc = SaveRes(resProc, ca, graphics, contParms, []);
 end
 
@@ -737,6 +825,7 @@ setappdata(handles.output, 'ContParms', contParms);
 setappdata(handles.output, 'ResProc', resProc);
 handles.ResetButton.Enable = 'on';
 handles.SaveAllModelParamsB.Enable = 'on';
+delete(wb);
 
       
 
@@ -1321,16 +1410,26 @@ axis image;
 set(gca,'xtick',[]);
 set(gca,'ytick',[]);
 
+%%
+saveRes = getappdata(handles.output, 'SaveResults');
+saveRes.ResultsFilename = '';
+setappdata(handles.output, 'SaveResults', saveRes);
+
+setappdata(handles.output, 'IIteratedObject', []);
+setappdata(handles.output, 'calcParams', []);
+%%
+
 ca = getappdata(handles.output,'CurrCA');
 contParms = getappdata(handles.output,'ContParms');
+ResProc = getappdata(handles.output,'ResProc');
 FileWasRead=getappdata(handles.output,'FileWasRead');
 N1Path = getappdata(handles.output,'N1Path');
 
 ca = CellularAutomat(ca.FieldType, ca.NeighborhoodType, ca.BordersType, ca.N, ca.Base, ca.Lambda, ca.Zbase, ca.Miu0, ca.Miu, [1 1 1 1 1 1 1 1]);
 
-% ControlParams.GetSetCustomImag(false);
 contParms.IsReady2Start=false;
 contParms.IterCount=1;
+ResProc.Filename=[];
 
 N1Path=[];
 
@@ -1338,11 +1437,13 @@ FileWasRead=false;
 
 setappdata(handles.output,'CurrCA',ca);
 setappdata(handles.output,'ContParms',contParms);
+setappdata(handles.output,'ResProc',ResProc);
 setappdata(handles.output,'FileWasRead',FileWasRead);
 setappdata(handles.output,'N1Path',N1Path);
 
 
 handles.SaveAllModelParamsB.Enable='off';
+handles.VisualIteratedObjectMenu.Visible='off';
 handles.LambdaMenu.Enable='on';
 
 if contParms.SingleOrMultipleCalc
@@ -1354,7 +1455,7 @@ if contParms.SingleOrMultipleCalc
         handles.DistributEndEdit.Enable='off';
         handles.Z0SourcePathButton.Enable='off';
         handles.ReadZ0SourceButton.Enable='off';
-        handles.LambdaMenu.Enable='off';
+%         handles.LambdaMenu.Enable='off';
         handles.MaxPeriodEdit.Enable='on';
     else
         handles.DistributionTypeMenu.Enable='on';
@@ -1422,7 +1523,7 @@ if handles.CustomIterFuncCB.Value ~= 1
     handles.UsersBaseImagEdit.Enable = 'off';
     handles.BaseImagMenu.Enable = 'on';
 else
-    handles.LambdaMenu.Enable = 'off';
+%     handles.LambdaMenu.Enable = 'off';
     handles.BaseImagMenu.Enable = 'off';
     handles.UsersBaseImagEdit.Enable = 'on';
 end
@@ -1483,10 +1584,16 @@ end
 
 % --- Executes on button press in SaveResPathButton.
 function SaveResPathButton_Callback(hObject, eventdata, handles)
-resProc=getappdata(handles.output,'ResProc');
-resProc.ResPath = uigetdir('C:\');
-setappdata(handles.output,'ResProc',resProc);
-handles.SaveResPathEdit.String=resProc.ResPath;
+saveRes=getappdata(handles.output,'SaveResults');
+
+directory = uigetdir('C:\');
+if(directory)
+    saveRes.ResultsPath = directory;
+    saveRes.IsSave = true;
+end
+setappdata(handles.output, 'SaveResults', saveRes);
+
+handles.SaveResPathEdit.String=saveRes.ResultsPath;
 
 % hObject    handle to SaveResPathButton (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -1495,22 +1602,19 @@ handles.SaveResPathEdit.String=resProc.ResPath;
 
 % --- Executes on button press in SaveCellsCB.
 function SaveCellsCB_Callback(hObject, eventdata, handles)
-resProc=getappdata(handles.output,'ResProc');
-if hObject.Value==1
+saveRes=getappdata(handles.output,'SaveResults');
+if hObject.Value == 1
     
-    resProc.isSave=1;
-    resProc.isSaveCA=1;
+    saveRes.IsSaveData=1;
     
     set(handles.FileTypeMenu,'Enable','on');
 else
-    if ~resProc.isSaveFig
-        resProc.isSave=0;
-    end
-    resProc.isSaveCA=0;
+    saveRes.IsSaveData = 0;
+    hObject.Value = 0;
     
     set(handles.FileTypeMenu,'Enable','off');
 end
-setappdata(handles.output,'ResProc',resProc);
+setappdata(handles.output, 'SaveResults', saveRes);
 % hObject    handle to SaveCellsCB (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -1520,21 +1624,19 @@ setappdata(handles.output,'ResProc',resProc);
 
 % --- Executes on button press in SaveFigCB.
 function SaveFigCB_Callback(hObject, eventdata, handles)
-resProc=getappdata(handles.output,'ResProc');
-if hObject.Value==1
-    resProc.isSave=1;
-    resProc.isSaveFig=1;
+saveRes=getappdata(handles.output,'SaveResults');
+if hObject.Value == 1
+
+    saveRes.IsSaveFig=1;
     
     set(handles.FigTypeMenu,'Enable','on');
 else
-    if ~resProc.isSaveCA
-        resProc.isSave=0;
-    end
-    resProc.isSaveFig=0;
+    saveRes.IsSaveFig=0;
+    hObject.Value = 0;
     
     set(handles.FigTypeMenu,'Enable','off');
 end
-setappdata(handles.output,'ResProc',resProc);
+setappdata(handles.output, 'SaveResults', saveRes);
 % hObject    handle to SaveFigCB (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -1544,16 +1646,16 @@ setappdata(handles.output,'ResProc',resProc);
 
 % --- Executes on selection change in FileTypeMenu.
 function FileTypeMenu_Callback(hObject, eventdata, handles)
-resProc=getappdata(handles.output,'ResProc');
+saveRes=getappdata(handles.output,'SaveResults');
 
 switch hObject.Value
     case 1
-        resProc.CellsValuesFileFormat=1;
+        saveRes.DataFileFormat=1;
     case 2
-        resProc.CellsValuesFileFormat=0;
+        saveRes.DataFileFormat=0;
 end
 
-setappdata(handles.output,'ResProc',resProc);
+setappdata(handles.output, 'SaveResults', saveRes);
 % hObject    handle to FileTypeMenu (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -1578,18 +1680,18 @@ end
 
 % --- Executes on selection change in FigTypeMenu.
 function FigTypeMenu_Callback(hObject, eventdata, handles)
-resProc=getappdata(handles.output,'ResProc');
+saveRes=getappdata(handles.output,'SaveResults');
 
 switch hObject.Value
     case 1
-        resProc.FigureFileFormat=1;
+        saveRes.FigureFileFormat=1;
     case 2
-        resProc.FigureFileFormat=2;
+        saveRes.FigureFileFormat=2;
     case 3
-        resProc.FigureFileFormat=3;
+        saveRes.FigureFileFormat=3;
 end
 
-setappdata(handles.output,'ResProc',resProc);
+setappdata(handles.output, 'SaveResults', saveRes);
 % hObject    handle to FigTypeMenu (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2031,7 +2133,7 @@ if(~isempty(regexp(handles.NFieldEdit.String,'^\d+$')))
         handles.ClosedBordersRB.Enable ='off';
         handles.NeumannRB.Enable ='off';
         handles.MooreRB.Enable ='off';
-        handles.LambdaMenu.Enable='off';
+%         handles.LambdaMenu.Enable='off';
         handles.LambdaMenu.Value=5;
         
         handles.DistributStartEdit.String='';
@@ -3085,9 +3187,39 @@ end
 
 % --- Executes on button press in SaveParamsButton.
 function SaveParamsButton_Callback(hObject, eventdata, handles)
-error=false;
-errorStr='Ошибки в текстовых полях: ';
+
+modelingTypeParams = strcat(handles.NFieldEdit.String, handles.CalcGroup.SelectedObject.Tag);
+
+switch modelingTypeParams
+    case '1SingleCalcRB'
+        if isempty(getappdata(handles.output, 'IIteratedObject'))
+            [obj] = IteratedPoint();
+            [obj] = Initialization(obj, handles);
+
+            if isempty(obj)
+                return;
+            end
+
+            setappdata(handles.output, 'IIteratedObject', obj);
+        end
+
+        [calcParams] = ModelingParamsForPath.ModelingParamsInitialization(handles);
+        if isempty(calcParams)
+            return;
+        end
+        setappdata(handles.output, 'calcParams', calcParams);
+
+        return;
+        
+    case 'MultipleCalcRB'
+
+    otherwise
+
+end
+
+
 contParms = getappdata(handles.output,'ContParms');
+error = false;
 
 Nerror=false;
 if contParms.SingleOrMultipleCalc
@@ -3251,7 +3383,7 @@ end
 if(isempty(regexp(handles.z0Edit.String,'^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')))
     numErrors(1)=true;
 else
-    if ~Nerror && handles.NFieldEdit.String=="1" && contParms.SingleOrMultipleCalc
+    if ~Nerror && handles.NFieldEdit.String=='1' && contParms.SingleOrMultipleCalc
         if isempty(currCA.Cells)
             currCA.Cells=CACell(str2double(handles.z0Edit.String), str2double(handles.z0Edit.String), [0 1 1], [0 0 0], 0, 1);
         end
@@ -3644,7 +3776,7 @@ end
 function BaseImagMenu_Callback(hObject, eventdata, handles)
 
 if str2double(handles.NFieldEdit.String)==1
-    handles.LambdaMenu.Enable='off';
+%     handles.LambdaMenu.Enable='off';
 else
     handles.LambdaMenu.Enable='on';
 end
@@ -3965,7 +4097,7 @@ end
 
 if handles.CustomIterFuncCB.Value==1
     handles.BaseImagMenu.Enable='off';
-    handles.LambdaMenu.Enable='off';
+%     handles.LambdaMenu.Enable='off';
     
     handles.UsersBaseImagEdit.Enable='on';
 else
@@ -4894,7 +5026,7 @@ function CustomIterFuncCB_Callback(hObject, eventdata, handles)
 
 if hObject.Value==1
     handles.BaseImagMenu.Enable='off';
-    handles.LambdaMenu.Enable='off';
+%     handles.LambdaMenu.Enable='off';
     
     handles.UsersBaseImagEdit.Enable='on';
 else
@@ -4902,7 +5034,7 @@ else
     
     handles.LambdaMenu.Enable='on';
     if handles.NFieldEdit.String=='1'
-        handles.LambdaMenu.Enable='off';
+%         handles.LambdaMenu.Enable='off';
     end
     
     handles.UsersBaseImagEdit.Enable='off';
@@ -4940,5 +5072,20 @@ setappdata(handles.output, 'CellWeightsSettings', cellWeightsSettings);
 function VisualizationSettingsMenuItem_Callback(hObject, eventdata, handles)
 visualizationSettings = VisualizationSettings;
 % hObject    handle to VisualizationSettingsMenuItem (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
+% --------------------------------------------------------------------
+function PointPathSettingsMenuItem_Callback(hObject, eventdata, handles)
+% hObject    handle to PointPathSettingsMenuItem (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
+% --------------------------------------------------------------------
+function PointVisualizationSettingsMenuItem_Callback(hObject, eventdata, handles)
+pointPathVisualSettings = PointPathVisualSettings('UserData',handles);
+% hObject    handle to PointVisualizationSettingsMenuItem (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)

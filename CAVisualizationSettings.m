@@ -1,26 +1,26 @@
-function varargout = VisualizationSettings(varargin)
-% VISUALIZATIONSETTINGS MATLAB code for VisualizationSettings.fig
-%      VISUALIZATIONSETTINGS, by itself, creates a new VISUALIZATIONSETTINGS or raises the existing
+function varargout = CAVisualizationSettings(varargin)
+% CAVisualizationSettings MATLAB code for CAVisualizationSettings.fig
+%      CAVisualizationSettings, by itself, creates a new CAVisualizationSettings or raises the existing
 %      singleton*.
 %
-%      H = VISUALIZATIONSETTINGS returns the handle to a new VISUALIZATIONSETTINGS or the handle to
+%      H = CAVisualizationSettings returns the handle to a new CAVisualizationSettings or the handle to
 %      the existing singleton*.
 %
-%      VISUALIZATIONSETTINGS('CALLBACK',hObject,eventData,handles,...) calls the local
-%      function named CALLBACK in VISUALIZATIONSETTINGS.M with the given input arguments.
+%      CAVisualizationSettings('CALLBACK',hObject,eventData,handles,...) calls the local
+%      function named CALLBACK in CAVisualizationSettings.M with the given input arguments.
 %
-%      VISUALIZATIONSETTINGS('Property','Value',...) creates a new VISUALIZATIONSETTINGS or raises the
+%      CAVisualizationSettings('Property','Value',...) creates a new CAVisualizationSettings or raises the
 %      existing singleton*.  Starting from the left, property value pairs are
-%      applied to the GUI before VisualizationSettings_OpeningFcn gets called.  An
+%      applied to the GUI before CAVisualizationSettings_OpeningFcn gets called.  An
 %      unrecognized property name or invalid value makes property application
-%      stop.  All inputs are passed to VisualizationSettings_OpeningFcn via varargin.
+%      stop.  All inputs are passed to CAVisualizationSettings_OpeningFcn via varargin.
 %
 %      *See GUI Options on GUIDE's Tools menu.  Choose "GUI allows only one
 %      instance to run (singleton)".
 %
 % See also: GUIDE, GUIDATA, GUIHANDLES
 
-% Edit the above text to modify the response to help VisualizationSettings
+% Edit the above text to modify the response to help CAVisualizationSettings
 
 % Last Modified by GUIDE v2.5 07-Jan-2021 19:23:55
 
@@ -28,8 +28,8 @@ function varargout = VisualizationSettings(varargin)
 gui_Singleton = 1;
 gui_State = struct('gui_Name',       mfilename, ...
                    'gui_Singleton',  gui_Singleton, ...
-                   'gui_OpeningFcn', @VisualizationSettings_OpeningFcn, ...
-                   'gui_OutputFcn',  @VisualizationSettings_OutputFcn, ...
+                   'gui_OpeningFcn', @CAVisualizationSettings_OpeningFcn, ...
+                   'gui_OutputFcn',  @CAVisualizationSettings_OutputFcn, ...
                    'gui_LayoutFcn',  [] , ...
                    'gui_Callback',   []);
 if nargin && ischar(varargin{1})
@@ -44,8 +44,8 @@ end
 % End initialization code - DO NOT EDIT
 
 
-% --- Executes just before VisualizationSettings is made visible.
-function VisualizationSettings_OpeningFcn(hObject, eventdata, handles, varargin)
+% --- Executes just before CAVisualizationSettings is made visible.
+function CAVisualizationSettings_OpeningFcn(hObject, eventdata, handles, varargin)
 axes(handles.ColorMapAxes);
 clrMap = meshgrid(0:0.001:0.255, 0:0.001:0.255);
 pcolor(0:255, 0:255, clrMap);
@@ -57,20 +57,20 @@ colormap('jet');
 % hObject    handle to figure
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-% varargin   command line arguments to VisualizationSettings (see VARARGIN)
+% varargin   command line arguments to CAVisualizationSettings (see VARARGIN)
 
-% Choose default command line output for VisualizationSettings
+% Choose default command line output for CAVisualizationSettings
 handles.output = hObject;
 
 % Update handles structure
 guidata(hObject, handles);
 
-% UIWAIT makes VisualizationSettings wait for user response (see UIRESUME)
+% UIWAIT makes CAVisualizationSettings wait for user response (see UIRESUME)
 % uiwait(handles.figure1);
 
 
 % --- Outputs from this function are returned to the command line.
-function varargout = VisualizationSettings_OutputFcn(hObject, eventdata, handles) 
+function varargout = CAVisualizationSettings_OutputFcn(hObject, eventdata, handles) 
 % varargout  cell array for returning output args (see VARARGOUT);
 % hObject    handle to figure
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -144,7 +144,7 @@ close(handles.output);
 % --- Executes on button press in SetVSettingsBtn.
 function SetVSettingsBtn_Callback(hObject, eventdata, handles)
 
-ResultsProcessing.GetSetVisualizationSettings({handles.VisualiseDataMenu.Value, cell2mat(handles.ColorMapMenu.String(handles.ColorMapMenu.Value))});
+ResultsProcessing.GetSetCAVisualizationSettings({handles.VisualiseDataMenu.Value, cell2mat(handles.ColorMapMenu.String(handles.ColorMapMenu.Value))});
 
 msgbox('Настройки визуализации поля КА успешно заданы.');
 close(handles.output);
