@@ -22,17 +22,72 @@ classdef SaveResults
             obj.FigureFileFormat = 1;
         end
 
-        function obj = SavePointResults(obj, res, point, calcParms)
+        function obj = SaveModelingResults(obj, res, iteratedObject, calcParms, graphics)
 
             arguments
                 obj SaveResults
                 res (2, :) double;
-                point IteratedPoint
+                iteratedObject IIteratedObject
                 calcParms ModelingParamsForPath
+                graphics struct
             end
 
             if obj.IsSaveData
-                obj = SavePointPath(obj, res, point, calcParms);
+
+                switch class(iteratedObject)
+                    case 'IteratedPoint'
+                        obj = SavePointPath(obj, res, iteratedObject, calcParms);
+                end
+
+            end
+
+            %{
+            if obj.IsSaveFig
+                obj = SaveFig(obj, graphics);
+            end
+
+            %}
+
+        end
+
+        function obj = SaveFig(obj, graphics)
+
+            arguments
+                obj SaveResults
+                graphics struct
+            end
+
+            fig = graphics.Axs;
+
+            if obj.FigureFileFormat == 1
+                h = figure;
+                set(h, 'units', 'normalized', 'outerposition', [0 0 1 1])
+                colormap(graphics.Clrmp);
+                h.CurrentAxes = copyobj([fig graphics.Clrbr], h);
+                h.Visible = 'on';
+            else
+                set(fig, 'Units', 'pixel');
+                pos = fig.Position;
+                marg = 40;
+
+                if contParms.SingleOrMultipleCalc
+                    rect = [-2 * marg, -marg, pos(3) + 2.5 * marg, pos(4) + 2 * marg];
+                else
+                    rect = [-2 * marg, -1.5 * marg, pos(3) + 4.5 * marg, pos(4) + 2.5 * marg];
+                end
+
+                photo = getframe(fig, rect);
+                [photo, cmp] = frame2im(photo);
+                photoName = strcat(obj.ResPath, '\CAField');
+
+                switch obj.FigureFileFormat
+                    case 2
+                        imwrite(photo, jet(256), strcat(photoName, '.png'));
+                    case 3
+                        imwrite(photo, strcat(photoName, '.jpg'), 'jpg', 'Quality', 100);
+                end
+
+                set(fig, 'Units', 'normalized');
             end
 
         end
@@ -80,18 +135,16 @@ classdef SaveResults
                         fprintf(fileID, strcat('\n\nИтог: траектория с периодом: ', num2str(point.Fate), '\n'));
                 end
 
-                fprintf(fileID, 'Re\tIm\tFate\tlength\n');
-                fclose(fileID);
+                fprintf(fileID, 'Re\t\t\tIm\tFate\tlength\n');
 
-                dlmwrite(obj.ResultsFilename, [real(res(end)) imag(res(end)) point.Fate point.LastIterNum - 1], '-append', 'delimiter', '\t');
-
-                fileID = fopen(obj.ResultsFilename, 'a');
+                fprintf(fileID, '%.8e\t%.8e\t%d\t%d\r\n', res(1, end), res(2, end), point.Fate, point.LastIterNum - 1);
+                
                 fprintf(fileID, '\n\nТраектория:\n');
-                fprintf(fileID, 'iter\tRe\tIm\n');
+                fprintf(fileID, 'iter\t\tRe\t\tIm\n');
                 fclose(fileID);
             else
                 %8,12 15 17
-                txtCell = SaveResults.txt2Cell(obj);
+                txtCell = SaveResults.txt2Cell(obj.ResultsFilename);
                 lastIter = str2double(regexp(txtCell{end - 2}, '^\d+\s', 'match')) + 1;
 
                 txtCell{7} = strcat('Максимальный период=', num2str(calcParms.MaxPeriod), ';Порог бесконечности=', strcat('1e+', num2str(calcParms.InfVal)), ';Порог сходимости=', num2str(calcParms.EqualityVal));
@@ -113,25 +166,40 @@ classdef SaveResults
                 txtCell{14} = strcat('Итог: ', finishStr);
                 txtCell{16} = cell2mat(strcat({num2str(real(res(end)))}, {'	'}, {num2str(imag(res(end)))}, {'	'}, {num2str(point.Fate)}, {'	'}, {num2str(point.LastIterNum)}));
 
-                SaveResults.cell2Txt(obj, txtCell);
+                SaveResults.cell2Txt(obj.ResultsFilename, txtCell, 'w');
             end
 
             iters = (lastIter:(lastIter - 1) + length(res(1, :)));
-
-            iters = iters';
-            res = res';
-            res = [iters res];
-            dlmwrite(obj.ResultsFilename, res, '-append', 'delimiter', '\t', 'precision', str2double(regexp(num2str(calcParms.EqualityVal), '\d+$', 'match')));
-            dlmwrite(obj.ResultsFilename, ' ', '-append');
-
+            SaveResults.createAndWriteTable2Txt(obj.ResultsFilename, iters, res);
         end
 
     end
 
     methods (Static)
 
-        function A = txt2Cell(obj)
-            fileID = fopen(obj.ResultsFilename, 'r');
+        function createAndWriteTable2Txt(fileName, iters, res)
+
+            arguments
+                fileName (1, :) char
+                iters (1, :) double
+                res (:, :) double
+            end
+
+            iters = iters';
+            res = res';
+            res = [arrayfun(@(iter) {iter}, iters) arrayfun(@(item) {num2str(item, '%.8e')}, res)];
+            writeableRes = cell2table(res);
+
+            writetable(writeableRes, 'table.txt', 'Delimiter', '\t', 'WriteVariableNames', false);
+
+            txtCell = SaveResults.txt2Cell('table.txt');
+            SaveResults.cell2Txt(fileName, txtCell, 'a');
+            delete table.txt;
+
+        end
+
+        function A = txt2Cell(fileName)
+            fileID = fopen(fileName, 'r');
             i = 1;
             tline = fgetl(fileID);
             A{i} = tline;
@@ -145,8 +213,8 @@ classdef SaveResults
             fclose(fileID);
         end
 
-        function cell2Txt(obj, A)
-            fileID = fopen(obj.ResultsFilename, 'w');
+        function cell2Txt(fileName, A, permission)
+            fileID = fopen(fileName, permission);
 
             for i = 1:numel(A)
 
@@ -175,6 +243,111 @@ classdef SaveResults
             end
 
         end
+
+        %{
+
+        function writePointResults(fileName, iters, res)
+
+            arguments
+                fileName (1, :) char
+                iters (1, :) double
+                res (2, :) double
+            end
+
+            iters = iters';
+            res = res';
+            res = [arrayfun(@(iter) {iter}, iters) arrayfun(@(item) {str2double(num2str(item, '%.8e'))}, res)];
+
+            rowsCount = 1:length(iters);
+            writeableRes = arrayfun(@(ind) res(ind, :), rowsCount, 'UniformOutput', false);
+
+            fileID = fopen(fileName, 'a');
+            arrayfun(@(formattedRow) fprintf(fileID, '%d\t%.8e\t%.8e\r\n', formattedRow{1}{1}, formattedRow{1}{2}, formattedRow{1}{3}), writeableRes, 'UniformOutput', false);
+            fclose(fileID);
+        end
+
+        function len = writeMatrix2txt(filename, matrix, delimiter)
+
+            arguments
+                filename (1, :) char
+                matrix (:, :) double
+                delimiter (1, :) char
+            end
+
+            lenArr = arrayfun(@(col) SaveResults.getLongestItemLength(col{1}), SaveResults.getMatrixColumns(matrix));
+
+            formattedRows = arrayfun(@(row) SaveResults.getFormattedRow(row{1}, delimiter, lenArr), SaveResults.getMatrixRows(matrix));
+
+            arrayfun(@(formattedRow) dlmwrite(filename, formattedRow{1}, '-append', 'delimiter', ''), formattedRows, 'UniformOutput', false);
+
+        end
+
+        function formattedRow = getFormattedRow(row, delimiter, longestItemsLength)
+
+            arguments
+                row (1, :) double;
+                delimiter (1, :) char;
+                longestItemsLength (1, :) double;
+            end
+
+            formattedRow = {arrayfun(@(item, len) {SaveResults.getFormattedItem(item, len, delimiter)}, row, longestItemsLength)};
+
+        end
+
+        function formattedItem = getFormattedItem(item, longestItemLen, baseDelimiter)
+
+            arguments
+                item double;
+                longestItemLen double;
+                baseDelimiter (1, :) char;
+            end
+
+            spaceSign = ' ';
+            itemStr = num2str(item, '%.8e');
+            delimiter = cell(1, longestItemLen - length(itemStr));
+
+            baseDelimiter = {baseDelimiter};
+
+            if ~isempty(delimiter)
+                delimiter(:) = {spaceSign};
+                baseDelimiter = [delimiter baseDelimiter];
+            end
+
+            formattedItem = cell2mat([itemStr {cell2mat(baseDelimiter)}]);
+
+        end
+
+        function rows = getMatrixRows(matrix)
+
+            arguments
+                matrix (:, :) double;
+            end
+
+            rows = arrayfun(@(ind) {matrix(ind, :)}, 1:length(matrix(:, 1)));
+
+        end
+
+        function cols = getMatrixColumns(matrix)
+
+            arguments
+                matrix (:, :) double;
+            end
+
+            cols = arrayfun(@(ind) {matrix(:, ind)}, 1:length(matrix(1, :)));
+
+        end
+
+        function len = getLongestItemLength(matrixColumn)
+
+            arguments
+                matrixColumn (1, :) double;
+            end
+
+            len = max(arrayfun(@(item) length(cell2mat(item)), arrayfun(@(item) {num2str(item, '%.8e')}, matrixColumn)));
+
+        end
+
+        %}
 
     end
 

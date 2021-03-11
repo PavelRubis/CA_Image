@@ -12,30 +12,32 @@ classdef PointPathVisualisationOptions < VisualisationOptions
 
     methods (Static)
 
-        function out = GetSetPointPathVisualisationOptions(colorMap, xAxesdataProcessingFunc, yAxesdataProcessingFunc, xAxescolorMapLabel, yAxescolorMapLabel)
+        function out = GetSetPointPathVisualisationOptions(colorMap, xAxesdataProcessingFunc, yAxesdataProcessingFunc, xAxescolorMapLabel, yAxescolorMapLabel, visualpath)
 
             persistent clrMap;
             persistent xAxesdataFunc;
             persistent yAxesdataFunc;
             persistent xAxesLabel;
             persistent yAxesLabel;
+            persistent visualPath;
 
-            if nargin == 5
+            if nargin == 6
                 clrMap = colorMap;
                 xAxesdataFunc = xAxesdataProcessingFunc;
                 yAxesdataFunc = yAxesdataProcessingFunc;
                 xAxesLabel = xAxescolorMapLabel;
                 yAxesLabel = yAxescolorMapLabel;
+                visualPath = visualpath;
             end
 
-            out = PointPathVisualisationOptions(clrMap, xAxesdataFunc, yAxesdataFunc, xAxesLabel, yAxesLabel);
+            out = PointPathVisualisationOptions(clrMap, xAxesdataFunc, yAxesdataFunc, xAxesLabel, yAxesLabel, visualPath);
         end
 
     end
 
     methods
 
-        function obj = PointPathVisualisationOptions(colorMap, xAxesdataProcessingFunc, yAxesdataProcessingFunc, xAxescolorMapLabel, yAxescolorMapLabel)
+        function obj = PointPathVisualisationOptions(colorMap, xAxesdataProcessingFunc, yAxesdataProcessingFunc, xAxescolorMapLabel, yAxescolorMapLabel, visualpath)
 
             arguments
                 colorMap (1, :) char
@@ -43,6 +45,7 @@ classdef PointPathVisualisationOptions < VisualisationOptions
                 yAxesdataProcessingFunc function_handle
                 xAxescolorMapLabel (1, :) char
                 yAxescolorMapLabel (1, :) char
+                visualpath (:,:) double
             end
 
             obj.ColorMap = colorMap;
@@ -51,10 +54,11 @@ classdef PointPathVisualisationOptions < VisualisationOptions
             obj.YAxesdataProcessingFunc = yAxesdataProcessingFunc;
             obj.XAxescolorMapLabel = xAxescolorMapLabel;
             obj.YAxescolorMapLabel = yAxescolorMapLabel;
+            obj.VisualPath = visualpath;
 
         end
 
-        function [newPathPart obj] = PrepareDataAndAxes(obj, point, handles)
+        function [newPathPart obj graphics] = PrepareDataAndAxes(obj, point, handles)
 
             arguments
                 obj PointPathVisualisationOptions

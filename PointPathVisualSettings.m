@@ -174,7 +174,9 @@ switch handles.VisualiseDataMenu.Value
         yFunc = @(N1PathNewVisual)log(abs(N1PathNewVisual(2, :) + 1)) / log(10);
 end
 
-PointPathVisualisationOptions.GetSetPointPathVisualisationOptions(cell2mat(handles.ColorMapMenu.String(handles.ColorMapMenu.Value)), xFunc, yFunc, xLabel, yLabel);
+vsOptions = PointPathVisualisationOptions.GetSetPointPathVisualisationOptions;
+
+PointPathVisualisationOptions.GetSetPointPathVisualisationOptions(cell2mat(handles.ColorMapMenu.String(handles.ColorMapMenu.Value)), xFunc, yFunc, xLabel, yLabel, vsOptions.VisualPath);
 IteratedPoint.VisualPointCallBack(handles.output.UserData);
 
 msgbox('Настройки визуализации траектории точки успешно заданы.');

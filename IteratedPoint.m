@@ -31,7 +31,7 @@ classdef IteratedPoint < IIteratedObject
             end
 
             obj = SetInitValueAndFuncParams(obj, handles);
-            obj = GetIteratedFuncStr(obj, handles);
+            obj = IteratedPoint.GetIteratedFuncStr(obj, handles);
             [obj, errorStr] = CreateIteratedFunc(obj, handles);
 
             if isempty(obj)
@@ -77,48 +77,6 @@ classdef IteratedPoint < IIteratedObject
             for ind = 1:length(probalyParamsNames)
                 obj.FuncParams(probalyParamsNames{ind}) = probalyParamsValues(ind);
             end
-
-        end
-
-        function [obj] = GetIteratedFuncStr(obj, handles)
-
-            funcStr = '';
-
-            if ~handles.CustomIterFuncCB.Value
-
-                switch handles.BaseImagMenu.Value
-                    case 1
-                        funcStr = strcat(funcStr, '@(z)(exp(i * z))');
-                    case 2
-                        funcStr = strcat(funcStr, '@(z)(z^2+mu)');
-                    case 3
-                        funcStr = strcat(funcStr, '@(z)(1)');
-
-                end
-
-                switch handles.LambdaMenu.Value
-
-                    case 1
-                        funcStr = strcat(funcStr, '*(mu+z)');
-                    case 2
-                        funcStr = strcat(funcStr, '*(mu+(mu0*abs(z-(eq))))');
-
-                    case 3
-                        funcStr = strcat(funcStr, '*(mu+(mu0*abs(z)))');
-
-                    case 4
-                        funcStr = strcat(funcStr, '*(mu+(mu0*(z-(eq))))');
-
-                    case 5
-                        funcStr = strcat(funcStr, '*(mu+mu0)');
-
-                end
-
-            else
-                funcStr = strcat(funcStr, '@(z)', handles.UsersBaseImagEdit.String);
-            end
-
-            obj.IteratedFuncStr = funcStr;
 
         end
 
@@ -282,6 +240,48 @@ classdef IteratedPoint < IIteratedObject
     end
 
     methods (Static)
+
+        function [obj] = GetIteratedFuncStr(obj, handles)
+
+            funcStr = '';
+
+            if ~handles.CustomIterFuncCB.Value
+
+                switch handles.BaseImagMenu.Value
+                    case 1
+                        funcStr = strcat(funcStr, '@(z)(exp(i * z))');
+                    case 2
+                        funcStr = strcat(funcStr, '@(z)(z^2+mu)');
+                    case 3
+                        funcStr = strcat(funcStr, '@(z)(1)');
+
+                end
+
+                switch handles.LambdaMenu.Value
+
+                    case 1
+                        funcStr = strcat(funcStr, '*(mu+z)');
+                    case 2
+                        funcStr = strcat(funcStr, '*(mu+(mu0*abs(z-(eq))))');
+
+                    case 3
+                        funcStr = strcat(funcStr, '*(mu+(mu0*abs(z)))');
+
+                    case 4
+                        funcStr = strcat(funcStr, '*(mu+(mu0*(z-(eq))))');
+
+                    case 5
+                        funcStr = strcat(funcStr, '*(mu+mu0)');
+
+                end
+
+            else
+                funcStr = strcat(funcStr, '@(z)', handles.UsersBaseImagEdit.String);
+            end
+
+            obj.IteratedFuncStr = funcStr;
+
+        end
 
         function zBase = calcZBase(mu)
 

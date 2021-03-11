@@ -53,7 +53,7 @@ xFunc = @(z)z(1, :);
 yLabel = 'Im(z)';
 yFunc = @(z)z(2, :);
 
-VisOptions = PointPathVisualisationOptions('jet', xFunc, yFunc, xLabel, yLabel);
+VisOptions = PointPathVisualisationOptions('jet', xFunc, yFunc, xLabel, yLabel, []);
 setappdata(hObject, 'VisOptions', VisOptions);
 
 saveRes = SaveResults();
@@ -135,17 +135,18 @@ for iter=1:calcParams.IterCount
     
 end
 
-[res visualOptions] = PrepareDataAndAxes(visualOptions, IteratedObject, handles);
+[res visualOptions graphics] = PrepareDataAndAxes(visualOptions, IteratedObject, handles);
 
 
 if saveRes.IsSave
-    saveRes = SavePointResults(saveRes, res, IteratedObject, calcParams);
+    saveRes = SaveModelingResults(saveRes, res, IteratedObject, calcParams, graphics);
 end
 
 AfterModeling(IteratedObject, handles);
 
 setappdata(handles.output, 'IIteratedObject', IteratedObject);
 setappdata(handles.output, 'VisOptions', visualOptions);
+PointPathVisualisationOptions.GetSetPointPathVisualisationOptions(visualOptions.ColorMap, visualOptions.XAxesdataProcessingFunc, visualOptions.YAxesdataProcessingFunc, visualOptions.XAxescolorMapLabel, visualOptions.YAxescolorMapLabel, visualOptions.VisualPath);
 setappdata(handles.output, 'SaveResults',saveRes);
 handles.ResetButton.Enable='on';
 
