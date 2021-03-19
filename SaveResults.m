@@ -37,16 +37,11 @@ classdef SaveResults
                 switch class(iteratedObject)
                     case 'IteratedPoint'
                         obj = SavePointPath(obj, res, iteratedObject, calcParms);
+                    case 'IteratedMatrix'
+                        obj = SaveMatrixPath(obj, iteratedObject, calcParms);
                 end
 
             end
-
-            %{
-            if obj.IsSaveFig
-                obj = SaveFig(obj, graphics);
-            end
-
-            %}
 
         end
 
@@ -138,7 +133,7 @@ classdef SaveResults
                 fprintf(fileID, 'Re\t\t\tIm\tFate\tlength\n');
 
                 fprintf(fileID, '%.8e\t%.8e\t%d\t%d\r\n', res(1, end), res(2, end), point.Fate, point.LastIterNum - 1);
-                
+
                 fprintf(fileID, '\n\nТраектория:\n');
                 fprintf(fileID, 'iter\t\tRe\t\tIm\n');
                 fclose(fileID);
@@ -171,6 +166,65 @@ classdef SaveResults
 
             iters = (lastIter:(lastIter - 1) + length(res(1, :)));
             SaveResults.createAndWriteTable2Txt(obj.ResultsFilename, iters, res);
+        end
+
+        function obj = SaveMatrixPath(obj, matr, calcParms)
+            ConfFileName = strcat('\MultiCalc-', datestr(clock));
+            ConfFileName = strcat(ConfFileName, '.txt');
+            ConfFileName = strrep(ConfFileName, ':', '-');
+            ConfFileName = strcat(obj.ResPath, ConfFileName);
+
+            fileID = fopen(ConfFileName, 'w');
+            fprintf(fileID, strcat('Множественное Моделирование от- ', datestr(clock)));
+
+            fprintf(fileID, strcat('\n\nОтображение: ', func2str(contParms.ImageFunc)));
+
+            PrecisionParms = ControlParams.GetSetPrecisionParms;
+
+            fprintf(fileID, strcat('\n\n\nМаксимальный период=', num2str(ControlParams.GetSetMaxPeriod), '\nПорог бесконечности=', num2str(10^PrecisionParms(1)), '\nПорог сходимости=', num2str(PrecisionParms(2))));
+
+            switch contParms.WindowParamName
+                case 'z0'
+                    fprintf(fileID, strcat('\nz0=', num2str(complex(mean(contParms.ReRangeWindow), mean(contParms.ImRangeWindow))), '\nmu=', num2str(ca.Miu), '\nmu0=', num2str(ca.Miu0)));
+                otherwise
+                    fprintf(fileID, strcat('\nz0=', num2str(contParms.SingleParams(1)), '\nmu=', num2str(ca.Miu), '\nmu0=', num2str(ca.Miu0)));
+            end
+
+            fprintf(fileID, '\nКоличество итераций T=%f\n', length(Res) - 1);
+
+            fprintf(fileID, strcat('\nПараметр окна: ', contParms.WindowParamName));
+            fprintf(fileID, '\nДиапазон параметра окна: ');
+
+            paramStart = complex(contParms.ReRangeWindow(1), contParms.ImRangeWindow(1));
+            paramStep = complex(contParms.ReRangeWindow(2) - contParms.ReRangeWindow(1), contParms.ImRangeWindow(2) - contParms.ImRangeWindow(1));
+            paramEnd = complex(contParms.ReRangeWindow(end), contParms.ImRangeWindow(end));
+
+            paramStartSrt = strcat(num2str(paramStart), ' : ');
+            paramEndSrt = strcat(' : ', num2str(paramEnd));
+            paramSrt = strcat(paramStartSrt, num2str(paramStep));
+            paramSrt = strcat(paramSrt, paramEndSrt);
+            fprintf(fileID, strcat(paramSrt, '\n\n'));
+            fclose(fileID);
+            dlmwrite(ConfFileName, 'Re	Im	Fate	length', '-append', 'delimiter', '');
+
+            [X, Y] = meshgrid(contParms.ReRangeWindow, contParms.ImRangeWindow);
+            WindowParam = X + i * Y;
+            len = size(WindowParam);
+            resArr = cell(len);
+            resArr = arrayfun(@(re, im, p, n){[re im p n]}, real(WindowParam), imag(WindowParam), contParms.Periods, contParms.LastIters);
+
+            resArr = cell2mat(resArr);
+            resLen = size(resArr);
+
+            resArrNew = zeros(len(1) * len(2), 4);
+            c = 0;
+
+            for j = 1:4:resLen(2)
+                resArrNew(c * resLen(1) + 1:resLen(1) * (c + 1), :) = resArr(:, j:j + 3);
+                c = c + 1;
+            end
+
+            dlmwrite(ConfFileName, resArrNew, '-append', 'delimiter', '\t');
         end
 
     end

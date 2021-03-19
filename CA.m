@@ -90,7 +90,7 @@ handles.output = hObject;
 
 % Update handles structure
 guidata(hObject, handles);
-
+%parpool;
 
 % UIWAIT makes CA wait for user response (see UIRESUME)
 % uiwait(handles.MainWindow);
@@ -118,22 +118,32 @@ saveRes = getappdata(handles.output, 'SaveResults');
 [saveRes] = SaveResults.IsReady2Start(saveRes);
 
 visualOptions = getappdata(handles.output, 'VisOptions');
-%visualOptions = PointPathVisualisationOptions.GetSetPointPathVisualisationOptions;
 
 if any([isempty(IteratedObject) isempty(calcParams) isempty(saveRes)])
     return;
 end
 
-IteratedObject = BeforeModeling(IteratedObject);
-for iter=1:calcParams.IterCount
+switch class(IteratedObject)
+    case 'IteratedPoint'
 
-    IteratedObject = Iteration(IteratedObject);
+        for iter = 1:calcParams.IterCount
+            profile on;
+            IteratedObject = Iteration(IteratedObject, calcParams);
+            profile viewer;
 
-    if ~IsContinue(IteratedObject)
-        break;
-    end
-    
+            if ~IsContinue(IteratedObject)
+                break;
+            end
+
+        end
+
+    case 'IteratedMatrix'
+        profile on;
+        IteratedObject = Iteration(IteratedObject, calcParams);
+        profile viewer;
+
 end
+
 
 [res visualOptions graphics] = PrepareDataAndAxes(visualOptions, IteratedObject, handles);
 
@@ -142,11 +152,11 @@ if saveRes.IsSave
     saveRes = SaveModelingResults(saveRes, res, IteratedObject, calcParams, graphics);
 end
 
-AfterModeling(IteratedObject, handles);
-
 setappdata(handles.output, 'IIteratedObject', IteratedObject);
 setappdata(handles.output, 'VisOptions', visualOptions);
-PointPathVisualisationOptions.GetSetPointPathVisualisationOptions(visualOptions.ColorMap, visualOptions.XAxesdataProcessingFunc, visualOptions.YAxesdataProcessingFunc, visualOptions.XAxescolorMapLabel, visualOptions.YAxescolorMapLabel, visualOptions.VisualPath);
+if string(class(visualOptions)) ==  "PointPathVisualisationOptions"
+    PointPathVisualisationOptions.GetSetPointPathVisualisationOptions(visualOptions.ColorMap, visualOptions.XAxesdataProcessingFunc, visualOptions.YAxesdataProcessingFunc, visualOptions.XAxescolorMapLabel, visualOptions.YAxescolorMapLabel, visualOptions.VisualPath);
+end
 setappdata(handles.output, 'SaveResults',saveRes);
 handles.ResetButton.Enable='on';
 
@@ -278,12 +288,11 @@ if ~contParms.SingleOrMultipleCalc% в случае мультирассчета
 
     FStep = zeros(len);
     ItersCount = zeros(len);
-    ItersCount(:) = itersCount;
+    ItersCount(:) =  itersCount;
     Pathes = cell(len);
 
     wb = waitbar(0,'Выполняется расчет...','WindowStyle','modal');
 %     profile on;
-    %мультирассчет через arrayfun
     [z_New fStepNew Fcode Iters Periods] = arrayfun(@ControlParams.MakeMultipleCalcIter, WindowParam, Z_Old, Z_Old_1, ItersCount, ZParam, z_eqArr);
 %     profile viewer;
     waitbar(1,wb,'Отрисовка...');
@@ -3193,6 +3202,7 @@ modelingTypeParams = strcat(handles.NFieldEdit.String, handles.CalcGroup.Selecte
 
 switch modelingTypeParams
     case '1SingleCalcRB'
+
         if isempty(getappdata(handles.output, 'IIteratedObject'))
             [obj] = IteratedPoint();
             [obj] = Initialization(obj, handles);
@@ -3204,19 +3214,31 @@ switch modelingTypeParams
             setappdata(handles.output, 'IIteratedObject', obj);
         end
 
-        [calcParams] = ModelingParamsForPath.ModelingParamsInitialization(handles);
-        if isempty(calcParams)
+    case 'MultipleCalcRB'
+        [obj] = IteratedMatrix();
+        [obj] = Initialization(obj, handles);
+
+        if isempty(obj)
             return;
         end
-        setappdata(handles.output, 'calcParams', calcParams);
 
-        return;
-        
-    case 'MultipleCalcRB'
+        setappdata(handles.output, 'IIteratedObject', obj);
+        visualOptions = MatrixVisualisationOptions('jet');
+        setappdata(handles.output, 'VisOptions', visualOptions);
 
     otherwise
 
 end
+
+[calcParams] = ModelingParamsForPath.ModelingParamsInitialization(handles);
+
+if isempty(calcParams)
+    return;
+end
+
+setappdata(handles.output, 'calcParams', calcParams);
+
+return;
 
 
 contParms = getappdata(handles.output,'ContParms');

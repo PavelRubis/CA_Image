@@ -6,7 +6,7 @@ classdef IteratedPoint < IIteratedObject
         InitState double = nan;
         StatePath (1, :) double;
         FuncParams%containers.Map;
-        Fate double;
+        Fate double = Inf;
         LastIterNum double {mustBePositive, mustBeInteger};
 
         Step double {mustBePositive, mustBeInteger};
@@ -36,6 +36,8 @@ classdef IteratedPoint < IIteratedObject
 
             if isempty(obj)
                 errordlg(errorStr, 'Ошибки ввода')
+            else
+                obj = BeforeModeling(obj);
             end
 
         end
@@ -154,37 +156,17 @@ classdef IteratedPoint < IIteratedObject
             obj.StatePath = [obj.StatePath nan(1, ModelingParamsForPath.GetIterCount)];
         end
 
-        function [obj] = AfterModeling(obj, handles)
-
-            arguments
-                obj IteratedPoint
-                handles struct
-            end
-
-            GUIControlsOptions.GetSetUIControls(handles);
-            GUIControlsOptions.SetIteratedPointVisualMenu();
-
-        end
-
-        function [obj] = Iteration(obj)
-
-            arguments
-                obj IteratedPoint
-            end
+        function [obj] = Iteration(obj, calcParams)
 
             obj.StatePath(obj.Step) = obj.IteratedFunc(obj.StatePath(obj.Step - 1));
             obj.Step = obj.Step + 1;
-            [obj] = CheckConvergence(obj);
+            [obj] = CheckConvergence(obj, calcParams);
         end
 
-        function [obj] = CheckConvergence(obj)
+        function [obj] = CheckConvergence(obj, calcParams)
 
-            arguments
-                obj IteratedPoint
-            end
-
-            PrecisionParms = ModelingParamsForPath.GetSetPrecisionParms;
-            MaxPeriod = ModelingParamsForPath.GetSetMaxPeriod;
+            PrecisionParms = [calcParams.InfVal calcParams.EqualityVal];
+            MaxPeriod = calcParams.MaxPeriod;
 
             pointPath = obj.StatePath(find(~isnan(obj.StatePath)));
 
