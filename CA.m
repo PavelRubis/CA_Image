@@ -54,6 +54,7 @@ yLabel = 'Im(z)';
 yFunc = @(z)z(2, :);
 
 VisOptions = PointPathVisualisationOptions('jet', xFunc, yFunc, xLabel, yLabel, []);
+PointPathVisualisationOptions.GetSetPointPathVisualisationOptions('jet', xFunc, yFunc, xLabel, yLabel, []);
 setappdata(hObject, 'VisOptions', VisOptions);
 
 saveRes = SaveResults();
@@ -122,14 +123,13 @@ visualOptions = getappdata(handles.output, 'VisOptions');
 if any([isempty(IteratedObject) isempty(calcParams) isempty(saveRes)])
     return;
 end
-
+wb = waitbar(0, 'Выполняется расчет...', 'WindowStyle', 'modal');
 switch class(IteratedObject)
     case 'IteratedPoint'
 
         for iter = 1:calcParams.IterCount
-            profile on;
+            waitbar(iter / calcParams.IterCount, wb, 'Выполняется расчет...', 'WindowStyle', 'modal');
             IteratedObject = Iteration(IteratedObject, calcParams);
-            profile viewer;
 
             if ~IsContinue(IteratedObject)
                 break;
@@ -138,17 +138,16 @@ switch class(IteratedObject)
         end
 
     case 'IteratedMatrix'
-        profile on;
         IteratedObject = Iteration(IteratedObject, calcParams);
-        profile viewer;
 
 end
 
-
+waitbar(1, wb, 'Отрисовка...', 'WindowStyle', 'modal');
 [res visualOptions graphics] = PrepareDataAndAxes(visualOptions, IteratedObject, handles);
 
 
 if saveRes.IsSave
+    waitbar(1, wb, 'Сохранение выходных данных...', 'WindowStyle', 'modal');
     saveRes = SaveModelingResults(saveRes, res, IteratedObject, calcParams, graphics);
 end
 
@@ -160,6 +159,7 @@ end
 setappdata(handles.output, 'SaveResults',saveRes);
 handles.ResetButton.Enable='on';
 
+delete(wb);
 return;
 %%
 %legacy
@@ -3212,6 +3212,8 @@ switch modelingTypeParams
             end
 
             setappdata(handles.output, 'IIteratedObject', obj);
+            visualOptions = PointPathVisualisationOptions.GetSetPointPathVisualisationOptions;
+            setappdata(handles.output, 'VisOptions', visualOptions);
         end
 
     case 'MultipleCalcRB'

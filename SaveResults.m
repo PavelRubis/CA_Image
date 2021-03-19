@@ -43,6 +43,10 @@ classdef SaveResults
 
             end
 
+            if obj.IsSaveFig
+                obj = SaveFig(obj, graphics);
+            end
+
         end
 
         function obj = SaveFig(obj, graphics)
@@ -172,32 +176,39 @@ classdef SaveResults
             ConfFileName = strcat('\MultiCalc-', datestr(clock));
             ConfFileName = strcat(ConfFileName, '.txt');
             ConfFileName = strrep(ConfFileName, ':', '-');
-            ConfFileName = strcat(obj.ResPath, ConfFileName);
+            ConfFileName = strcat(obj.ResultsPath, ConfFileName);
 
             fileID = fopen(ConfFileName, 'w');
+
+            paramsSubStr = matr.ConstIteratedFuncStr(1:find(matr.ConstIteratedFuncStr == ')', 1, 'first'));
+
             fprintf(fileID, strcat('Множественное Моделирование от- ', datestr(clock)));
 
-            fprintf(fileID, strcat('\n\nОтображение: ', func2str(contParms.ImageFunc)));
+            fprintf(fileID, strcat('\n\nОтображение: ', strrep(matr.ConstIteratedFuncStr, paramsSubStr, '')));
 
-            PrecisionParms = ControlParams.GetSetPrecisionParms;
+            PrecisionParms = ModelingParamsForPath.GetSetPrecisionParms;
 
-            fprintf(fileID, strcat('\n\n\nМаксимальный период=', num2str(ControlParams.GetSetMaxPeriod), '\nПорог бесконечности=', num2str(10^PrecisionParms(1)), '\nПорог сходимости=', num2str(PrecisionParms(2))));
+            fprintf(fileID, strcat('\n\nМаксимальный период=', num2str(ModelingParamsForPath.GetSetMaxPeriod), '\nПорог бесконечности=', num2str(10^PrecisionParms(1), '%.1e'), '\nПорог сходимости=', num2str(PrecisionParms(2), '%.1e')));
 
-            switch contParms.WindowParamName
-                case 'z0'
-                    fprintf(fileID, strcat('\nz0=', num2str(complex(mean(contParms.ReRangeWindow), mean(contParms.ImRangeWindow))), '\nmu=', num2str(ca.Miu), '\nmu0=', num2str(ca.Miu0)));
-                otherwise
-                    fprintf(fileID, strcat('\nz0=', num2str(contParms.SingleParams(1)), '\nmu=', num2str(ca.Miu), '\nmu0=', num2str(ca.Miu0)));
+            funcParamsNames = keys(matr.FuncParams);
+            funcParamsValues = values(matr.FuncParams);
+
+            for index = 1:length(matr.FuncParams)
+
+                if string(funcParamsNames(index)) ~= string(matr.WindowParam.Name)
+                    fprintf(fileID, cell2mat(strcat('\n', funcParamsNames(index), '=', num2str(funcParamsValues{index}))));
+                end
+
             end
 
-            fprintf(fileID, '\nКоличество итераций T=%f\n', length(Res) - 1);
+            fprintf(fileID, '\nКоличество итераций T=%f\n', calcParms.IterCount);
 
-            fprintf(fileID, strcat('\nПараметр окна: ', contParms.WindowParamName));
+            fprintf(fileID, strcat('\nПараметр окна: ', matr.WindowParam.Name));
             fprintf(fileID, '\nДиапазон параметра окна: ');
 
-            paramStart = complex(contParms.ReRangeWindow(1), contParms.ImRangeWindow(1));
-            paramStep = complex(contParms.ReRangeWindow(2) - contParms.ReRangeWindow(1), contParms.ImRangeWindow(2) - contParms.ImRangeWindow(1));
-            paramEnd = complex(contParms.ReRangeWindow(end), contParms.ImRangeWindow(end));
+            paramStart = complex(matr.WindowOfValues{1}(1), matr.WindowOfValues{2}(1));
+            paramStep = complex(matr.WindowOfValues{1}(2) - matr.WindowOfValues{1}(1), matr.WindowOfValues{2}(2) - matr.WindowOfValues{2}(1));
+            paramEnd = complex(matr.WindowOfValues{1}(end), matr.WindowOfValues{2}(end));
 
             paramStartSrt = strcat(num2str(paramStart), ' : ');
             paramEndSrt = strcat(' : ', num2str(paramEnd));
@@ -207,11 +218,11 @@ classdef SaveResults
             fclose(fileID);
             dlmwrite(ConfFileName, 'Re	Im	Fate	length', '-append', 'delimiter', '');
 
-            [X, Y] = meshgrid(contParms.ReRangeWindow, contParms.ImRangeWindow);
-            WindowParam = X + i * Y;
+            WindowParam = matr.WindowOfValues{1} + 1i * matr.WindowOfValues{2};
             len = size(WindowParam);
             resArr = cell(len);
-            resArr = arrayfun(@(re, im, p, n){[re im p n]}, real(WindowParam), imag(WindowParam), contParms.Periods, contParms.LastIters);
+            
+            resArr = arrayfun(@(re, im, fate, step){[re im fate step]}, real(WindowParam), imag(WindowParam), matr.PointsFates, matr.PointsSteps);
 
             resArr = cell2mat(resArr);
             resLen = size(resArr);
@@ -219,8 +230,8 @@ classdef SaveResults
             resArrNew = zeros(len(1) * len(2), 4);
             c = 0;
 
-            for j = 1:4:resLen(2)
-                resArrNew(c * resLen(1) + 1:resLen(1) * (c + 1), :) = resArr(:, j:j + 3);
+            for ind = 1:4:resLen(2)
+                resArrNew(c * resLen(1) + 1:resLen(1) * (c + 1), :) = resArr(:, ind:ind + 3);
                 c = c + 1;
             end
 
