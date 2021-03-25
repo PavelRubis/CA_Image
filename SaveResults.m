@@ -136,7 +136,7 @@ classdef SaveResults
 
                 fprintf(fileID, 'Re\t\t\tIm\tFate\tlength\n');
 
-                fprintf(fileID, '%.8e\t%.8e\t%d\t%d\r\n', res(1, end), res(2, end), point.Fate, point.LastIterNum - 1);
+                fprintf(fileID, '%.8e\t%.8e\t%d\t%d\r\n', res(1, end), res(2, end), point.Fate, point.LastIterNum + point.Fate - 1);
 
                 fprintf(fileID, '\n\nТраектория:\n');
                 fprintf(fileID, 'iter\t\tRe\t\tIm\n');

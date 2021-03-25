@@ -45,7 +45,7 @@ classdef PointPathVisualisationOptions < VisualisationOptions
                 yAxesdataProcessingFunc function_handle
                 xAxescolorMapLabel (1, :) char
                 yAxescolorMapLabel (1, :) char
-                visualpath (:,:) double
+                visualpath (:, :) double
             end
 
             obj.ColorMap = colorMap;
@@ -77,15 +77,23 @@ classdef PointPathVisualisationOptions < VisualisationOptions
                     str = strcat(str, ' сходится к аттрактору на итерации:');
                     str = strcat(str, '  ');
                     msg = strcat(str, num2str(point.LastIterNum - 1));
+                case inf
                 otherwise
                     str = strcat(str, ' имеет период: ');
                     str = strcat(str, num2str(point.Fate));
                     str = strcat(str, ', найденный на итерации:');
                     str = strcat(str, '  ');
-                    msg = strcat(str, num2str(point.LastIterNum - 1));
+                    msg = strcat(str, num2str(point.LastIterNum + point.Fate - 1));
             end
 
-            visualPath = point.StatePath(length(point.StatePath) - ModelingParamsForPath.GetIterCount:end);
+            visualPath = [];
+
+            if length(point.StatePath) > ModelingParamsForPath.GetIterCount
+                visualPath = point.StatePath(length(point.StatePath) - ModelingParamsForPath.GetIterCount:end);
+            else
+                visualPath = point.StatePath;
+            end
+
             visualPath = visualPath(find(~isnan(visualPath)));
             obj.VisualPath = visualPath;
 
@@ -106,7 +114,7 @@ classdef PointPathVisualisationOptions < VisualisationOptions
                 point IteratedPoint
                 handles struct
             end
-            
+
             graphics.Axs = handles.CAField;
 
             if ~isempty(obj.VisualPath)

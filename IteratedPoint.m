@@ -216,7 +216,7 @@ classdef IteratedPoint < IIteratedObject
         end
 
         function check = IsContinue(obj)
-            check = obj.Fate == Inf;
+            check = (obj.Fate == Inf);
         end
 
     end

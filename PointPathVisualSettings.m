@@ -177,7 +177,9 @@ end
 vsOptions = PointPathVisualisationOptions.GetSetPointPathVisualisationOptions;
 
 PointPathVisualisationOptions.GetSetPointPathVisualisationOptions(cell2mat(handles.ColorMapMenu.String(handles.ColorMapMenu.Value)), xFunc, yFunc, xLabel, yLabel, vsOptions.VisualPath);
-IteratedPoint.VisualPointCallBack(handles.output.UserData);
+if ~isempty(vsOptions.VisualPath)
+    IteratedPoint.VisualPointCallBack(handles.output.UserData);
+end
 
 msgbox('Настройки визуализации траектории точки успешно заданы.');
 close(handles.output);

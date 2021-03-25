@@ -19,7 +19,7 @@ classdef MatrixVisualisationOptions < VisualisationOptions
                 matr IteratedMatrix
                 handles struct
             end
-            
+
             res = [];
 
             axes(handles.CAField);
@@ -27,54 +27,35 @@ classdef MatrixVisualisationOptions < VisualisationOptions
             Fcode = matr.PointsFates;
             fStepNew = matr.PointsSteps;
 
-            %
-            fcodeIndicate = find(Fcode == 1);
-            posSteps = unique(fStepNew(fcodeIndicate));
-
-            fcodeIndicate = find(Fcode == 0);
-            negSteps = unique(fStepNew(fcodeIndicate));
-
-            chaosCodeIndicate = find(Fcode == inf);
-
-            periodCodeIndicate = find(Fcode > 1 & Fcode ~= inf);
-            fStepNew(periodCodeIndicate) = matr.PointsSteps(periodCodeIndicate);
-
-            maxPosSteps = zeros(size(fStepNew));
-
             clmp = [];
 
-            if ~isempty(posSteps)
-                maxPosSteps(:) = max(posSteps);
+            maxPosSteps = max(fStepNew(find(Fcode == 1)));
 
-                fStepNew(periodCodeIndicate) = maxPosSteps(periodCodeIndicate) + matr.PointsSteps(periodCodeIndicate);
-
-                if ~isempty(negSteps)
-                    fStepNew(chaosCodeIndicate) = max(negSteps) + 1;
-                    clmp = [flipud(gray(max(negSteps))); flipud(winter(floor((max(negSteps) * ((max(posSteps) + 2) / max(negSteps))))))]; %(max(posSteps)-mod(max(posSteps),10))
-                    Fcode(find(Fcode == 0)) = -1;
-                else
-                    clmp = flipud(winter(floor((max(posSteps) - mod(max(posSteps), 10)))));
-                end
-
-            else
-
-                if ~isempty(negSteps)
-                    clmp = flipud(gray(max(negSteps)));
-                    Fcode(find(Fcode == 0)) = -1;
-                end
-
+            if isempty(maxPosSteps)
+                maxPosSteps = 0;
             end
 
-            if ~isempty(chaosCodeIndicate)
-                clmp = [spring(1); clmp];
-                Fcode(chaosCodeIndicate) = -1;
+            maxNegSteps = max(fStepNew(find(Fcode == 0)));
+
+            if isempty(maxNegSteps)
+                maxNegSteps = 0;
             end
 
-            if ~isempty(periodCodeIndicate)
-                clmp = [clmp; autumn(max(matr.PointsSteps(periodCodeIndicate)))];
-                Fcode(periodCodeIndicate) = 1;
+            maxPeriodSteps = max(Fcode(find(Fcode > 1 & Fcode ~= inf)));
+
+            if isempty(maxPeriodSteps)
+                maxPeriodSteps = 0;
             end
 
+            chaosCheck = ~isempty(find(Fcode == inf));
+
+            fStepNew(find(Fcode == inf)) = max(maxNegSteps) + 1;
+            fStepNew(find(Fcode > 1 & Fcode < inf)) = Fcode(find(Fcode > 1 & Fcode < inf)) + maxPosSteps;
+
+            Fcode(find(Fcode == 0 | Fcode == inf)) = -1;
+            Fcode(find(Fcode > 1 & Fcode ~= inf)) = 1;
+
+            clmp = [spring(chaosCheck); flipud(gray(maxNegSteps)); flipud(winter(maxPosSteps)); autumn(maxPeriodSteps)];
             clrmp = colormap(clmp);
 
             pcolor(matr.WindowOfValues{1}, matr.WindowOfValues{2}, (fStepNew .* Fcode));
@@ -82,19 +63,19 @@ classdef MatrixVisualisationOptions < VisualisationOptions
             shading flat;
             clrbr = colorbar;
 
-            if ~isempty(periodCodeIndicate)
+            if ~isempty(maxPeriodSteps)
                 lim = clrbr.Limits;
                 ticks = clrbr.Ticks;
                 ticksDelta = ticks(2) - ticks(1);
 
-                if lim(2) > max(posSteps) + ticksDelta / 5
-                    ticks = ticks(find(ticks <= max(posSteps)));
-                    ticks = [ticks max(posSteps) + ticksDelta / 5:ticksDelta / 5:lim(2)];
+                if lim(2) > maxPosSteps + ticksDelta / 5
+                    ticks = ticks(find(ticks <= maxPosSteps));
+                    ticks = [ticks maxPosSteps + ticksDelta / 5:ticksDelta / 5:lim(2)];
                     clrbr.Ticks = ticks;
 
                     lables = clrbr.TickLabels';
                     lables = arrayfun(@(num)str2double(cell2mat(num)), lables);
-                    newLables = [lables(find(lables <= max(posSteps))) (lables(find(lables > max(posSteps))) - max(posSteps))];
+                    newLables = [lables(find(lables <= maxPosSteps)) (lables(find(lables > maxPosSteps)) - maxPosSteps)];
                     clrbr.TickLabels = {newLables};
                 end
 
@@ -106,8 +87,6 @@ classdef MatrixVisualisationOptions < VisualisationOptions
             graphics.Axs = handles.CAField;
             graphics.Clrbr = clrbr;
             graphics.Clrmp = clrmp;
-            %
-
         end
 
         function MakeTitle(obj, matr, handles)
@@ -144,7 +123,7 @@ classdef MatrixVisualisationOptions < VisualisationOptions
                     titleStr = strcat(titleStr, ' ; \mu_{cntr}=', num2str(matr.WindowParam.Value));
                     titleStr = strcat(titleStr, ' ; \mu_{0}=', num2str(matr.FuncParams('mu0')));
                     titleStr = strrep(titleStr, 'eq', 'z^{*}');
-                    
+
                     xlabel('Re(\mu)');
                     ylabel('Im(\mu)');
                 case "mu0"

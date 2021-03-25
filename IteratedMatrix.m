@@ -94,16 +94,20 @@ classdef IteratedMatrix < IIteratedObject
         function [step, fate] = IterableWindowParamCalc(obj, initVal, calcParams)
 
             itersCount = calcParams.IterCount;
+            infVal = calcParams.InfVal;
+            equalityVal = calcParams.EqualityVal;
+            iteratedFunc = obj.IteratedFunc;
+
             pointPath = nan(1, itersCount);
             pointPath(1) = initVal;
             pointVal2ItersBack = inf;
 
             for step = 2:itersCount + 1
 
-                if log(pointPath(step - 1)) / (2.302585092994046) >= calcParams.InfVal || abs(pointPath(step - 1) - pointVal2ItersBack) < calcParams.EqualityVal
+                if log(pointPath(step - 1)) / (2.302585092994046) >= infVal || abs(pointPath(step - 1) - pointVal2ItersBack) < equalityVal
                     break;
                 else
-                    pointPath(step) = obj.IteratedFunc(pointPath(step - 1));
+                    pointPath(step) = iteratedFunc(pointPath(step - 1));
                     pointVal2ItersBack = pointPath(step - 1);
                 end
 
@@ -116,16 +120,20 @@ classdef IteratedMatrix < IIteratedObject
         function [step, fate] = NonIterableWindowParamCalc(obj, initVal, windowParamVal, z_eq, calcParams)
 
             itersCount = calcParams.IterCount;
+            infVal = calcParams.InfVal;
+            equalityVal = calcParams.EqualityVal;
+            iteratedFunc = obj.IteratedFunc;
+
             pointPath = nan(1, itersCount);
             pointPath(1) = initVal;
             pointVal2ItersBack = inf;
 
             for step = 2:itersCount + 1
 
-                if log(pointPath(step - 1)) / (2.302585092994046) >= calcParams.InfVal || abs(pointPath(step - 1) - pointVal2ItersBack) < calcParams.EqualityVal
+                if log(pointPath(step - 1)) / (2.302585092994046) >= infVal || abs(pointPath(step - 1) - pointVal2ItersBack) < equalityVal
                     break;
                 else
-                    pointPath(step) = obj.IteratedFunc(pointPath(step - 1), windowParamVal, z_eq);
+                    pointPath(step) = iteratedFunc(pointPath(step - 1), windowParamVal, z_eq);
                     pointVal2ItersBack = pointPath(step - 1);
                 end
 
