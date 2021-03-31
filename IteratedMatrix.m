@@ -42,7 +42,7 @@ classdef IteratedMatrix < IIteratedObject
 
         end
 
-        function obj = Iteration(obj, calcParams)
+        function obj = Iteration(obj, calcParams, wb)
             windowOfValues = obj.WindowOfValues{1} + 1i * obj.WindowOfValues{2};
             len = size(windowOfValues);
             pointsCount = numel(windowOfValues);
@@ -52,14 +52,31 @@ classdef IteratedMatrix < IIteratedObject
             pointsFates = obj.PointsFates;
             pointsSteps = obj.PointsSteps;
 
+            IteratedMatrix.parforWaitbar(wb, pointsCount);
+            DQ = parallel.pool.DataQueue;
+            afterEach(DQ, @IteratedMatrix.parforWaitbar);
+
+            wbStep = ceil(pointsCount / 10);
+
             if obj.IsIteratableWindowParam
                 obj.IteratedFuncStr = strrep(obj.IteratedFuncStr, 'eq', strcat('(', num2str(IteratedMatrix.CountZBaze(obj.FuncParams('mu'), obj.WindowParam.Value)), ')'));
                 obj.IteratedFunc = str2func(obj.IteratedFuncStr);
 
                 parfor ind = 1:pointsCount
                     [pointsStep, pointsFate] = IterableWindowParamCalc(obj, windowOfValues(ind), calcParams);
+
+                    if length(pointsFate) == 2
+                        pointsStep = pointsFate(2);
+                        pointsFate = pointsFate(1);
+                    end
+
                     pointsSteps(ind) = pointsStep;
                     pointsFates(ind) = pointsFate;
+
+                    if mod(ind, wbStep) == 0
+                        send(DQ, []);
+                    end
+
                 end
 
             else
@@ -81,14 +98,26 @@ classdef IteratedMatrix < IIteratedObject
 
                 parfor ind = 1:pointsCount
                     [pointsStep, pointsFate] = NonIterableWindowParamCalc(obj, initVal, windowOfValues(ind), z_eq(ind), calcParams);
+
+                    if length(pointsFate) == 2
+                        pointsStep = pointsFate(2);
+                        pointsFate = pointsFate(1);
+                    end
+
                     pointsSteps(ind) = pointsStep;
                     pointsFates(ind) = pointsFate;
+                    
+                    if mod(ind, wbStep) == 0
+                        send(DQ, []);
+                    end
+                    
                 end
 
             end
 
             obj.PointsFates = pointsFates;
             obj.PointsSteps = pointsSteps;
+            delete(wb);
         end
 
         function [step, fate] = IterableWindowParamCalc(obj, initVal, calcParams)
@@ -328,7 +357,7 @@ classdef IteratedMatrix < IIteratedObject
                     [minR prd] = min(r);
 
                     if minR < calcParams.EqualityVal
-                        Fate = prd;
+                        Fate = [prd (n - 1)];
                         return;
                     end
 
@@ -337,6 +366,20 @@ classdef IteratedMatrix < IIteratedObject
             end
 
             Fate = Inf;
+        end
+
+        function parforWaitbar(waitbarHandle, iterations)
+            persistent count h N;
+
+            if ~isempty(waitbarHandle)
+                count = 0;
+                h = waitbarHandle;
+                N = iterations;
+            else
+                count = count + ceil(N / 10);
+                waitbar(count / N, h, 'Выполняется расчет...', 'WindowStyle', 'modal');
+            end
+
         end
 
     end

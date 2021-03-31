@@ -143,13 +143,6 @@ function CancelVSettingsBtn_Callback(hObject, eventdata, handles)
 % --- Executes on button press in SetVSettingsBtn.
 function SetVSettingsBtn_Callback(hObject, eventdata, handles)
 
-    
-%{
- Re - > Im
-    | z | - > ?(z)
-    lg | z + 1 | - > ?(z)
-    lg | Re + 1 | - > lg | Im + 1 | 
-%}
 switch handles.VisualiseDataMenu.Value
 
     case 1
@@ -172,6 +165,11 @@ switch handles.VisualiseDataMenu.Value
         xFunc = @(N1PathNewVisual)log(abs(N1PathNewVisual(1, :) + 1)) / log(10);
         yLabel = ('lg\midIm+1\mid');
         yFunc = @(N1PathNewVisual)log(abs(N1PathNewVisual(2, :) + 1)) / log(10);
+    case 5
+        xLabel = ('t');
+        xFunc = @(N1PathNewVisual)1:length(N1PathNewVisual(1, :));
+        yLabel = ('\midz\mid');
+        yFunc = @(N1PathNewVisual)abs(complex(N1PathNewVisual(1, :), N1PathNewVisual(2, :)));
 end
 
 vsOptions = PointPathVisualisationOptions.GetSetPointPathVisualisationOptions;

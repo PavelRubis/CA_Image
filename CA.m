@@ -22,7 +22,7 @@ function varargout = CA(varargin)
 
 % Edit the above text to modify the response to help CA
 
-% Last Modified by GUIDE v2.5 16-Feb-2021 01:42:39
+% Last Modified by GUIDE v2.5 31-Mar-2021 20:57:49
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -91,7 +91,10 @@ handles.output = hObject;
 
 % Update handles structure
 guidata(hObject, handles);
-%parpool;
+if isempty(gcp('nocreate'))
+    parpool;
+end
+
 
 % UIWAIT makes CA wait for user response (see UIRESUME)
 % uiwait(handles.MainWindow);
@@ -123,6 +126,9 @@ visualOptions = getappdata(handles.output, 'VisOptions');
 if any([isempty(IteratedObject) isempty(calcParams) isempty(saveRes)])
     return;
 end
+
+oldIteratedObject = IteratedObject;
+
 wb = waitbar(0, 'Выполняется расчет...', 'WindowStyle', 'modal');
 switch class(IteratedObject)
     case 'IteratedPoint'
@@ -136,19 +142,19 @@ switch class(IteratedObject)
             end
 
         end
-
     case 'IteratedMatrix'
-        IteratedObject = Iteration(IteratedObject, calcParams);
+        IteratedObject = Iteration(IteratedObject, calcParams, wb);
 
 end
+delete(wb);
 
-waitbar(1, wb, 'Отрисовка...', 'WindowStyle', 'modal');
+wb = waitbar(0, 'Отрисовка...', 'WindowStyle', 'modal');
 [res visualOptions graphics] = PrepareDataAndAxes(visualOptions, IteratedObject, handles);
 
 
 if saveRes.IsSave
     waitbar(1, wb, 'Сохранение выходных данных...', 'WindowStyle', 'modal');
-    saveRes = SaveModelingResults(saveRes, res, IteratedObject, calcParams, graphics);
+    saveRes = SaveModelingResults(saveRes, res, oldIteratedObject, IteratedObject, calcParams, graphics);
 end
 
 setappdata(handles.output, 'IIteratedObject', IteratedObject);
@@ -3203,7 +3209,8 @@ modelingTypeParams = strcat(handles.NFieldEdit.String, handles.CalcGroup.Selecte
 switch modelingTypeParams
     case '1SingleCalcRB'
 
-        if isempty(getappdata(handles.output, 'IIteratedObject'))
+        iteratedObject = getappdata(handles.output, 'IIteratedObject')
+        if ~strcmp(class(iteratedObject),'IteratedPoint')
             [obj] = IteratedPoint();
             [obj] = Initialization(obj, handles);
 
@@ -5114,3 +5121,11 @@ pointPathVisualSettings = PointPathVisualSettings('UserData',handles);
 % hObject    handle to PointVisualizationSettingsMenuItem (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+
+
+% --- Executes during object deletion, before destroying properties.
+function MainWindow_DeleteFcn(hObject, eventdata, handles)
+% hObject    handle to MainWindow (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+delete(gcp('nocreate'))

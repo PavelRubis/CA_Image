@@ -22,11 +22,12 @@ classdef SaveResults
             obj.FigureFileFormat = 1;
         end
 
-        function obj = SaveModelingResults(obj, res, iteratedObject, calcParms, graphics)
+        function obj = SaveModelingResults(obj, res, oldIteratedObject, iteratedObject, calcParms, graphics)
 
             arguments
                 obj SaveResults
                 res (2, :) double;
+                oldIteratedObject IIteratedObject
                 iteratedObject IIteratedObject
                 calcParms ModelingParamsForPath
                 graphics struct
@@ -36,7 +37,11 @@ classdef SaveResults
 
                 switch class(iteratedObject)
                     case 'IteratedPoint'
-                        obj = SavePointPath(obj, res, iteratedObject, calcParms);
+
+                        if isinf(oldIteratedObject.Fate)
+                            obj = SavePointPath(obj, res, iteratedObject, calcParms);
+                        end
+
                     case 'IteratedMatrix'
                         obj = SaveMatrixPath(obj, iteratedObject, calcParms);
                 end
@@ -112,7 +117,10 @@ classdef SaveResults
                 fileID = fopen(obj.ResultsFilename, 'a');
                 fprintf(fileID, strcat('Одиночное Моделирование от-', datestr(clock)));
                 fprintf(fileID, strcat('\n\n\nОтображение: ', strrep(point.IteratedFuncStr, '@(z)', '')));
-                fprintf(fileID, strcat('\n\n\nМаксимальный период=', num2str(calcParms.MaxPeriod), ';Порог бесконечности=', strcat('1e+', num2str(calcParms.InfVal)), ';Порог сходимости=', num2str(calcParms.EqualityVal)));
+
+                fprintf(fileID, strcat('\n\nМаксимальный период=', num2str(calcParms.MaxPeriod), '\n'));
+                fprintf(fileID, strcat('Порог бесконечности = ', num2str(10^calcParms.InfVal, '%.1e'), '\n'));
+                fprintf(fileID, strcat('Порог сходимости=', num2str(calcParms.EqualityVal, '%.1e'), '\n'));
 
                 funcParamsNames = keys(point.FuncParams);
                 funcParamsValues = values(point.FuncParams);
@@ -136,7 +144,7 @@ classdef SaveResults
 
                 fprintf(fileID, 'Re\t\t\tIm\tFate\tlength\n');
 
-                fprintf(fileID, '%.8e\t%.8e\t%d\t%d\r\n', res(1, end), res(2, end), point.Fate, point.LastIterNum + point.Fate - 1);
+                fprintf(fileID, '%.8e\t%.8e\t%d\t%d\r\n', res(1, end), res(2, end), point.Fate, point.LastIterNum);
 
                 fprintf(fileID, '\n\nТраектория:\n');
                 fprintf(fileID, 'iter\t\tRe\t\tIm\n');
@@ -145,9 +153,6 @@ classdef SaveResults
                 %8,12 15 17
                 txtCell = SaveResults.txt2Cell(obj.ResultsFilename);
                 lastIter = str2double(regexp(txtCell{end - 2}, '^\d+\s', 'match')) + 1;
-
-                txtCell{7} = strcat('Максимальный период=', num2str(calcParms.MaxPeriod), ';Порог бесконечности=', strcat('1e+', num2str(calcParms.InfVal)), ';Порог сходимости=', num2str(calcParms.EqualityVal));
-                txtCell{11} = strcat('Количество итераций T=', num2str(length(res)));
 
                 finishStr = '';
 
@@ -162,8 +167,8 @@ classdef SaveResults
                         finishStr = strcat('траектория с периодом: ', num2str(point.Fate));
                 end
 
-                txtCell{14} = strcat('Итог: ', finishStr);
-                txtCell{16} = cell2mat(strcat({num2str(real(res(end)))}, {'	'}, {num2str(imag(res(end)))}, {'	'}, {num2str(point.Fate)}, {'	'}, {num2str(point.LastIterNum)}));
+                txtCell{16} = strcat('Итог: ', finishStr);
+                txtCell{18} = cell2mat(strcat({num2str(real(res(end)))}, {'	'}, {num2str(imag(res(end)))}, {'	'}, {num2str(point.Fate)}, {'	'}, {num2str(point.LastIterNum)}));
 
                 SaveResults.cell2Txt(obj.ResultsFilename, txtCell, 'w');
             end
@@ -188,7 +193,9 @@ classdef SaveResults
 
             PrecisionParms = ModelingParamsForPath.GetSetPrecisionParms;
 
-            fprintf(fileID, strcat('\n\nМаксимальный период=', num2str(ModelingParamsForPath.GetSetMaxPeriod), '\nПорог бесконечности=', num2str(10^PrecisionParms(1), '%.1e'), '\nПорог сходимости=', num2str(PrecisionParms(2), '%.1e')));
+            fprintf(fileID, strcat('\n\nМаксимальный период=', num2str(ModelingParamsForPath.GetSetMaxPeriod), '\n'));
+            fprintf(fileID, strcat('Порог бесконечности = ', num2str(10^PrecisionParms(1), '%.1e'), '\n'));
+            fprintf(fileID, strcat('Порог сходимости=', num2str(PrecisionParms(2), '%.1e'), '\n'));
 
             funcParamsNames = keys(matr.FuncParams);
             funcParamsValues = values(matr.FuncParams);
@@ -204,24 +211,20 @@ classdef SaveResults
             fprintf(fileID, '\nКоличество итераций T=%f\n', calcParms.IterCount);
 
             fprintf(fileID, strcat('\nПараметр окна: ', matr.WindowParam.Name));
+            fprintf(fileID, strcat('\nЦентральное значение параметра окна: ', num2str(matr.WindowParam.Value)));
             fprintf(fileID, '\nДиапазон параметра окна: ');
+            
+            tmpVal = sort(unique(matr.WindowOfValues{1}));
+            fprintf(fileID, strcat('\nRe: ', num2str(matr.WindowOfValues{1}(1)), ':', num2str(tmpVal(2) - tmpVal(1)), ':', num2str(matr.WindowOfValues{1}(end))));
+            fprintf(fileID, strcat('\nIm: ', num2str(matr.WindowOfValues{2}(1)), ':', num2str(matr.WindowOfValues{2}(2) - matr.WindowOfValues{2}(1)), ':', num2str(matr.WindowOfValues{2}(end)), '\n\n'));
 
-            paramStart = complex(matr.WindowOfValues{1}(1), matr.WindowOfValues{2}(1));
-            paramStep = complex(matr.WindowOfValues{1}(2) - matr.WindowOfValues{1}(1), matr.WindowOfValues{2}(2) - matr.WindowOfValues{2}(1));
-            paramEnd = complex(matr.WindowOfValues{1}(end), matr.WindowOfValues{2}(end));
-
-            paramStartSrt = strcat(num2str(paramStart), ' : ');
-            paramEndSrt = strcat(' : ', num2str(paramEnd));
-            paramSrt = strcat(paramStartSrt, num2str(paramStep));
-            paramSrt = strcat(paramSrt, paramEndSrt);
-            fprintf(fileID, strcat(paramSrt, '\n\n'));
             fclose(fileID);
             dlmwrite(ConfFileName, 'Re	Im	Fate	length', '-append', 'delimiter', '');
 
             WindowParam = matr.WindowOfValues{1} + 1i * matr.WindowOfValues{2};
             len = size(WindowParam);
             resArr = cell(len);
-            
+
             resArr = arrayfun(@(re, im, fate, step){[re im fate step]}, real(WindowParam), imag(WindowParam), matr.PointsFates, matr.PointsSteps);
 
             resArr = cell2mat(resArr);

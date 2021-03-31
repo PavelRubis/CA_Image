@@ -83,7 +83,7 @@ classdef PointPathVisualisationOptions < VisualisationOptions
                     str = strcat(str, num2str(point.Fate));
                     str = strcat(str, ', найденный на итерации:');
                     str = strcat(str, '  ');
-                    msg = strcat(str, num2str(point.LastIterNum + point.Fate - 1));
+                    msg = strcat(str, num2str(point.LastIterNum - 1));
             end
 
             visualPath = [];

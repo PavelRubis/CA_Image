@@ -202,7 +202,7 @@ classdef IteratedPoint < IIteratedObject
                     [minR prd] = min(r);
 
                     if minR < PrecisionParms(2)
-                        obj.LastIterNum = n - prd;
+                        obj.LastIterNum = n;%n - prd;
                         obj.Fate = prd;
                         return;
                     end
