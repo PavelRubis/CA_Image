@@ -22,7 +22,7 @@ function varargout = CA(varargin)
 
 % Edit the above text to modify the response to help CA
 
-% Last Modified by GUIDE v2.5 31-Mar-2021 20:57:49
+% Last Modified by GUIDE v2.5 01-Apr-2021 11:19:24
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -119,7 +119,6 @@ SaveParamsButton_Callback(handles.SaveParamsButton, eventdata, handles)
 IteratedObject = getappdata(handles.output, 'IIteratedObject');
 calcParams = getappdata(handles.output, 'calcParams');
 saveRes = getappdata(handles.output, 'SaveResults');
-[saveRes] = SaveResults.IsReady2Start(saveRes);
 
 visualOptions = getappdata(handles.output, 'VisOptions');
 
@@ -130,18 +129,24 @@ end
 oldIteratedObject = IteratedObject;
 
 wb = waitbar(0, 'Выполняется расчет...', 'WindowStyle', 'modal');
+
 switch class(IteratedObject)
     case 'IteratedPoint'
+        wbStep = ceil(calcParams.IterCount / 20);
 
         for iter = 1:calcParams.IterCount
-            waitbar(iter / calcParams.IterCount, wb, 'Выполняется расчет...', 'WindowStyle', 'modal');
             IteratedObject = Iteration(IteratedObject, calcParams);
 
             if ~IsContinue(IteratedObject)
                 break;
             end
 
+            if mod(iter, wbStep) == 0
+                waitbar(iter / calcParams.IterCount, wb, 'Выполняется расчет...', 'WindowStyle', 'modal');
+            end
+
         end
+
     case 'IteratedMatrix'
         IteratedObject = Iteration(IteratedObject, calcParams, wb);
 
@@ -151,12 +156,12 @@ delete(wb);
 wb = waitbar(0, 'Отрисовка...', 'WindowStyle', 'modal');
 [res visualOptions graphics] = PrepareDataAndAxes(visualOptions, IteratedObject, handles);
 
-
-if saveRes.IsSave
+if saveRes.IsSaveData
     waitbar(1, wb, 'Сохранение выходных данных...', 'WindowStyle', 'modal');
     saveRes = SaveModelingResults(saveRes, res, oldIteratedObject, IteratedObject, calcParams, graphics);
 end
 
+setappdata(handles.output, 'graphics', graphics);
 setappdata(handles.output, 'IIteratedObject', IteratedObject);
 setappdata(handles.output, 'VisOptions', visualOptions);
 if string(class(visualOptions)) ==  "PointPathVisualisationOptions"
@@ -177,7 +182,7 @@ ca = getappdata(handles.output,'CurrCA');
 error = getappdata(handles.output,'error');
 errorStr = getappdata(handles.output,'errorStr');
 
-if (length(resProc.ResPath)==1 || ~ischar(resProc.ResPath)) &&  resProc.isSave
+if (length(resProc.ResPath)==1 || ~ischar(resProc.ResPath)) &&  resProc.IsSaveData
     error=true;
     errorStr=strcat(errorStr,'Не задана директория сохранения результатов; ');
 end
@@ -391,7 +396,7 @@ if ~contParms.SingleOrMultipleCalc% в случае мультирассчета
     graphics.Clrbr = clrbr;
     graphics.Clrmp = clrmp;
 
-    if resProc.isSave
+    if resProc.IsSaveData
         waitbar(1,wb,'Сохранение выходных данных...');
         resProc = SaveRes(resProc, ca, graphics, contParms, zRes);
     end
@@ -596,7 +601,7 @@ if length(ca.Cells) == 1%случай когда рассматривается одна ячейка/точка
 
         N1PathNew(1,1) = [];
         N1PathNew(2,1) = [];
-        if resProc.isSave
+        if resProc.IsSaveData
             resProc = SaveRes(resProc, ca, graphics, contParms, N1PathNew);
         end
     end
@@ -831,7 +836,7 @@ graphics.Axs = handles.CAField;
 graphics.Clrbr = clrbr;
 graphics.Clrmp = clrmp;
 
-if resProc.isSave
+if resProc.IsSaveData
     waitbar(1,wb,'Сохранение выходных данных...','WindowStyle','modal');
     resProc = SaveRes(resProc, ca, graphics, contParms, []);
 end
@@ -1602,10 +1607,10 @@ end
 function SaveResPathButton_Callback(hObject, eventdata, handles)
 saveRes=getappdata(handles.output,'SaveResults');
 
-directory = uigetdir('C:\');
+directory = uigetdir;
 if(directory)
     saveRes.ResultsPath = directory;
-    saveRes.IsSave = true;
+    saveRes.IsSaveData = true;
 end
 setappdata(handles.output, 'SaveResults', saveRes);
 
@@ -1640,19 +1645,12 @@ setappdata(handles.output, 'SaveResults', saveRes);
 
 % --- Executes on button press in SaveFigCB.
 function SaveFigCB_Callback(hObject, eventdata, handles)
-saveRes=getappdata(handles.output,'SaveResults');
-if hObject.Value == 1
-
-    saveRes.IsSaveFig=1;
-    
-    set(handles.FigTypeMenu,'Enable','on');
-else
-    saveRes.IsSaveFig=0;
-    hObject.Value = 0;
-    
-    set(handles.FigTypeMenu,'Enable','off');
-end
-setappdata(handles.output, 'SaveResults', saveRes);
+graphics = getappdata(handles.output, 'graphics');
+h = figure;
+set(h, 'units', 'normalized', 'outerposition', [0 0 1 1])
+colormap(graphics.Clrmp);
+h.CurrentAxes = copyobj([graphics.Axs graphics.Clrbr], h);
+h.Visible = 'on';
 % hObject    handle to SaveFigCB (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -2130,6 +2128,25 @@ function radiobutton25_Callback(hObject, eventdata, handles)
 
 
 function NFieldEdit_Callback(hObject, eventdata, handles)
+    if all([~isnan(str2double(hObject.String)) ~isinf(str2double(hObject.String)) (str2double(hObject.String) > 1)])
+        handles.LambdaMenu.String = [
+                                {'Сумма состояний соседей'},
+                                {'Нормированный модуль суммы (состояние соседа - z *)'},
+                                {'Модуль суммы состояний соседей с переменным знаком'},
+                                {'Нормированная сумма (состояние соседа - z *)'},
+                                {'Константа (mu0 + mu)'}
+                                ];
+    else
+        handles.LambdaMenu.String = [
+                                {'mu + z'},
+                                {'mu + (mu0 * abs(z - (z*)))'},
+                                {'mu + (mu0 * abs(z))'},
+                                {'mu + (mu0 * (z - (z*)))'},
+                                {'mu + mu0'}
+                                ];
+                                
+    end
+
 contParms = getappdata(handles.output,'ContParms');
 if(~isempty(regexp(handles.NFieldEdit.String,'^\d+$')))
     if str2double(handles.NFieldEdit.String)==1
@@ -3209,8 +3226,8 @@ modelingTypeParams = strcat(handles.NFieldEdit.String, handles.CalcGroup.Selecte
 switch modelingTypeParams
     case '1SingleCalcRB'
 
-        iteratedObject = getappdata(handles.output, 'IIteratedObject')
-        if ~strcmp(class(iteratedObject),'IteratedPoint')
+        iteratedObject = getappdata(handles.output, 'IIteratedObject');
+        if ~strcmp(class(iteratedObject), 'IteratedPoint')
             [obj] = IteratedPoint();
             [obj] = Initialization(obj, handles);
 
@@ -5014,9 +5031,9 @@ handles.ConvergValueEdit.String='5';
 % --- Executes on button press in DefaultSaveParmCB.
 function DefaultSaveParmCB_Callback(hObject, eventdata, handles)
 ResProc=getappdata(handles.output,'ResProc');
-ResProc.isSave=1;
+ResProc.IsSaveData=1;
 ResProc.isSaveCA=1;
-ResProc.isSaveFig=1;
+ResProc.isDuplicateFig=1;
 ResProc.CellsValuesFileFormat=1;
 ResProc.FigureFileFormat=1;
 
@@ -5128,4 +5145,4 @@ function MainWindow_DeleteFcn(hObject, eventdata, handles)
 % hObject    handle to MainWindow (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-delete(gcp('nocreate'))
+%delete(gcp('nocreate'))

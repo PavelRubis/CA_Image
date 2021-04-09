@@ -1,9 +1,9 @@
 classdef ResultsProcessing
     %класс обработки результатов моделирования
     properties
-        isSave logical = 0% сохраняем ли результаты
+        IsSaveData logical = 0% сохраняем ли результаты
         isSaveCA logical = 0% сохраняем ли КА
-        isSaveFig logical = 0% сохраняем ли фигуру
+        isDuplicateFig logical = 0% сохраняем ли фигуру
         Filename (1, :) char = []
         ResPath (1, :) char% путь к сохраняемым результатам
         CellsValuesFileFormat logical% формат файла для записи значений ячеек (1-txt,0-xls)
@@ -233,7 +233,7 @@ classdef ResultsProcessing
 
             end
 
-            if obj.isSaveFig
+            if obj.isDuplicateFig
 
                 fig = graphics.Axs;
 

@@ -13,6 +13,7 @@ classdef PointPathVisualisationOptions < VisualisationOptions
     methods (Static)
 
         function out = GetSetPointPathVisualisationOptions(colorMap, xAxesdataProcessingFunc, yAxesdataProcessingFunc, xAxescolorMapLabel, yAxescolorMapLabel, visualpath)
+            mlock
 
             persistent clrMap;
             persistent xAxesdataFunc;
@@ -127,9 +128,12 @@ classdef PointPathVisualisationOptions < VisualisationOptions
 
                 xlabel(obj.XAxescolorMapLabel);
                 ylabel(obj.YAxescolorMapLabel);
-
-                visualFormatedPath(1, :) = obj.XAxesdataProcessingFunc(visualFormatedPath);
-                visualFormatedPath(2, :) = obj.YAxesdataProcessingFunc(visualFormatedPath);
+              
+                oldVisualFormatedPath = visualFormatedPath;
+                tmpPath1 = oldVisualFormatedPath;
+                tmpPath2 = oldVisualFormatedPath;
+                visualFormatedPath(1, :) = obj.XAxesdataProcessingFunc(tmpPath1);
+                visualFormatedPath(2, :) = obj.YAxesdataProcessingFunc(tmpPath2);
 
                 eval(strcat('clrmp = colormap(', obj.ColorMap, '(visualPathLength));'));
                 ms = 20;
@@ -204,8 +208,8 @@ classdef PointPathVisualisationOptions < VisualisationOptions
 
             titleStr = strcat('z\rightarrow', strrep(point.IteratedFuncStr, '@(z)', ''));
 
-            titleStr = regexprep(titleStr, 'mu(?!\d)', '\mu');
             titleStr = strrep(titleStr, 'mu0', '\mu_{0}');
+            titleStr = regexprep(titleStr, 'mu(?!_)', '\mu');
             titleStr = strrep(titleStr, '*', '\cdot');
 
             titleStr = strcat(titleStr, ' ; z_{0}=', num2str(point.FuncParams('z0')));

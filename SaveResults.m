@@ -1,9 +1,7 @@
 classdef SaveResults
 
     properties
-        IsSave logical = false
-        IsSaveData logical
-        IsSaveFig logical
+        IsSaveData logical = false
         ResultsPath (1, :) char
         ResultsFilename (1, :) char
         DataFileFormat double {mustBeInteger, mustBeInRange(DataFileFormat, [0, 1])}
@@ -13,9 +11,7 @@ classdef SaveResults
     methods
 
         function obj = SaveResults()
-            obj.IsSave = false;
             obj.IsSaveData = false;
-            obj.IsSaveFig = false;
             obj.ResultsPath = '';
             obj.ResultsFilename = '';
             obj.DataFileFormat = 1;
@@ -46,10 +42,8 @@ classdef SaveResults
                         obj = SaveMatrixPath(obj, iteratedObject, calcParms);
                 end
 
-            end
+                [obj] = SaveFig(obj, graphics);
 
-            if obj.IsSaveFig
-                obj = SaveFig(obj, graphics);
             end
 
         end
@@ -68,7 +62,9 @@ classdef SaveResults
                 set(h, 'units', 'normalized', 'outerposition', [0 0 1 1])
                 colormap(graphics.Clrmp);
                 h.CurrentAxes = copyobj([fig graphics.Clrbr], h);
-                h.Visible = 'on';
+                savefig(h, 'figure.fig');
+                h.Visible = 'off';
+                clear h;
             else
                 set(fig, 'Units', 'pixel');
                 pos = fig.Position;
@@ -112,7 +108,12 @@ classdef SaveResults
                 obj.ResultsFilename = strcat('\Modeling-', datestr(clock));
                 obj.ResultsFilename = strcat(obj.ResultsFilename, '-N-1-Path.txt');
                 obj.ResultsFilename = strrep(obj.ResultsFilename, ':', '-');
-                obj.ResultsFilename = strcat(obj.ResultsPath, obj.ResultsFilename);
+
+                if SaveResults.IsCustomResultsPath(obj)
+                    obj.ResultsFilename = strcat(obj.ResultsPath, obj.ResultsFilename);
+                else
+                    obj.ResultsFilename(1) = [];
+                end
 
                 fileID = fopen(obj.ResultsFilename, 'a');
                 fprintf(fileID, strcat('Одиночное Моделирование от-', datestr(clock)));
@@ -174,20 +175,25 @@ classdef SaveResults
             end
 
             iters = (lastIter:(lastIter - 1) + length(res(1, :)));
-            SaveResults.createAndWriteTable2Txt(obj.ResultsFilename, iters, res);
+            SaveResults.WritePointPathTable2Txt(obj.ResultsFilename, iters, res);
         end
 
         function obj = SaveMatrixPath(obj, matr, calcParms)
             ConfFileName = strcat('\MultiCalc-', datestr(clock));
             ConfFileName = strcat(ConfFileName, '.txt');
             ConfFileName = strrep(ConfFileName, ':', '-');
-            ConfFileName = strcat(obj.ResultsPath, ConfFileName);
+
+            if SaveResults.IsCustomResultsPath(obj)
+                ConfFileName = strcat(obj.ResultsPath, ConfFileName);
+            else
+                ConfFileName(1) = [];
+            end
 
             fileID = fopen(ConfFileName, 'w');
 
             paramsSubStr = matr.ConstIteratedFuncStr(1:find(matr.ConstIteratedFuncStr == ')', 1, 'first'));
 
-            fprintf(fileID, strcat('Множественное Моделирование от- ', datestr(clock)));
+            fprintf(fileID, strcat('Множественное моделирование от- ', datestr(clock)));
 
             fprintf(fileID, strcat('\n\nОтображение: ', strrep(matr.ConstIteratedFuncStr, paramsSubStr, '')));
 
@@ -213,39 +219,40 @@ classdef SaveResults
             fprintf(fileID, strcat('\nПараметр окна: ', matr.WindowParam.Name));
             fprintf(fileID, strcat('\nЦентральное значение параметра окна: ', num2str(matr.WindowParam.Value)));
             fprintf(fileID, '\nДиапазон параметра окна: ');
-            
+
             tmpVal = sort(unique(matr.WindowOfValues{1}));
             fprintf(fileID, strcat('\nRe: ', num2str(matr.WindowOfValues{1}(1)), ':', num2str(tmpVal(2) - tmpVal(1)), ':', num2str(matr.WindowOfValues{1}(end))));
             fprintf(fileID, strcat('\nIm: ', num2str(matr.WindowOfValues{2}(1)), ':', num2str(matr.WindowOfValues{2}(2) - matr.WindowOfValues{2}(1)), ':', num2str(matr.WindowOfValues{2}(end)), '\n\n'));
 
             fclose(fileID);
-            dlmwrite(ConfFileName, 'Re	Im	Fate	length', '-append', 'delimiter', '');
+            dlmwrite(ConfFileName, 'Re              Im              Fate	length', '-append', 'delimiter', '');
 
             WindowParam = matr.WindowOfValues{1} + 1i * matr.WindowOfValues{2};
-            len = size(WindowParam);
-            resArr = cell(len);
-
-            resArr = arrayfun(@(re, im, fate, step){[re im fate step]}, real(WindowParam), imag(WindowParam), matr.PointsFates, matr.PointsSteps);
-
-            resArr = cell2mat(resArr);
-            resLen = size(resArr);
-
-            resArrNew = zeros(len(1) * len(2), 4);
-            c = 0;
-
-            for ind = 1:4:resLen(2)
-                resArrNew(c * resLen(1) + 1:resLen(1) * (c + 1), :) = resArr(:, ind:ind + 3);
-                c = c + 1;
-            end
-
-            dlmwrite(ConfFileName, resArrNew, '-append', 'delimiter', '\t');
+            
+            WindowParam = WindowParam(:)';
+            WindowParam = WindowParam';
+            
+            matr.PointsFates = matr.PointsFates(:)';
+            matr.PointsFates = matr.PointsFates';
+            
+            matr.PointsSteps = matr.PointsSteps(:)';
+            matr.PointsSteps = matr.PointsSteps';
+            
+            res = [arrayfun(@(item) {num2str(item, '%.8e')}, real(WindowParam)) arrayfun(@(item) {num2str(item, '%.8e')}, imag(WindowParam)) arrayfun(@(fate) {fate}, matr.PointsFates) arrayfun(@(step) {step}, matr.PointsSteps)];
+            
+            writeableRes = cell2table(res);
+            writetable(writeableRes, 'table.txt', 'Delimiter', '\t', 'WriteVariableNames', false);
+            
+            txtCell = SaveResults.txt2Cell('table.txt');
+            SaveResults.cell2Txt(ConfFileName, txtCell, 'a');
+            delete table.txt;
         end
 
     end
 
     methods (Static)
 
-        function createAndWriteTable2Txt(fileName, iters, res)
+        function WritePointPathTable2Txt(fileName, iters, res)
 
             arguments
                 fileName (1, :) char
@@ -299,15 +306,16 @@ classdef SaveResults
 
         end
 
-        function obj = IsReady2Start(obj)
+        function check = IsCustomResultsPath(obj)
 
             arguments
                 obj SaveResults
             end
 
-            if (~obj.IsSave && any([obj.IsSaveFig obj.IsSaveData]))
-                errordlg('Не указана директория сохранения результатов', 'Ошибка');
-                obj = [];
+            check = true;
+
+            if (obj.IsSaveData && (isempty(obj.ResultsPath) ||~ischar(obj.ResultsPath)))
+                check = false;
             end
 
         end

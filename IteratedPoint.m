@@ -1,11 +1,11 @@
 classdef IteratedPoint < IIteratedObject
 
     properties
-        IteratedFunc%function_handle;
-        IteratedFuncStr%(1, :) char;
+        IteratedFunc %function_handle;
+        IteratedFuncStr %(1, :) char;
         InitState double = nan;
         StatePath (1, :) double;
-        FuncParams%containers.Map;
+        FuncParams %containers.Map;
         Fate double = Inf;
         LastIterNum double {mustBePositive, mustBeInteger};
 
@@ -202,7 +202,7 @@ classdef IteratedPoint < IIteratedObject
                     [minR prd] = min(r);
 
                     if minR < PrecisionParms(2)
-                        obj.LastIterNum = n;%n - prd;
+                        obj.LastIterNum = n; %n - prd;
                         obj.Fate = prd;
                         return;
                     end
@@ -287,8 +287,10 @@ classdef IteratedPoint < IIteratedObject
             visOptions = PointPathVisualisationOptions.GetSetPointPathVisualisationOptions;
 
             if ~isempty(handles.CAField.Children)
-                FormatAndPlotPath(visOptions, obj, handles);
+                graphics = FormatAndPlotPath(visOptions, obj, handles);
             end
+
+            setappdata(handles.output, 'graphics', graphics);
 
         end
 

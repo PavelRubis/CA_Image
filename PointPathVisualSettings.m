@@ -156,8 +156,8 @@ switch handles.VisualiseDataMenu.Value
         yLabel = ('\phi(z)');
         yFunc = @(N1PathNewVisual)angle(complex(N1PathNewVisual(1, :), N1PathNewVisual(2, :)));
     case 3
-        xLabel = ('lg\midz+1\mid');
-        xFunc = @(N1PathNewVisual)log(abs(complex(N1PathNewVisual(1, :), N1PathNewVisual(2, :)) + 1)) / log(10);
+        xLabel = ('lg(\midz\mid+1)');
+        xFunc = @(N1PathNewVisual)log(abs(complex(N1PathNewVisual(1, :), N1PathNewVisual(2, :))) + 1) / log(10);
         yLabel = ('\phi(z)');
         yFunc = @(N1PathNewVisual)angle(complex(N1PathNewVisual(1, :), N1PathNewVisual(2, :)));
     case 4
@@ -167,7 +167,7 @@ switch handles.VisualiseDataMenu.Value
         yFunc = @(N1PathNewVisual)log(abs(N1PathNewVisual(2, :) + 1)) / log(10);
     case 5
         xLabel = ('t');
-        xFunc = @(N1PathNewVisual)1:length(N1PathNewVisual(1, :));
+        xFunc = @(N1PathNewVisual)0:length(N1PathNewVisual(1, :))-1;
         yLabel = ('\midz\mid');
         yFunc = @(N1PathNewVisual)abs(complex(N1PathNewVisual(1, :), N1PathNewVisual(2, :)));
 end

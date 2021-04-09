@@ -56,7 +56,7 @@ classdef IteratedMatrix < IIteratedObject
             DQ = parallel.pool.DataQueue;
             afterEach(DQ, @IteratedMatrix.parforWaitbar);
 
-            wbStep = ceil(pointsCount / 10);
+            wbStep = ceil(pointsCount / 20);
 
             if obj.IsIteratableWindowParam
                 obj.IteratedFuncStr = strrep(obj.IteratedFuncStr, 'eq', strcat('(', num2str(IteratedMatrix.CountZBaze(obj.FuncParams('mu'), obj.WindowParam.Value)), ')'));
@@ -376,7 +376,7 @@ classdef IteratedMatrix < IIteratedObject
                 h = waitbarHandle;
                 N = iterations;
             else
-                count = count + ceil(N / 10);
+                count = count + ceil(N / 20);
                 waitbar(count / N, h, 'Выполняется расчет...', 'WindowStyle', 'modal');
             end
 
