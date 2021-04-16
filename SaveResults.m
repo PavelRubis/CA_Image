@@ -58,12 +58,11 @@ classdef SaveResults
             fig = graphics.Axs;
 
             if obj.FigureFileFormat == 1
-                h = figure;
+                h = figure('Visible','off');
                 set(h, 'units', 'normalized', 'outerposition', [0 0 1 1])
                 colormap(graphics.Clrmp);
                 h.CurrentAxes = copyobj([fig graphics.Clrbr], h);
                 savefig(h, 'figure.fig');
-                h.Visible = 'off';
                 clear h;
             else
                 set(fig, 'Units', 'pixel');

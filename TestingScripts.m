@@ -1,6 +1,14 @@
 classdef TestingScripts
     
     methods(Static)
+
+        function test1()
+            ca=struct;
+            ca.FieldType = true;
+            N=5;
+            Initializations.Z0RandRangeInit(0, 0, 0, 0, 0, N, ca)
+        end
+
         function [isIntrnl,isIntrnlPlus,isCorner,isCornerAx,isEdge,isZero,isTrueCell,errorCellsInfo]= CheckNeighborsAndBorderType(CACell,n,fieldOrient,bordersType)
             
             isTrueCell=true;
