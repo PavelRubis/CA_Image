@@ -1,4 +1,4 @@
-classdef HexagonCACell
+classdef HexagonCACell < CA_cell
 
     properties
         z0
@@ -8,38 +8,31 @@ classdef HexagonCACell
         RenderColor
         CAIndexes
 
+        CAHandle CellularAutomat
         Indexes (3, :) double {mustBeNonnegative, mustBeInteger}
         cellOrientation logical
     end
 
     methods
         %конструктор ячейки
-        function obj = HexagonCACell(value, Path, indexes, caIndexes, color, N)
+        function obj = HexagonCACell(value, Path, caIndexes, color, N)
 
-            if nargin == 6
+            if nargin == 5
 
-                if iscell(indexes)
-                    indexes = cell2mat(indexes);
+                if iscell(caIndexes)
+                    caIndexes = cell2mat(caIndexes);
                 end
 
                 if iscell(color)
                     color = cell2mat(color);
                 end
 
-                if (any(indexes < 0) || any(indexes(1:2) >= N) || indexes(3) > 3 || (indexes(3) == 0 && any(indexes ~= 0))) && N ~= 1
-                    error('Error in CA_cell (i,j,k) indexes.');
-                else
-                    obj.Indexes = indexes;
-
-                    if (any(obj.Indexes(1:2) == (N - 1)))
-                        obj.IsExternal = true;
-                    end
-
+                if (any(obj.Indexes(1:2) == (N - 1), obj.Indexes(1:2) == 0))
+                    obj.IsExternal = true;
                 end
 
                 obj.z0 = value;
                 obj.ZPath = Path;
-                obj.Indexes = indexes;
                 obj.RenderColor = color;
                 obj.CAIndexes = caIndexes;
 
@@ -47,20 +40,24 @@ classdef HexagonCACell
 
         end
 
-        function [obj] = SetCellIndexes(obj, N)
+        function [obj] = SetCellCAIndexes(obj)
+            % выбираем кол-во ячеек, соответсвующее числу яч с опред коорд. присваивав такую коорд. так по обоим измерениям
+        end
+
+        function [obj] = SetCellIndexes(obj)
 
             arguments
                 obj HexagonCACell
-                N double {mustBePositive, mustBeInteger}
             end
 
             if obj.IsExternal
-                [obj] = SetCellK_Index(obj, N);
+                N = obj.CAHandle.N;
+                [obj] = SetCellK_Index(obj);
 
                 switch obj.Indexes(3)
                     case 1
                         obj.Indexes(1) = obj.CAIndexes(2) - (N - 1);
-                        obj.Indexes(2) = obj.CAIndexes(2) - (N - 1);
+                        obj.Indexes(2) = obj.Indexes(1);
                     case 2
                         obj.Indexes(1) = abs(obj.CAIndexes(2) - (N - 2)) + 1;
                         obj.Indexes(2) = obj.CAIndexes(1) - (N - 1);
@@ -73,15 +70,16 @@ classdef HexagonCACell
 
         end
 
-        function [obj] = SetCellK_Index(obj, N)
+        function [obj] = SetCellK_Index(obj)
 
             obj.Indexes = [0 0 nan];
+            N = obj.CAHandle.N;
 
-            if all([obj.CAIndexes(1) < N - 1 obj.CAIndexes(2) < N - 1])
+            if all([obj.CAIndexes(1) < N - 1, obj.CAIndexes(2) <= N - 1])
                 obj.Indexes(3) = 3;
             end
 
-            if all([obj.CAIndexes(1) >= N - 1 obj.CAIndexes(1) <= 2 * (N - 1) obj.CAIndexes(2) < N - 1])
+            if all([obj.CAIndexes(1) >= N - 1, obj.CAIndexes(2) < N - 1])
                 obj.Indexes(3) = 2;
             end
 
@@ -91,40 +89,105 @@ classdef HexagonCACell
 
         end
 
+        function [neibsArrIndexes, extraNeibsArrIndexes] = GetAllMooreNeighbors(obj)
+
+            checkDiffMatr = [
+                        [1 1];
+                        [0 1];
+                        [1 0];
+                        ];
+            neibsArrIndexes = arrayfun(@(neighbor) any(ismember(abs(neighbor.CAIndexes - obj.CAIndexes) == checkDiffMatr, [1 1], 'rows')), obj.CAHandle.Cells);
+
+            extraNeibsArrIndexes = [];
+            n = obj.CAHandle.N;
+
+            if obj.IsExternal
+
+                if isequal(obj.Indexes(1:2), [n - 1 0])
+
+                    extraNeibsArrIndexes = arrayfun(@(neighbor) isequal(neighbor.Indexes(1:2), [n - 1 n - 1]), obj.CAHandle.Cells);
+
+                end
+
+                if isequal(CA_cell.Indexes(1:2), [n - 1 n - 1])
+
+                    extraNeibsArrIndexes = arrayfun(@(neighbor) isequal(neighbor.Indexes(1:2), [n - 1 0]), obj.CAHandle.Cells);
+
+                end
+
+                if (CA_cell.Indexes(1) == n - 1 && CA_cell.Indexes(2) > 0 && CA_cell.Indexes(2) ~= n - 1) || (CA_cell.Indexes(2) == n - 1 && CA_cell.Indexes(1) > 0 && CA_cell.Indexes(1) ~= n - 1)
+
+                    extraNeibsArrIndexes = arrayfun(@(neighbor) isequal(neighbor.Indexes(1:2) - obj.Indexes(1:2), [0 0]), obj.CAHandle.Cells);
+
+                end
+
+            end
+
+        end
+
+        function [neibsArrIndexes, extraNeibsArrIndexes] = GetAllNeumannNeighbors(obj)
+
+            checkDiffMatr = [
+                        [-1 -1];
+                        [0 1];
+                        [1 0];
+                        ];
+            neibsArrIndexes = arrayfun(@(neighbor) any(ismember((neighbor.CAIndexes - obj.CAIndexes) == checkDiffMatr, [1 1], 'rows')), obj.CAHandle.Cells);
+            extraNeibsArrIndexes = [];
+
+            if obj.IsExternal
+
+                if isequal(CA_cell.Indexes(1:2), [n - 1 0])
+
+                    checkDiffMatr = [
+                                [0 (n - 1) 0];
+                                [0 (n - 1) 1];
+                                [0 (n - 1) -2];
+                                ];
+
+                    extraNeibsArrIndexes = arrayfun(@(neighbor) any(ismember((neighbor.Indexes - CA_cell.Indexes) == checkDiffMatr, [1 1 1], 'rows')), thisCA.Cells);
+
+                end
+
+                if isequal(CA_cell.Indexes(1:2), [n - 1 n - 1])
+
+                    checkDiffMatr = [
+                                [0 -(n - 1) 1];
+                                [0 -(n - 1) -2];
+                                ];
+
+                    extraNeibsArrIndexes = arrayfun(@(neighbor) any(ismember((neighbor.Indexes - CA_cell.Indexes) == checkDiffMatr, [1 1 1], 'rows')), thisCA.Cells);
+
+                end
+
+                if (CA_cell.Indexes(1) == n - 1 && CA_cell.Indexes(2) > 0 && CA_cell.Indexes(2) ~= n - 1) || (CA_cell.Indexes(2) == n - 1 && CA_cell.Indexes(1) > 0 && CA_cell.Indexes(1) ~= n - 1)
+
+                    checkDiffMatr = [
+                                [0 0 1];
+                                [0 0 -2];
+                                ];
+
+                    extraNeibsArrIndexes = arrayfun(@(neighbor) any(ismember((neighbor.Indexes - CA_cell.Indexes) == checkDiffMatr, [1 1 1], 'rows')), thisCA.Cells);
+
+                end
+
+            end
+
+        end
+
         function [obj] = Render(obj)
 
             if obj.cellOrientation == 1
                 %% Отрисовка вертикального гексагона в гексагональном поле
-                a = obj.Indexes(1, 1);
-                b = obj.Indexes(1, 2);
-                c = obj.Indexes(1, 3);
-                x0 = 0;
-                y0 = 0;
+                a = obj.CAIndexes(1);
+                b = obj.CAIndexes(2);
 
-                switch c
+                N = obj.CAHandle.N;
 
-                    case 1
+                xShift = sqrt(3) / 2 * (N - 1 - abs(a - (N - 1)));
 
-                        switch CompareDouble(a, b)
-                            case - 1
-                                y0 = -3/2 * (b - a);
-                            case 0
-                                y0 = 0;
-                            case 1
-                                y0 = 3/2 * (a - b);
-                        end
-
-                        x0 = (a + b) * sqrt(3) / 2;
-
-                    case 2
-                        x0 = -sqrt(3) / 2 * (a + (a - b));
-                        y0 = 3/2 * b;
-
-                    case 3
-                        x0 = -sqrt(3) / 2 * (b + (b - a));
-                        y0 = -3/2 * a;
-
-                end
+                x0 = a * sqrt(3) - xShift;
+                y0 = 3/2 * b;
 
                 dx = sqrt(3) / 2;
                 dy = 1/2;
@@ -136,54 +199,15 @@ classdef HexagonCACell
                 %%
             else
                 %% Отрисовка горизонтального гексагона в гексагональном поле
-                a = obj.Indexes(1, 1);
-                b = obj.Indexes(1, 2);
-                c = obj.Indexes(1, 3);
-                x0 = 0;
-                y0 = 0;
+                a = obj.CAIndexes(1);
+                b = obj.CAIndexes(2);
 
-                %                    %первый вариант размещения координатных осей
-                %                    switch c
-                %
-                %                        case 1
-                %                            y0=-sqrt(3)/2*(a+b);
-                %                            x0=3/2*(a-b);
-                %
-                %                        case 2
-                %                            y0=sqrt(3)/2*(a-(b-a));
-                %                            x0=3/2*b;
-                %
-                %                        case 3
-                %                            y0=sqrt(3)/2*(b-(a-b));
-                %                            x0=-3/2*(b-(b-a));
-                %
-                %                    end
+                N = obj.CAHandle.N;
 
-                %второй вариант размещения координатных осей
-                switch c
+                yShift = sqrt(3) / 2 * (N - 1 - abs(a - (N - 1)));
 
-                    case 1
-
-                        switch CompareDouble(a, b)
-                            case - 1
-                                x0 = -3/2 * (b - a);
-                            case 0
-                                x0 = 0;
-                            case 1
-                                x0 = 3/2 * (a - b);
-                        end
-
-                        y0 = (a + b) * sqrt(3) / 2;
-
-                    case 2
-                        y0 = -sqrt(3) / 2 * (a + (a - b));
-                        x0 = 3/2 * b;
-
-                    case 3
-                        y0 = -sqrt(3) / 2 * (b + (b - a));
-                        x0 = -3/2 * a;
-
-                end
+                x0 = 3/2 * a;
+                y0 = -b * 2 * sqrt(3) + yShift;
 
                 dy = sqrt(3) / 2;
                 dx = 1/2;
@@ -195,22 +219,6 @@ classdef HexagonCACell
                 %%
             end
 
-        end
-
-    end
-
-end
-
-function res = CompareDouble(a, b)
-
-    if a > b
-        res = 1;
-    else
-
-        if a < b
-            res = -1;
-        else
-            res = 0;
         end
 
     end

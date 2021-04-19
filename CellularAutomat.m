@@ -1,14 +1,14 @@
-classdef CellularAutomat < IIteratedObject
+classdef CellularAutomat < IIteratedObject & handle 
 
     properties
 
         IteratedFunc
-        IteratedFuncStr
         FuncParams
+        IteratedFuncStr
 
-        Neighborhood logical % тип окрестности (1-фон-Ќеймана, 0-ћура)
+        Neighborhood NeighbourHood % тип окрестности
         N double {mustBePositive, mustBeInteger} % ребро пол€
-        Cells (1, :) CA_cell % массив всех €чеек на поле
+        Cells %(1, :) CA_cell = [] массив всех €чеек на поле
         Weights (1, :) double % массив весов всех соседей и центральной €чейки
     end
 
@@ -20,6 +20,23 @@ classdef CellularAutomat < IIteratedObject
             obj.IteratedFuncStr = '@(z)nan';
             obj.FuncParams = [];
 
+        end
+
+        function [obj] = Initialization(obj, handles)
+
+            arguments
+                obj CellularAutomat
+                handles struct
+            end
+
+            [obj, errorStr] = CreateCAField(obj, handles);
+
+        end
+        
+        function [obj] = Iteration(obj)
+        end
+
+        function [obj] = CreateCAField(obj)
         end
 
     end

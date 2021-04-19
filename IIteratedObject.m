@@ -1,4 +1,4 @@
-classdef (Abstract) IIteratedObject
+classdef (Abstract, HandleCompatible) IIteratedObject
 
     properties (Abstract)
         IteratedFunc

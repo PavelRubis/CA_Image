@@ -11,6 +11,8 @@ classdef (Abstract) CA_cell
 
     methods (Abstract)
         [obj] = Render(obj)
+        [obj] = GetAllMooreNeighbors(obj)
+        [obj] = GetAllNeumannNeighbors(obj)
     end
 
 end
