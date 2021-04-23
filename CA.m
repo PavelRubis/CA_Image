@@ -60,24 +60,15 @@ setappdata(hObject, 'VisOptions', VisOptions);
 saveRes = SaveResults();
 setappdata(hObject, 'SaveResults', saveRes);
 
-CurrCA = CellularAutomat(0, 1, 2, 1, @(z)(exp(i * z)), @(z_k)Miu0 + sum(z_k), 0, 0, 0, [1 1 1 1 1 1 1 1]);
-ContParms = ControlParams(1,1,0,0,' ',@(z)exp(i*z),'*(Miu+z)');
-ControlParams.GetSetCustomImag(0);
-
-ResProc = ResultsProcessing(' ',1,1);
-ResultsProcessing.GetSetCellOrient(0);
-ResultsProcessing.GetSetFieldOrient(0);
-ResultsProcessing.GetSetVisualizationSettings({2, 'jet'});
-ResultsProcessing.GetSetPointsVisualizationSettings({1, 'jet'});
-
-FileWasRead=false;
-
 handles.LambdaMenu.Value=5;
 
-setappdata(hObject,'CurrCA',CurrCA);
-setappdata(hObject,'ContParms',ContParms);
-setappdata(hObject,'ResProc',ResProc);
-setappdata(hObject,'FileWasRead',FileWasRead);
+handles.FieldTypeGroup.UserData = 'SquareFieldRB';
+handles.HexOrientationPanel.UserData=0;
+handles.BordersTypePanel.UserData=2;
+
+newNeighborhood = NeumannNeighbourHood(handles.BordersTypePanel.UserData);
+setappdata(hObject,'Neighborhood',newNeighborhood)
+
 axis image;
 
 % This function has no output args, see OutputFcn.
@@ -131,7 +122,9 @@ oldIteratedObject = IteratedObject;
 wb = waitbar(0, '¬ыполн€етс€ расчет...', 'WindowStyle', 'modal');
 
 switch class(IteratedObject)
-    case 'IteratedPoint'
+    case 'IteratedMatrix'
+        IteratedObject = Iteration(IteratedObject, calcParams, wb);
+    otherwise
         wbStep = ceil(calcParams.IterCount / 20);
 
         for iter = 1:calcParams.IterCount
@@ -146,10 +139,6 @@ switch class(IteratedObject)
             end
 
         end
-
-    case 'IteratedMatrix'
-        IteratedObject = Iteration(IteratedObject, calcParams, wb);
-
 end
 delete(wb);
 
@@ -259,9 +248,9 @@ visualizationSettings = ResultsProcessing.GetSetVisualizationSettings;
 switch visualizationSettings(1)
 
     case 1
-        ControlParams.GetSetPrecisionParms([str2double(strcat('1e', handles.InfValueEdit.String)) str2double(strcat('1e-', handles.ConvergValueEdit.String))]);
+        ModelingParams.GetSetPrecisionParms([str2double(strcat('1e', handles.InfValueEdit.String)) str2double(strcat('1e-', handles.ConvergValueEdit.String))]);
     case 2
-        ControlParams.GetSetPrecisionParms([str2double(handles.InfValueEdit.String) str2double(strcat('1e-', handles.ConvergValueEdit.String))]);
+        ModelingParams.GetSetPrecisionParms([str2double(handles.InfValueEdit.String) str2double(strcat('1e-', handles.ConvergValueEdit.String))]);
 end
 
 handles.CancelParamsButton.Enable = 'off';
@@ -310,7 +299,7 @@ if ~contParms.SingleOrMultipleCalc% в случае мультирассчета
     axes(handles.CAField);
 
     zRes = z_New;
-    PrecisionParms = ControlParams.GetSetPrecisionParms;
+    PrecisionParms = ModelingParams.GetSetPrecisionParms;
 
     contParms.Periods = Periods;
     contParms.LastIters = Iters;
@@ -431,8 +420,8 @@ if length(ca.Cells) == 1%случай когда рассматриваетс€ одна €чейка/точка
 
     for i = 1:itersCount
         ca.Cells(1) = CellularAutomat.MakeIter(ca.Cells(1));
-        N1Path(1, i + len) = real(ca.Cells(1).zPath(end));
-        N1Path(2, i + len) = imag(ca.Cells(1).zPath(end));
+        N1Path(1, i + len) = real(ca.Cells(1).ZPath(end));
+        N1Path(2, i + len) = imag(ca.Cells(1).ZPath(end));
 
         pointPath = complex(N1Path(1, :), N1Path(2, :));
         [fCode iter period] = ControlParams.CheckConvergence(pointPath);
@@ -442,7 +431,7 @@ if length(ca.Cells) == 1%случай когда рассматриваетс€ одна €чейка/точка
 
             switch fCode
                 case - 1
-                    ca.Cells(1).zPath = ca.Cells(1).zPath(:, 1:iter - 1);
+                    ca.Cells(1).ZPath = ca.Cells(1).ZPath(:, 1:iter - 1);
                     str = strcat(str, ' уходит в бесконечность на итерации:');
                     str = strcat(str, '  ');
                     msg = strcat(str, num2str(iter - 1));
@@ -758,9 +747,9 @@ axes(handles.CAField);
 modulesArr = zeros(1, ca_L);
 zbase = zeros(1, ca_L);
 zbase(:) = ca.Zbase;
-PrecisionParms = ControlParams.GetSetPrecisionParms;
+PrecisionParms = ModelingParams.GetSetPrecisionParms;
 
-cellsValsArr = arrayfun(@(cell) cell.zPath(end), ca.Cells);
+cellsValsArr = arrayfun(@(cell) cell.ZPath(end), ca.Cells);
 cellsValsArr = round(cellsValsArr * (1 / PrecisionParms(2))) / (1 / PrecisionParms(2));
 
 [visualiseData, clrMap] = ResultsProcessing.GetSetVisualizationSettings;
@@ -1439,29 +1428,6 @@ setappdata(handles.output, 'SaveResults', saveRes);
 setappdata(handles.output, 'IIteratedObject', []);
 setappdata(handles.output, 'calcParams', []);
 %%
-
-ca = getappdata(handles.output,'CurrCA');
-contParms = getappdata(handles.output,'ContParms');
-ResProc = getappdata(handles.output,'ResProc');
-FileWasRead=getappdata(handles.output,'FileWasRead');
-N1Path = getappdata(handles.output,'N1Path');
-
-ca = CellularAutomat(ca.FieldType, ca.NeighborhoodType, ca.BordersType, ca.N, ca.Base, ca.Lambda, ca.Zbase, ca.Miu0, ca.Miu, [1 1 1 1 1 1 1 1]);
-
-contParms.IsReady2Start=false;
-contParms.IterCount=1;
-ResProc.Filename=[];
-
-N1Path=[];
-
-FileWasRead=false;
-
-setappdata(handles.output,'CurrCA',ca);
-setappdata(handles.output,'ContParms',contParms);
-setappdata(handles.output,'ResProc',ResProc);
-setappdata(handles.output,'FileWasRead',FileWasRead);
-setappdata(handles.output,'N1Path',N1Path);
-
 
 handles.SaveAllModelParamsB.Enable='off';
 handles.VisualIteratedObjectMenu.Visible='off';
@@ -3019,6 +2985,7 @@ function Z0SourcePathButton_Callback(hObject, eventdata, handles)
 [file,path] = uigetfile('*.txt');
 path=strcat(path,file);
 handles.Z0SourcePathEdit.String=path;
+handles.Z0SourcePathEdit.UserData=1;
 
 % hObject    handle to Z0SourcePathButton (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -3222,11 +3189,11 @@ end
 function SaveParamsButton_Callback(hObject, eventdata, handles)
 
 modelingTypeParams = strcat(handles.NFieldEdit.String, handles.CalcGroup.SelectedObject.Tag);
-
 switch modelingTypeParams
     case '1SingleCalcRB'
 
         iteratedObject = getappdata(handles.output, 'IIteratedObject');
+
         if ~strcmp(class(iteratedObject), 'IteratedPoint')
             [obj] = IteratedPoint();
             [obj] = Initialization(obj, handles);
@@ -3238,6 +3205,7 @@ switch modelingTypeParams
             setappdata(handles.output, 'IIteratedObject', obj);
             visualOptions = PointPathVisualisationOptions.GetSetPointPathVisualisationOptions;
             setappdata(handles.output, 'VisOptions', visualOptions);
+            [calcParams] = ModelingParamsForPath.ModelingParamsInitialization(handles);
         end
 
     case 'MultipleCalcRB'
@@ -3251,12 +3219,21 @@ switch modelingTypeParams
         setappdata(handles.output, 'IIteratedObject', obj);
         visualOptions = MatrixVisualisationOptions('jet');
         setappdata(handles.output, 'VisOptions', visualOptions);
+        [calcParams] = ModelingParamsForPath.ModelingParamsInitialization(handles);
 
     otherwise
+        [obj] = CellularAutomat();
+        [obj] = Initialization(obj, handles);
+
+        if isempty(obj)
+            return;
+        end
+        setappdata(handles.output, 'IIteratedObject', obj);
+        visualOptions = CAVisualisationOptions('jet',@(val,zbase) log(abs(val - zbase)) / log(10),'\fontsize{16}log_{10}(\midz-z^{*}\mid)');
+        setappdata(handles.output, 'VisOptions', visualOptions);
+        [calcParams] = ModelingParams.ModelingParamsInitialization(handles);
 
 end
-
-[calcParams] = ModelingParamsForPath.ModelingParamsInitialization(handles);
 
 if isempty(calcParams)
     return;
@@ -3693,8 +3670,8 @@ function InterButton_Callback(hObject, eventdata, handles)
 
 % --- Executes on button press in DefaultCB.
 function DefaultCB_Callback(hObject, eventdata, handles)
-contParms=getappdata(handles.output,'ContParms');
-if(contParms.SingleOrMultipleCalc)
+
+
     handles.z0Edit.String='0+0i';
     handles.MiuEdit.String='1+0i';
     handles.Miu0Edit.String='0.25i+0';
@@ -3704,15 +3681,6 @@ if(contParms.SingleOrMultipleCalc)
         handles.DistributStepEdit.String='1';
         handles.DistributEndEdit.String='1';
     end
-else
-    handles.z0Edit.String='0+0i';
-    handles.MiuEdit.String='1+0i';
-    handles.Miu0Edit.String='0.25i+0';
-    handles.DistributionTypeMenu.Value=1;
-    handles.DistributStartEdit.String='';
-    handles.DistributStepEdit.String='';
-    handles.DistributEndEdit.String='';
-end
 % hObject    handle to DefaultCB (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4007,20 +3975,18 @@ function BordersTypePanel_SelectionChangedFcn(hObject, eventdata, handles)
 % hObject    handle to the selected object in BordersTypePanel 
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-currCA=getappdata(handles.output,'CurrCA');
-switch get(hObject,'Tag')
+switch string(get(hObject,'Tag'))
     
-    case 'DeathLineBordersRB'
-        currCA.BordersType=1;
+    case "DeathLineBordersRB"
+        handles.BordersTypePanel.UserData=1;
     
-    case 'CompletedBordersRB'
-        currCA.BordersType=2;
+    case "CompletedBordersRB"
+        handles.BordersTypePanel.UserData=2;
         
-    case 'ClosedBordersRB'
-        currCA.BordersType=3;
+    case "ClosedBordersRB"
+        handles.BordersTypePanel.UserData=3;
     
 end
-setappdata(handles.output,'CurrCA',currCA);
 
 
 % --- Executes when selected object is changed in HexOrientationPanel.
@@ -4029,10 +3995,18 @@ function HexOrientationPanel_SelectionChangedFcn(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-if strcmp(get(hObject,'Tag'),'VertOrientRB')
-    ResultsProcessing.GetSetCellOrient(1);
-else
-    ResultsProcessing.GetSetCellOrient(2);
+
+switch string(get(hObject,'Tag'))
+    
+    case "GorOrientRB"
+        handles.HexOrientationPanel.UserData=2;
+    
+    case "VertOrientRB"
+        handles.HexOrientationPanel.UserData=1;
+        
+    otherwise
+        handles.HexOrientationPanel.UserData=0;
+    
 end
 
 
@@ -4042,20 +4016,14 @@ function FieldTypeGroup_SelectionChangedFcn(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-currCA=getappdata(handles.output,'CurrCA');
 if strcmp(get(hObject,'Tag'),'HexFieldRB')
-    currCA.FieldType=1;
-    ResultsProcessing.GetSetFieldOrient(1);
     handles.GorOrientRB.Value=1;
-    ResultsProcessing.GetSetCellOrient(2);
+    handles.FieldTypeGroup.UserData = 'HexFieldRB';
 else
-    currCA.FieldType=0;
-    ResultsProcessing.GetSetFieldOrient(0);
     handles.GorOrientRB.Value=0;
     handles.VertOrientRB.Value=0;
-    ResultsProcessing.GetSetCellOrient(0);
+    handles.FieldTypeGroup.UserData = 'SquareFieldRB';
 end
-setappdata(handles.output,'CurrCA',currCA);
 
 
 % --- Executes when selected object is changed in CalcGroup.
@@ -5011,13 +4979,6 @@ setappdata(handles.output,'ContParms',ContParms);
 
 % --- Executes on button press in DefaultModelParmCB.
 function DefaultModelParmCB_Callback(hObject, eventdata, handles)
-ContParms=getappdata(handles.output,'ContParms');
-if ContParms.SingleOrMultipleCalc
-    handles.IterCountEdit.String='1';
-else
-    handles.IterCountEdit.String='1000';
-    handles.MaxPeriodEdit.String='100';
-end
 handles.InfValueEdit.String='15';
 handles.ConvergValueEdit.String='5';
 
@@ -5054,17 +5015,16 @@ setappdata(handles.output,'ResProc',ResProc);
 
 % --- Executes when selected object is changed in NeighborhoodTemp.
 function NeighborhoodTemp_SelectionChangedFcn(hObject, eventdata, handles)
-currCA=getappdata(handles.output,'CurrCA');
 switch get(hObject,'Tag')
     
     case 'NeumannRB'
-        currCA.NeighborhoodType=1;
+        newNeighborhood = NeumannNeighbourHood(handles.BordersTypePanel.UserData);
     
     case 'MooreRB'
-        currCA.NeighborhoodType=0;
+        newNeighborhood = MooreNeighbourHood(handles.BordersTypePanel.UserData);
         
 end
-setappdata(handles.output,'CurrCA',currCA);
+setappdata(handles.output,'Neighborhood',newNeighborhood);
 % hObject    handle to the selected object in NeighborhoodTemp 
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)

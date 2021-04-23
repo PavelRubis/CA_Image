@@ -6,6 +6,10 @@ classdef NeumannNeighbourHood < NeighbourHood
 
     methods
 
+        function obj = NeumannNeighbourHood(bordersType)
+            obj.BordersType = bordersType;
+        end
+
         function [caCell] = GetNeighbours(obj, caCell)
             [neibsArrIndexes, extraNeibsArrIndexes] = GetAllNeumannNeighbors(caCell);
 

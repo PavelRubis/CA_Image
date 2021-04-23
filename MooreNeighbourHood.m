@@ -6,6 +6,10 @@ classdef MooreNeighbourHood < NeighbourHood
 
     methods
 
+        function obj = MooreNeighbourHood(bordersType)
+            obj.BordersType = bordersType;
+        end
+
         function [caCell] = GetNeighbours(obj, caCell)
             [neibsArrIndexes, extraNeibsArrIndexes] = GetAllMooreNeighbors(caCell);
 

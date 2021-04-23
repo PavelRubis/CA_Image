@@ -82,7 +82,7 @@ classdef ControlParams%класс параметров управления и множественного элементарног
 
         %метод мультирасчета
         function [z_New fStepLast fCodeNew iter period] = MakeMultipleCalcIter(windowParam, z_Old, z_Old_1, itersCount, zParam, z_eq)
-            PrecisionParms = ControlParams.GetSetPrecisionParms;
+            PrecisionParms = ModelingParams.GetSetPrecisionParms;
             func = ControlParams.GetSetMultiCalcFunc;
             pointPath = nan(1, itersCount);
             pointPath(1) = z_Old;
@@ -120,7 +120,7 @@ classdef ControlParams%класс параметров управления и множественного элементарног
         function [fCodeNew iter period] = CheckConvergence(pointPath)
 
             fCodeNew = [];
-            PrecisionParms = ControlParams.GetSetPrecisionParms;
+            PrecisionParms = ModelingParams.GetSetPrecisionParms;
             MaxPeriod = ControlParams.GetSetMaxPeriod;
 
             pointPath = pointPath(find(~isnan(pointPath)));

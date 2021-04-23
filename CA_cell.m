@@ -7,6 +7,7 @@ classdef (Abstract) CA_cell
         CurrNeighbors
         RenderColor
         CAIndexes
+        Step
     end
 
     methods (Abstract)

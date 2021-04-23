@@ -1,7 +1,6 @@
 classdef ModelingParamsForPath < ModelingParams
 
     properties
-        EqualityVal double
         MaxPeriod double {mustBeInteger, mustBePositive}
     end
 
@@ -27,18 +26,6 @@ classdef ModelingParamsForPath < ModelingParams
 
     methods (Static)
 
-        function out = GetSetPrecisionParms(infVal, equalityVal)
-            persistent InfVal;
-            persistent EqualityVal;
-
-            if nargin == 2
-                InfVal = infVal;
-                EqualityVal = equalityVal;
-            end
-
-            out = [InfVal, EqualityVal];
-        end
-
         function out = GetSetMaxPeriod(mp)
             persistent MaxPeriod;
 
@@ -49,21 +36,13 @@ classdef ModelingParamsForPath < ModelingParams
             out = MaxPeriod;
         end
 
-        function out = GetIterCount(iterCount)
-            persistent IterCount;
-
-            if nargin == 1
-                IterCount = iterCount;
-            end
-
-            out = IterCount;
-        end
-
         function [obj] = ModelingParamsInitialization(handles)
 
             arguments
                 handles struct
             end
+
+            IIteratedObject = getappdata(handles.output, 'IIteratedObject');
 
             errorCheck = false;
             errorStr = 'Ошибки в полях управления моделированием: ';
@@ -94,9 +73,9 @@ classdef ModelingParamsForPath < ModelingParams
 
             if ~errorCheck
                 obj = ModelingParamsForPath(str2double(handles.IterCountEdit.String), str2double(handles.InfValueEdit.String), str2double(strcat('1e-', handles.ConvergValueEdit.String)), str2double(handles.MaxPeriodEdit.String));
-                ModelingParamsForPath.GetSetPrecisionParms(obj.InfVal, obj.EqualityVal);
+                ModelingParams.GetSetPrecisionParms(obj.InfVal, obj.EqualityVal);
                 ModelingParamsForPath.GetSetMaxPeriod(obj.MaxPeriod);
-                ModelingParamsForPath.GetIterCount(obj.IterCount);
+                ModelingParams.GetIterCount(obj.IterCount);
             else
                 obj = [];
                 errordlg(errorStr, 'Ошибки ввода')

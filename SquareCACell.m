@@ -7,6 +7,7 @@ classdef SquareCACell < CA_cell
         CurrNeighbors
         RenderColor
         CAIndexes
+        Step
 
         CAHandle CellularAutomat
         VisualizationType double {mustBeInteger, mustBeInRange(VisualizationType, [0, 2])}
@@ -14,28 +15,25 @@ classdef SquareCACell < CA_cell
 
     methods
         %конструктор €чейки
-        function obj = SquareCACell(value, Path, caIndexes, color, N)
+        function obj = SquareCACell(value, CAindexes, CAhandle, visType)
 
-            if nargin == 5
-
-                if iscell(caIndexes)
-                    caIndexes = cell2mat(caIndexes);
-                end
-
-                if iscell(color)
-                    color = cell2mat(color);
-                end
-
-                if (any(obj.CAIndexes(1:2) == (N - 1), obj.CAIndexes(1:2) == 0))
-                    obj.IsExternal = true;
-                end
-
-                obj.z0 = value;
-                obj.ZPath = Path;
-                obj.RenderColor = color;
-                obj.CAIndexes = caIndexes;
-
+            if iscell(CAindexes)
+                CAindexes = cell2mat(CAindexes);
             end
+
+            if any([CAindexes(2) == 0, CAindexes(1) == 0, CAindexes(1) == (CAhandle.N - 1), CAindexes(2) == (CAhandle.N - 1)])
+                obj.IsExternal = true;
+            else
+                obj.IsExternal = false;
+            end
+
+            obj.z0 = value;
+            obj.ZPath = value;
+            obj.CAHandle = CAhandle;
+            obj.VisualizationType = visType;
+            obj.CAIndexes = CAindexes;
+
+            obj.RenderColor = [0 0 0];
 
         end
 

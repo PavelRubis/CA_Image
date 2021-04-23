@@ -7,41 +7,36 @@ classdef HexagonCACell < CA_cell
         CurrNeighbors
         RenderColor
         CAIndexes
+        Step
 
         CAHandle CellularAutomat
-        Indexes (3, :) double {mustBeNonnegative, mustBeInteger}
+        Indexes (1, 3) double
         cellOrientation logical
     end
 
     methods
         %конструктор €чейки
-        function obj = HexagonCACell(value, Path, caIndexes, color, N)
+        function obj = HexagonCACell(value, CAindexes, CAhandle, orientation)
 
-            if nargin == 5
-
-                if iscell(caIndexes)
-                    caIndexes = cell2mat(caIndexes);
-                end
-
-                if iscell(color)
-                    color = cell2mat(color);
-                end
-
-                if (any(obj.Indexes(1:2) == (N - 1), obj.Indexes(1:2) == 0))
-                    obj.IsExternal = true;
-                end
-
-                obj.z0 = value;
-                obj.ZPath = Path;
-                obj.RenderColor = color;
-                obj.CAIndexes = caIndexes;
-
+            if iscell(CAindexes)
+                CAindexes = cell2mat(CAindexes);
             end
 
-        end
+            if any([CAindexes(2) == 0, CAindexes(1) == 0, CAindexes(1) == 2 * (CAhandle.N - 1), CAindexes(1) + CAindexes(2) == CAhandle.N - 1 + CAindexes(1)])
+                obj.IsExternal = true;
+            else
+                obj.IsExternal = false;
+            end
 
-        function [obj] = SetCellCAIndexes(obj)
-            % выбираем кол-во €чеек, соответсвующее числу €ч с опред коорд. присваивав такую коорд. так по обоим измерени€м
+            obj.z0 = value;
+            obj.ZPath = value;
+            obj.CAHandle = CAhandle;
+            obj.cellOrientation = orientation;
+            obj.CAIndexes = CAindexes;
+            obj = SetCellIndexes(obj);
+
+            obj.RenderColor = [0 0 0];
+
         end
 
         function [obj] = SetCellIndexes(obj)
@@ -109,13 +104,13 @@ classdef HexagonCACell < CA_cell
 
                 end
 
-                if isequal(CA_cell.Indexes(1:2), [n - 1 n - 1])
+                if isequal(obj.Indexes(1:2), [n - 1 n - 1])
 
                     extraNeibsArrIndexes = arrayfun(@(neighbor) isequal(neighbor.Indexes(1:2), [n - 1 0]), obj.CAHandle.Cells);
 
                 end
 
-                if (CA_cell.Indexes(1) == n - 1 && CA_cell.Indexes(2) > 0 && CA_cell.Indexes(2) ~= n - 1) || (CA_cell.Indexes(2) == n - 1 && CA_cell.Indexes(1) > 0 && CA_cell.Indexes(1) ~= n - 1)
+                if (obj.Indexes(1) == n - 1 && obj.Indexes(2) > 0 && obj.Indexes(2) ~= n - 1) || (obj.Indexes(2) == n - 1 && obj.Indexes(1) > 0 && obj.Indexes(1) ~= n - 1)
 
                     extraNeibsArrIndexes = arrayfun(@(neighbor) isequal(neighbor.Indexes(1:2) - obj.Indexes(1:2), [0 0]), obj.CAHandle.Cells);
 
@@ -134,10 +129,11 @@ classdef HexagonCACell < CA_cell
                         ];
             neibsArrIndexes = arrayfun(@(neighbor) any(ismember((neighbor.CAIndexes - obj.CAIndexes) == checkDiffMatr, [1 1], 'rows')), obj.CAHandle.Cells);
             extraNeibsArrIndexes = [];
+            n = obj.CAHandle.N;
 
             if obj.IsExternal
 
-                if isequal(CA_cell.Indexes(1:2), [n - 1 0])
+                if isequal(obj.Indexes(1:2), [n - 1 0])
 
                     checkDiffMatr = [
                                 [0 (n - 1) 0];
@@ -145,29 +141,29 @@ classdef HexagonCACell < CA_cell
                                 [0 (n - 1) -2];
                                 ];
 
-                    extraNeibsArrIndexes = arrayfun(@(neighbor) any(ismember((neighbor.Indexes - CA_cell.Indexes) == checkDiffMatr, [1 1 1], 'rows')), thisCA.Cells);
+                    extraNeibsArrIndexes = arrayfun(@(neighbor) any(ismember((neighbor.Indexes - obj.Indexes) == checkDiffMatr, [1 1 1], 'rows')), obj.CAHandle.Cells);
 
                 end
 
-                if isequal(CA_cell.Indexes(1:2), [n - 1 n - 1])
+                if isequal(obj.Indexes(1:2), [n - 1 n - 1])
 
                     checkDiffMatr = [
                                 [0 -(n - 1) 1];
                                 [0 -(n - 1) -2];
                                 ];
 
-                    extraNeibsArrIndexes = arrayfun(@(neighbor) any(ismember((neighbor.Indexes - CA_cell.Indexes) == checkDiffMatr, [1 1 1], 'rows')), thisCA.Cells);
+                    extraNeibsArrIndexes = arrayfun(@(neighbor) any(ismember((neighbor.Indexes - obj.Indexes) == checkDiffMatr, [1 1 1], 'rows')), obj.CAHandle.Cells);
 
                 end
 
-                if (CA_cell.Indexes(1) == n - 1 && CA_cell.Indexes(2) > 0 && CA_cell.Indexes(2) ~= n - 1) || (CA_cell.Indexes(2) == n - 1 && CA_cell.Indexes(1) > 0 && CA_cell.Indexes(1) ~= n - 1)
+                if (obj.Indexes(1) == n - 1 && obj.Indexes(2) > 0 && obj.Indexes(2) ~= n - 1) || (obj.Indexes(2) == n - 1 && obj.Indexes(1) > 0 && obj.Indexes(1) ~= n - 1)
 
                     checkDiffMatr = [
                                 [0 0 1];
                                 [0 0 -2];
                                 ];
 
-                    extraNeibsArrIndexes = arrayfun(@(neighbor) any(ismember((neighbor.Indexes - CA_cell.Indexes) == checkDiffMatr, [1 1 1], 'rows')), thisCA.Cells);
+                    extraNeibsArrIndexes = arrayfun(@(neighbor) any(ismember((neighbor.Indexes - obj.Indexes) == checkDiffMatr, [1 1 1], 'rows')), obj.CAHandle.Cells);
 
                 end
 

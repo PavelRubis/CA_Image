@@ -179,7 +179,7 @@ classdef DataFormatting
         function [customImag] = MakeCACustomImagWithNeighbors(customImagStr, CA_cell)
 
             for k = 1:length(CA_cell.CurrNeighbors)
-                customImagStr = strrep(customImagStr, strcat('z', num2str(k)), strcat('(', num2str(CA_cell.CurrNeighbors(k).zPath(end)), ')'));
+                customImagStr = strrep(customImagStr, strcat('z', num2str(k)), strcat('(', num2str(CA_cell.CurrNeighbors(k).ZPath(end)), ')'));
             end
 
             neiborsNotFound = regexp(customImagStr, 'z[1-9]+', 'match');

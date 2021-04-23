@@ -196,7 +196,7 @@ classdef SaveResults
 
             fprintf(fileID, strcat('\n\nОтображение: ', strrep(matr.ConstIteratedFuncStr, paramsSubStr, '')));
 
-            PrecisionParms = ModelingParamsForPath.GetSetPrecisionParms;
+            PrecisionParms = ModelingParams.GetSetPrecisionParms;
 
             fprintf(fileID, strcat('\n\nМаксимальный период=', num2str(ModelingParamsForPath.GetSetMaxPeriod), '\n'));
             fprintf(fileID, strcat('Порог бесконечности = ', num2str(10^PrecisionParms(1), '%.1e'), '\n'));

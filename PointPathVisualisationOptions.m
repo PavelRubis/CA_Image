@@ -89,8 +89,8 @@ classdef PointPathVisualisationOptions < VisualisationOptions
 
             visualPath = [];
 
-            if length(point.StatePath) > ModelingParamsForPath.GetIterCount
-                visualPath = point.StatePath(length(point.StatePath) - ModelingParamsForPath.GetIterCount:end);
+            if length(point.StatePath) > ModelingParams.GetIterCount
+                visualPath = point.StatePath(length(point.StatePath) - ModelingParams.GetIterCount:end);
             else
                 visualPath = point.StatePath;
             end

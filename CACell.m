@@ -2,7 +2,7 @@ classdef CACell
 
     properties
         z0 double = 0 + 0i% начальное состо€ние €чейки
-        zPath (1, :) double% орбита €чейки
+        ZPath (1, :) double% орбита €чейки
         Indexes (1, 3) int32% индексы €чейки на поле (i,j,k при заданной ориентации, x,y при )
         CurrNeighbors (1, :) CACell% массив соседей €чейки на текущей итерации
         IsExternal logical = false% €вл€етс€ ли €чейка внешней
@@ -54,7 +54,7 @@ classdef CACell
                 end
 
                 obj.z0 = value;
-                obj.zPath = path;
+                obj.ZPath = path;
                 obj.Indexes = indexes;
                 obj.Color = color;
             end
@@ -247,7 +247,7 @@ classdef CACell
 
         function obj = SetZ0(obj, value)
             obj.z0 = value;
-            obj.zPath = value;
+            obj.ZPath = value;
         end
 
     end

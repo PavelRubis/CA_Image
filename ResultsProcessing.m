@@ -30,7 +30,7 @@ classdef ResultsProcessing
                 if obj.isSaveCA
 
                     if length(ca.Cells) == 1
-                        PrecisionParms = ControlParams.GetSetPrecisionParms;
+                        PrecisionParms = ModelingParams.GetSetPrecisionParms;
                         lastIter = 1;
 
                         if isempty(obj.Filename)
@@ -67,7 +67,7 @@ classdef ResultsProcessing
                             fprintf(fileID, 'Re\tIm\tFate\tlength\n');
                             fclose(fileID);
 
-                            dlmwrite(obj.Filename, [real(ca.Cells(1).zPath(1)) imag(ca.Cells(1).zPath(end)) contParms.Periods contParms.LastIters], '-append', 'delimiter', '\t');
+                            dlmwrite(obj.Filename, [real(ca.Cells(1).ZPath(1)) imag(ca.Cells(1).ZPath(end)) contParms.Periods contParms.LastIters], '-append', 'delimiter', '\t');
 
                             fileID = fopen(obj.Filename, 'a');
                             fprintf(fileID, '\n\nТраектория:\n');
@@ -95,7 +95,7 @@ classdef ResultsProcessing
                             end
 
                             txtCell{15} = strcat('Итог: ', finishStr);
-                            txtCell{17} = cell2mat(strcat({num2str(real(ca.Cells(1).zPath(end)))}, {'	'}, {num2str(imag(ca.Cells(1).zPath(end)))}, {'	'}, {num2str(contParms.Periods)}, {'	'}, {num2str(contParms.LastIters)}));
+                            txtCell{17} = cell2mat(strcat({num2str(real(ca.Cells(1).ZPath(end)))}, {'	'}, {num2str(imag(ca.Cells(1).ZPath(end)))}, {'	'}, {num2str(contParms.Periods)}, {'	'}, {num2str(contParms.LastIters)}));
 
                             cell2Txt(obj, txtCell);
                         end
@@ -160,7 +160,7 @@ classdef ResultsProcessing
 
                         for j = 1:length(ca.Cells)
                             idx = cast(ca.Cells(j).Indexes, 'double');
-                            Z = [Z; [idx real(ca.Cells(j).zPath(end)) imag(ca.Cells(j).zPath(end))]];
+                            Z = [Z; [idx real(ca.Cells(j).ZPath(end)) imag(ca.Cells(j).ZPath(end))]];
                         end
 
                         dlmwrite(ConfFileName, 'x	y	k	Re	Im', '-append', 'delimiter', '');
@@ -182,7 +182,7 @@ classdef ResultsProcessing
 
                     fprintf(fileID, strcat('\n\nОтображение: ', func2str(contParms.ImageFunc)));
 
-                    PrecisionParms = ControlParams.GetSetPrecisionParms;
+                    PrecisionParms = ModelingParams.GetSetPrecisionParms;
 
                     fprintf(fileID, strcat('\n\n\nМаксимальный период=', num2str(ControlParams.GetSetMaxPeriod), '\nПорог бесконечности=', num2str(10^PrecisionParms(1)), '\nПорог сходимости=', num2str(PrecisionParms(2))));
 
@@ -319,7 +319,7 @@ classdef ResultsProcessing
                 end
 
                 fileID = fopen(ConfFileName, 'a');
-                PrecisionParms = ControlParams.GetSetPrecisionParms;
+                PrecisionParms = ModelingParams.GetSetPrecisionParms;
                 fprintf(fileID, strcat(num2str(PrecisionParms(1)), '\n'));
                 fprintf(fileID, strcat(num2str(PrecisionParms(2)), '\n'));
                 fclose(fileID);
@@ -342,7 +342,7 @@ classdef ResultsProcessing
                 paramSrt = strcat(paramStartSrt, num2str(paramStep));
                 paramSrt = strcat(paramSrt, paramEndSrt);
                 fprintf(fileID, strcat(paramSrt, '\n'));
-                PrecisionParms = ControlParams.GetSetPrecisionParms;
+                PrecisionParms = ModelingParams.GetSetPrecisionParms;
                 mp = ControlParams.GetSetMaxPeriod;
 
                 fprintf(fileID, strcat(num2str(PrecisionParms(1)), '\n'));

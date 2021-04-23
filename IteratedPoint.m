@@ -153,7 +153,7 @@ classdef IteratedPoint < IIteratedObject
             end
 
             obj.Step = length(obj.StatePath) + 1;
-            obj.StatePath = [obj.StatePath nan(1, ModelingParamsForPath.GetIterCount)];
+            obj.StatePath = [obj.StatePath nan(1, ModelingParams.GetIterCount)];
         end
 
         function [obj] = Iteration(obj, calcParams)
