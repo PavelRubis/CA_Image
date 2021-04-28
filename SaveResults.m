@@ -2,8 +2,8 @@ classdef SaveResults
 
     properties
         IsSaveData logical = false
-        ResultsPath (1, :) char
-        ResultsFilename (1, :) char
+        ResultsPath(1, :) char
+        ResultsFilename(1, :) char
         DataFileFormat double {mustBeInteger, mustBeInRange(DataFileFormat, [0, 1])}
         FigureFileFormat double {mustBeInteger, mustBeInRange(FigureFileFormat, [1, 3])}
     end
@@ -22,10 +22,10 @@ classdef SaveResults
 
             arguments
                 obj SaveResults
-                res (2, :) double;
+                res(:, :) double;
                 oldIteratedObject IIteratedObject
                 iteratedObject IIteratedObject
-                calcParms ModelingParamsForPath
+                calcParms ModelingParams
                 graphics struct
             end
 
@@ -40,6 +40,10 @@ classdef SaveResults
 
                     case 'IteratedMatrix'
                         obj = SaveMatrixPath(obj, iteratedObject, calcParms);
+
+                    case 'CellularAutomat'
+                        obj = SaveCAState(obj, iteratedObject, calcParms);
+
                 end
 
                 [obj] = SaveFig(obj, graphics);
@@ -58,10 +62,10 @@ classdef SaveResults
             fig = graphics.Axs;
 
             if obj.FigureFileFormat == 1
-                h = figure('Visible','off');
-                set(h, 'units', 'normalized', 'outerposition', [0 0 1 1])
+                h = figure('Visible', 'off');
+                set(h, 'units', 'normalized', 'outerposition', [0, 0, 1, 1])
                 colormap(graphics.Clrmp);
-                h.CurrentAxes = copyobj([fig graphics.Clrbr], h);
+                h.CurrentAxes = copyobj([fig, graphics.Clrbr], h);
                 savefig(h, 'figure.fig');
                 clear h;
             else
@@ -95,7 +99,7 @@ classdef SaveResults
 
             arguments
                 obj SaveResults
-                res (2, :) double;
+                res(2, :) double;
                 point IteratedPoint
                 calcParms ModelingParamsForPath
             end
@@ -177,6 +181,84 @@ classdef SaveResults
             SaveResults.WritePointPathTable2Txt(obj.ResultsFilename, iters, res);
         end
 
+        function obj = SaveCAState(obj, ca, calcParms)
+
+            ConfFileName = strcat('\CA-Modeling-', datestr(clock), '.txt');
+            ConfFileName = strrep(ConfFileName, ':', '-');
+            ConfFileName = strcat(obj.ResultsPath, ConfFileName);
+
+            if SaveResults.IsCustomResultsPath(obj)
+                ConfFileName = strcat(obj.ResultsPath, ConfFileName);
+            else
+                ConfFileName(1) = [];
+            end
+
+            fileID = fopen(ConfFileName, 'a');
+            fprintf(fileID, strcat('Моделирование клеточного автомата от-', datestr(clock)));
+            fprintf(fileID, '\n\nКонфигурация КА:\n\n');
+
+            if string(class(ca.Cells(1))) == "HexagonCACell"
+                fprintf(fileID, 'Тип решетки поля: гексагональное\n');
+            else
+                fprintf(fileID, 'Тип решетки поля: квадратное\n');
+            end
+
+            if string(class(ca.Neighborhood)) == "MooreNeighbourHood"
+                fprintf(fileID, 'Тип окрестности: фон-Неймана\n');
+            else
+                fprintf(fileID, 'Тип окрестности: Мура\n');
+            end
+
+            switch ca.Neighborhood.BordersType
+                case 1
+                    fprintf(fileID, 'Тип границ поля: "линия смерти"\n');
+                case 2
+                    fprintf(fileID, 'Тип границ поля: замыкание границ\n');
+                case 3
+                    fprintf(fileID, 'Тип границ поля: закрытые границы\n');
+            end
+
+            fprintf(fileID, 'Ребро N=%d\n', ca.N);
+            fprintf(fileID, strcat('\nОтображение: ', ca.ConstIteratedFuncStr, '\n'));
+
+            funcParamsNames = keys(ca.FuncParams);
+            funcParamsValues = values(ca.FuncParams);
+
+            for index = 1:length(ca.FuncParams)
+                fprintf(fileID, cell2mat(strcat({'Параметр '}, funcParamsNames(index), '=', num2str(funcParamsValues{index}), '\n')));
+            end
+
+            fprintf(fileID, strcat('Итерация T=', num2str(ca.Cells(1).Step),'\n\n\n'));
+            fprintf(fileID, 'Конфигурация Z0:\n\n');
+            fclose(fileID);
+            dlmwrite(ConfFileName, 'X       Y              Re	Im', '-append', 'delimiter', '');
+
+            cells = ca.Cells';
+            res = [arrayfun(@(caCell) {num2str(caCell.CAIndexes(1))}, cells), arrayfun(@(caCell) {num2str(caCell.CAIndexes(2))}, cells), arrayfun(@(caCell) {num2str(real(caCell.z0), '%.8e')}, cells), arrayfun(@(caCell) {num2str(imag(caCell.z0), '%.8e')}, cells)];
+
+            writeableRes = cell2table(res);
+            writetable(writeableRes, 'table.txt', 'Delimiter', '\t', 'WriteVariableNames', false);
+
+            txtCell = SaveResults.txt2Cell('table.txt');
+            SaveResults.cell2Txt(ConfFileName, txtCell, 'a');
+            delete table.txt;
+
+            fileID = fopen(ConfFileName, 'a');
+            fprintf(fileID, strcat('Значения ячеек на итерации Iter=', num2str(ca.Cells(1).Step),'\n\n'));
+            fclose(fileID);
+            dlmwrite(ConfFileName, 'X       Y              Re	Im', '-append', 'delimiter', '');
+
+            res = [arrayfun(@(caCell) {num2str(caCell.CAIndexes(1))}, cells), arrayfun(@(caCell) {num2str(caCell.CAIndexes(2))}, cells), arrayfun(@(caCell) {num2str(real(caCell.ZPath(end)), '%.8e')}, cells), arrayfun(@(caCell) {num2str(imag(caCell.ZPath(end)), '%.8e')}, cells)];
+
+            writeableRes = cell2table(res);
+            writetable(writeableRes, 'table.txt', 'Delimiter', '\t', 'WriteVariableNames', false);
+
+            txtCell = SaveResults.txt2Cell('table.txt');
+            SaveResults.cell2Txt(ConfFileName, txtCell, 'a');
+            delete table.txt;
+
+        end
+
         function obj = SaveMatrixPath(obj, matr, calcParms)
             ConfFileName = strcat('\MultiCalc-', datestr(clock));
             ConfFileName = strcat(ConfFileName, '.txt');
@@ -227,21 +309,21 @@ classdef SaveResults
             dlmwrite(ConfFileName, 'Re              Im              Fate	length', '-append', 'delimiter', '');
 
             WindowParam = matr.WindowOfValues{1} + 1i * matr.WindowOfValues{2};
-            
+
             WindowParam = WindowParam(:)';
             WindowParam = WindowParam';
-            
+
             matr.PointsFates = matr.PointsFates(:)';
             matr.PointsFates = matr.PointsFates';
-            
+
             matr.PointsSteps = matr.PointsSteps(:)';
             matr.PointsSteps = matr.PointsSteps';
-            
-            res = [arrayfun(@(item) {num2str(item, '%.8e')}, real(WindowParam)) arrayfun(@(item) {num2str(item, '%.8e')}, imag(WindowParam)) arrayfun(@(fate) {fate}, matr.PointsFates) arrayfun(@(step) {step}, matr.PointsSteps)];
-            
+
+            res = [arrayfun(@(item) {num2str(item, '%.8e')}, real(WindowParam)), arrayfun(@(item) {num2str(item, '%.8e')}, imag(WindowParam)), arrayfun(@(fate) {fate}, matr.PointsFates), arrayfun(@(step) {step}, matr.PointsSteps)];
+
             writeableRes = cell2table(res);
             writetable(writeableRes, 'table.txt', 'Delimiter', '\t', 'WriteVariableNames', false);
-            
+
             txtCell = SaveResults.txt2Cell('table.txt');
             SaveResults.cell2Txt(ConfFileName, txtCell, 'a');
             delete table.txt;
@@ -254,14 +336,14 @@ classdef SaveResults
         function WritePointPathTable2Txt(fileName, iters, res)
 
             arguments
-                fileName (1, :) char
-                iters (1, :) double
-                res (:, :) double
+                fileName(1, :) char
+                iters(1, :) double
+                res(:, :) double
             end
 
             iters = iters';
             res = res';
-            res = [arrayfun(@(iter) {iter}, iters) arrayfun(@(item) {num2str(item, '%.8e')}, res)];
+            res = [arrayfun(@(iter) {iter}, iters), arrayfun(@(item) {num2str(item, '%.8e')}, res)];
             writeableRes = cell2table(res);
 
             writetable(writeableRes, 'table.txt', 'Delimiter', '\t', 'WriteVariableNames', false);
@@ -313,7 +395,7 @@ classdef SaveResults
 
             check = true;
 
-            if (obj.IsSaveData && (isempty(obj.ResultsPath) ||~ischar(obj.ResultsPath)))
+            if (obj.IsSaveData && (isempty(obj.ResultsPath) || ~ischar(obj.ResultsPath)))
                 check = false;
             end
 
@@ -321,7 +403,7 @@ classdef SaveResults
 
         %{
 
-        function writePointResults(fileName, iters, res)
+function writePointResults(fileName, iters, res)
 
             arguments
                 fileName (1, :) char
@@ -341,7 +423,7 @@ classdef SaveResults
             fclose(fileID);
         end
 
-        function len = writeMatrix2txt(filename, matrix, delimiter)
+function len = writeMatrix2txt(filename, matrix, delimiter)
 
             arguments
                 filename (1, :) char
@@ -357,7 +439,7 @@ classdef SaveResults
 
         end
 
-        function formattedRow = getFormattedRow(row, delimiter, longestItemsLength)
+function formattedRow = getFormattedRow(row, delimiter, longestItemsLength)
 
             arguments
                 row (1, :) double;
@@ -369,7 +451,7 @@ classdef SaveResults
 
         end
 
-        function formattedItem = getFormattedItem(item, longestItemLen, baseDelimiter)
+function formattedItem = getFormattedItem(item, longestItemLen, baseDelimiter)
 
             arguments
                 item double;
@@ -392,7 +474,7 @@ classdef SaveResults
 
         end
 
-        function rows = getMatrixRows(matrix)
+function rows = getMatrixRows(matrix)
 
             arguments
                 matrix (:, :) double;
@@ -402,7 +484,7 @@ classdef SaveResults
 
         end
 
-        function cols = getMatrixColumns(matrix)
+function cols = getMatrixColumns(matrix)
 
             arguments
                 matrix (:, :) double;
@@ -412,7 +494,7 @@ classdef SaveResults
 
         end
 
-        function len = getLongestItemLength(matrixColumn)
+function len = getLongestItemLength(matrixColumn)
 
             arguments
                 matrixColumn (1, :) double;
@@ -430,9 +512,9 @@ end
 
 function mustBeInRange(a, b)
 
-    if any(a(:) < b(1)) || any(a(:) > b(2))
-        error(['Value assigned to Color property is not in range ', ...
-                num2str(b(1)), '...', num2str(b(2))])
-    end
+if any(a(:) < b(1)) || any(a(:) > b(2))
+    error(['Value assigned to Color property is not in range ', ...
+        num2str(b(1)), '...', num2str(b(2))])
+end
 
 end

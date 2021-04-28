@@ -10,14 +10,15 @@ classdef CellularAutomat < IIteratedObject & handle
         Neighborhood % тип окрестности
         N double {mustBePositive, mustBeInteger} % ребро поля
         Weights(1, :) double = [1, 1, 1, 1, 1] % массив весов всех соседей и центральной ячейки
+        ConstIteratedFuncStr (1, :) char
     end
 
     methods
 
         function obj = CellularAutomat()
 
-            obj.IteratedFunc = @(z)nan;
-            obj.IteratedFuncStr = '@(z)nan';
+            obj.IteratedFunc = @(z,neibs,oness)nan;
+            obj.IteratedFuncStr = '@(z,neibs,oness)nan';
             obj.FuncParams = [];
 
         end
@@ -115,11 +116,11 @@ classdef CellularAutomat < IIteratedObject & handle
 
                 switch handles.BaseImagMenu.Value
                     case 1
-                        funcStr = strcat(funcStr, '@(z)(exp(i * z))');
+                        funcStr = strcat(funcStr, '@(z,neibs,oness)(exp(i * z))');
                     case 2
-                        funcStr = strcat(funcStr, '@(z)(z^2+mu)');
+                        funcStr = strcat(funcStr, '@(z,neibs,oness)(z^2+mu)');
                     case 3
-                        funcStr = strcat(funcStr, '@(z)(1)');
+                        funcStr = strcat(funcStr, '@(z,neibs,oness)(1)');
 
                 end
 
@@ -142,7 +143,7 @@ classdef CellularAutomat < IIteratedObject & handle
                 end
 
             else
-                funcStr = strcat(funcStr, '@(z)', handles.UsersBaseImagEdit.String);
+                funcStr = strcat(funcStr, '@(z,neibs,oness)', handles.UsersBaseImagEdit.String);
             end
 
             obj.IteratedFuncStr = funcStr;
@@ -156,6 +157,7 @@ classdef CellularAutomat < IIteratedObject & handle
 
             iteratedFuncStr = obj.IteratedFuncStr;
             testFuncStr = obj.IteratedFuncStr;
+            obj.ConstIteratedFuncStr = obj.IteratedFuncStr;
 
             for index = 1:length(obj.FuncParams)
 
@@ -232,8 +234,8 @@ classdef CellularAutomat < IIteratedObject & handle
 
                 testFunc = str2func(testFuncStr);
 
-                if any([isnan(testFunc(0)), isinf(testFunc(0))])
-                    warning(cell2mat(strcat({'Entered iterated function '}, {strrep(obj.IteratedFuncStr, '@(z)', '')}, {' returns an NaN or Inf values in case of parameters equal to 0'})));
+                if any([isnan(testFunc(0,0,0)), isinf(testFunc(0,0,0))])
+                    warning(cell2mat(strcat({'Entered iterated function '}, {strrep(obj.IteratedFuncStr, '@(z,neibs,oness)', '')}, {' returns an NaN or Inf values in case of parameters equal to 0'})));
                 end
 
                 obj.IteratedFunc = str2func(iteratedFuncStr);
@@ -371,6 +373,7 @@ classdef CellularAutomat < IIteratedObject & handle
         function GenerateRandInitCellsVals(obj, a, b, c, z0, DistributType)
 
             cellsInxs = arrayfun(@(caCell)caCell.CAIndexes, obj.Cells, 'UniformOutput', false);
+            cellCount = length(cellsInxs);
 
             switch DistributType
                 case 1
@@ -393,6 +396,7 @@ classdef CellularAutomat < IIteratedObject & handle
 
             for ind = 1:length(obj.Cells)
                 obj.Cells(ind).z0 = valuesArr(ind);
+                obj.Cells(ind).ZPath = valuesArr(ind);
             end
 
         end
@@ -415,16 +419,13 @@ classdef CellularAutomat < IIteratedObject & handle
             for ind = 1:cellsCount
 
                 if length(obj.Cells(ind).CurrNeighbors) > 0
+                    neibs = arrayfun(@(neib)neib.ZPath(end),obj.Cells(ind).CurrNeighbors);
                     oness = ones(1, length(obj.Cells(ind).CurrNeighbors));
                     oness(1:2:length(oness)) = -1;
-                    eq = 1;
-                    if isKey(obj.FuncParams,'z*')
-                        eq = obj.FuncParams('z*');
-                    end
                     
                     func = CreateIteratedFuncForCell(obj, obj.Cells(ind));
 
-                    obj.Cells(ind).ZPath = [obj.Cells(ind).ZPath, func(obj.Cells(ind).ZPath(end))];
+                    obj.Cells(ind).ZPath = [obj.Cells(ind).ZPath, func(obj.Cells(ind).ZPath(end),neibs,oness)];
 
                     if ~(abs(obj.Cells(ind).ZPath(end) - obj.Cells(ind).ZPath(end -1)) < PrecisionParms(2))
                         obj.Cells(ind).Step = obj.Cells(ind).Step + 1;

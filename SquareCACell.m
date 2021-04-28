@@ -34,6 +34,7 @@ classdef SquareCACell < CA_cell
             obj.CAIndexes = CAindexes;
 
             obj.RenderColor = [0 0 0];
+            obj.Step = 0;
 
         end
 

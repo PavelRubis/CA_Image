@@ -31,11 +31,12 @@ classdef HexagonCACell < CA_cell
             obj.z0 = value;
             obj.ZPath = value;
             obj.CAHandle = CAhandle;
-            obj.cellOrientation = orientation;
+            obj.cellOrientation = mod(orientation, 2);
             obj.CAIndexes = CAindexes;
             obj = SetCellIndexes(obj);
 
             obj.RenderColor = [0 0 0];
+            obj.Step = 0;
 
         end
 
@@ -182,8 +183,8 @@ classdef HexagonCACell < CA_cell
 
                 xShift = sqrt(3) / 2 * (N - 1 - abs(a - (N - 1)));
 
-                x0 = a * sqrt(3) - xShift;
-                y0 = 3/2 * b;
+                x0 = b * sqrt(3) - xShift;
+                y0 = 3/2 * a;
 
                 dx = sqrt(3) / 2;
                 dy = 1/2;
@@ -203,7 +204,7 @@ classdef HexagonCACell < CA_cell
                 yShift = sqrt(3) / 2 * (N - 1 - abs(a - (N - 1)));
 
                 x0 = 3/2 * a;
-                y0 = -b * 2 * sqrt(3) + yShift;
+                y0 = -b * sqrt(3) + yShift;
 
                 dy = sqrt(3) / 2;
                 dx = 1/2;

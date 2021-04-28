@@ -1103,44 +1103,44 @@ end
 
 % --- Executes on selection change in LambdaMenu.
 function LambdaMenu_Callback(hObject, eventdata, handles)
-currCA=getappdata(handles.output,'CurrCA');
-contParms = getappdata(handles.output,'ContParms');
-switch hObject.Value
-    
-    case 1
-        if contParms.SingleOrMultipleCalc
-            currCA.Lambda = @(z_k)Miu0 + sum(z_k);
-        else
-            contParms.Lambda='*(Miu+z)';
-        end
-    case 2
-        if contParms.SingleOrMultipleCalc
-            currCA.Lambda = @(z_k)Miu + Miu0*(abs(sum(z_k-Zbase)/(length(z_k))));
-        else
-            contParms.Lambda='*(Miu+(Miu0*abs(z-(eq))))';
-        end
-    case 3
-        if contParms.SingleOrMultipleCalc
-            currCA.Lambda = @(z_k,n)Miu + Miu0*abs(sum(arrayfun(@(z_n,o)o*z_n ,z_k,n)));
-        else
-            contParms.Lambda='*(Miu+(Miu0*abs(z)))';
-        end
-    case 4
-        if contParms.SingleOrMultipleCalc
-            currCA.Lambda = @(z_k)Miu + Miu0*(sum(z_k-Zbase)/(length(z_k)));
-        else
-            contParms.Lambda='*(Miu+(Miu0*(z-(eq))))';
-        end
-    case 5
-        if contParms.SingleOrMultipleCalc
-            currCA.Lambda = @(z_k)(Miu + Miu0);
-        else
-            contParms.Lambda='*(Miu+Miu0)';
-        end
-end
-
-setappdata(handles.output,'CurrCA',currCA);
-setappdata(handles.output,'ContParms',contParms);
+% currCA=getappdata(handles.output,'CurrCA');
+% contParms = getappdata(handles.output,'ContParms');
+% switch hObject.Value
+%     
+%     case 1
+%         if contParms.SingleOrMultipleCalc
+%             currCA.Lambda = @(z_k)Miu0 + sum(z_k);
+%         else
+%             contParms.Lambda='*(Miu+z)';
+%         end
+%     case 2
+%         if contParms.SingleOrMultipleCalc
+%             currCA.Lambda = @(z_k)Miu + Miu0*(abs(sum(z_k-Zbase)/(length(z_k))));
+%         else
+%             contParms.Lambda='*(Miu+(Miu0*abs(z-(eq))))';
+%         end
+%     case 3
+%         if contParms.SingleOrMultipleCalc
+%             currCA.Lambda = @(z_k,n)Miu + Miu0*abs(sum(arrayfun(@(z_n,o)o*z_n ,z_k,n)));
+%         else
+%             contParms.Lambda='*(Miu+(Miu0*abs(z)))';
+%         end
+%     case 4
+%         if contParms.SingleOrMultipleCalc
+%             currCA.Lambda = @(z_k)Miu + Miu0*(sum(z_k-Zbase)/(length(z_k)));
+%         else
+%             contParms.Lambda='*(Miu+(Miu0*(z-(eq))))';
+%         end
+%     case 5
+%         if contParms.SingleOrMultipleCalc
+%             currCA.Lambda = @(z_k)(Miu + Miu0);
+%         else
+%             contParms.Lambda='*(Miu+Miu0)';
+%         end
+% end
+% 
+% setappdata(handles.output,'CurrCA',currCA);
+% setappdata(handles.output,'ContParms',contParms);
         
 % hObject    handle to LambdaMenu (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -1420,20 +1420,20 @@ axis image;
 set(gca,'xtick',[]);
 set(gca,'ytick',[]);
 
-%%
+oldIteratedObject = getappdata(handles.output, 'IIteratedObject');
 saveRes = getappdata(handles.output, 'SaveResults');
 saveRes.ResultsFilename = '';
 setappdata(handles.output, 'SaveResults', saveRes);
 
-setappdata(handles.output, 'IIteratedObject', []);
+setappdata(handles.output, 'IIteratedObject', []);%нет ли утечки памяти если итерированный объект КА?
 setappdata(handles.output, 'calcParams', []);
-%%
+
 
 handles.SaveAllModelParamsB.Enable='off';
 handles.VisualIteratedObjectMenu.Visible='off';
 handles.LambdaMenu.Enable='on';
 
-if contParms.SingleOrMultipleCalc
+if string(class(oldIteratedObject)) ~= "IteratedMatrix"
     
     if str2double(handles.NFieldEdit.String)==1
         handles.DistributionTypeMenu.Enable='off';
@@ -3189,6 +3189,7 @@ end
 function SaveParamsButton_Callback(hObject, eventdata, handles)
 
 modelingTypeParams = strcat(handles.NFieldEdit.String, handles.CalcGroup.SelectedObject.Tag);
+calcParams = [];
 switch modelingTypeParams
     case '1SingleCalcRB'
 
@@ -3222,16 +3223,20 @@ switch modelingTypeParams
         [calcParams] = ModelingParamsForPath.ModelingParamsInitialization(handles);
 
     otherwise
-        [obj] = CellularAutomat();
-        [obj] = Initialization(obj, handles);
+        iteratedObject = getappdata(handles.output, 'IIteratedObject');
 
-        if isempty(obj)
-            return;
+        if ~strcmp(class(iteratedObject), 'CellularAutomat')
+            [obj] = CellularAutomat();
+            [obj] = Initialization(obj, handles);
+
+            if isempty(obj)
+                return;
+            end
+            setappdata(handles.output, 'IIteratedObject', obj);
+            visualOptions = CAVisualisationOptions('jet',@(val,zbase) log(abs(val - zbase)) / log(10),'\fontsize{16}log_{10}(\midz-z^{*}\mid)');
+            setappdata(handles.output, 'VisOptions', visualOptions);
+            [calcParams] = ModelingParams.ModelingParamsInitialization(handles);
         end
-        setappdata(handles.output, 'IIteratedObject', obj);
-        visualOptions = CAVisualisationOptions('jet',@(val,zbase) log(abs(val - zbase)) / log(10),'\fontsize{16}log_{10}(\midz-z^{*}\mid)');
-        setappdata(handles.output, 'VisOptions', visualOptions);
-        [calcParams] = ModelingParams.ModelingParamsInitialization(handles);
 
 end
 
@@ -4023,6 +4028,7 @@ else
     handles.GorOrientRB.Value=0;
     handles.VertOrientRB.Value=0;
     handles.FieldTypeGroup.UserData = 'SquareFieldRB';
+    handles.HexOrientationPanel.UserData = 0;
 end
 
 

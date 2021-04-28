@@ -3,7 +3,7 @@ classdef IteratedMatrix < IIteratedObject
     properties
         IteratedFunc
         IteratedFuncStr
-        ConstIteratedFuncStr
+        ConstIteratedFuncStr (1, :) char
         FuncParams
 
         PointsFates
