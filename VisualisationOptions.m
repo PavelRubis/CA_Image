@@ -1,4 +1,4 @@
-classdef (Abstract) VisualisationOptions
+classdef (Abstract, HandleCompatible) VisualisationOptions
 
     properties
         ColorMap (1, :) char

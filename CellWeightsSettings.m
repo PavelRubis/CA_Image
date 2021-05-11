@@ -71,7 +71,8 @@ neighborhoodsMatr = [
                 [1 0];
                 [1 1];
                 ];
-neighborhoodType = find(ismember(cell2mat(varargin(2)) == neighborhoodsMatr, [1 1], 'rows'));
+neighborhood = varargin;
+neighborhoodType = find(ismember([neighborhood{1}(1) == "HexFieldRB", neighborhood{1}(2) == "NeumannRB"] == neighborhoodsMatr, [1 1], 'rows'));
 
 switch neighborhoodType
     %4
@@ -124,7 +125,7 @@ function CancelBtn_Callback(hObject, eventdata, handles)
 function SetWeightBtn_Callback(hObject, eventdata, handles)
 WeightsArr=str2double(handles.WeightsTable.Data(:,1));
 
-neighborHood = getappdata(handles.output, 'NeighborHood');
+neighborhood = getappdata(handles.output, 'Neighborhood');
 
 neighborhoodsMatr = [
                 [0 0];
@@ -132,7 +133,7 @@ neighborhoodsMatr = [
                 [1 0];
                 [1 1];
                 ];
-neighborhoodType = find(ismember(neighborHood == neighborhoodsMatr, [1 1], 'rows'));
+neighborhoodType = find(ismember([neighborhood(1) == "HexFieldRB", neighborhood(2)  == "NeumannRB"] == neighborhoodsMatr, [1 1], 'rows'));
 
 error = false;
 neighborsCount=0;

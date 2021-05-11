@@ -58,6 +58,7 @@ classdef ModelingParams
 
             errorCheck = false;
             errorStr = 'Ошибки в полях управления моделированием: ';
+            errStruct = getappdata(handles.output,'errStruct');
 
             if isempty(regexp(handles.IterCountEdit.String, '^\d+$'))
                 errorCheck = true;
@@ -75,7 +76,9 @@ classdef ModelingParams
                 ModelingParams.GetIterCount(obj.IterCount);
             else
                 obj = [];
-                errordlg(errorStr, 'Ошибки ввода')
+                errStruct.check = 1;
+                errStruct.msg = strcat(errStruct.msg, errorStr);
+                setappdata(handles.output, 'errStruct', errStruct);
             end
 
         end

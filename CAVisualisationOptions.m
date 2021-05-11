@@ -1,4 +1,4 @@
-classdef CAVisualisationOptions < VisualisationOptions
+classdef CAVisualisationOptions < VisualisationOptions & handle
 
     properties
         DataProcessingFunc function_handle
@@ -79,6 +79,8 @@ classdef CAVisualisationOptions < VisualisationOptions
 
             %отрисовка поля
             arrayfun(@(CACell) CACell.Render(), ca.Cells, 'UniformOutput', false);
+            zoom off;
+            
             colors = arrayfun(@(CACell) {CACell.RenderColor}, ca.Cells(indxes));
             colors = cell2mat(colors');
 

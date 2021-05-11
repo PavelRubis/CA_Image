@@ -57,12 +57,16 @@ VisOptions = PointPathVisualisationOptions('jet', xFunc, yFunc, xLabel, yLabel, 
 PointPathVisualisationOptions.GetSetPointPathVisualisationOptions('jet', xFunc, yFunc, xLabel, yLabel, []);
 setappdata(hObject, 'VisOptions', VisOptions);
 
+caVisualOptions = CAVisualisationOptions('jet',@(val,zbase) log(abs(val - zbase)) / log(10),'\fontsize{16}log_{10}(\midz-z^{*}\mid)');
+setappdata(hObject, 'CAVisOptions', caVisualOptions);
+
 saveRes = SaveResults();
 setappdata(hObject, 'SaveResults', saveRes);
 
 handles.LambdaMenu.Value=5;
 
 handles.FieldTypeGroup.UserData = 'SquareFieldRB';
+handles.NeighborhoodTemp.UserData = 'NeumannRB';
 handles.HexOrientationPanel.UserData=0;
 handles.BordersTypePanel.UserData=2;
 
@@ -82,9 +86,9 @@ handles.output = hObject;
 
 % Update handles structure
 guidata(hObject, handles);
-if isempty(gcp('nocreate'))
-    parpool;
-end
+% if isempty(gcp('nocreate'))
+%     parpool;
+% end
 
 
 % UIWAIT makes CA wait for user response (see UIRESUME)
@@ -110,10 +114,14 @@ SaveParamsButton_Callback(handles.SaveParamsButton, eventdata, handles)
 IteratedObject = getappdata(handles.output, 'IIteratedObject');
 calcParams = getappdata(handles.output, 'calcParams');
 saveRes = getappdata(handles.output, 'SaveResults');
-
 visualOptions = getappdata(handles.output, 'VisOptions');
 
+errStruct = getappdata(handles.output, 'errStruct');
+
 if any([isempty(IteratedObject) isempty(calcParams) isempty(saveRes)])
+    errordlg(errStruct.msg,'Ошибки ввода:');
+    setappdata(handles.output, 'errStruct',[]);
+    setappdata(handles.output, 'IIteratedObject',[]);
     return;
 end
 
@@ -1576,7 +1584,6 @@ saveRes=getappdata(handles.output,'SaveResults');
 directory = uigetdir;
 if(directory)
     saveRes.ResultsPath = directory;
-    saveRes.IsSaveData = true;
 end
 setappdata(handles.output, 'SaveResults', saveRes);
 
@@ -2983,9 +2990,13 @@ end
 % --- Executes on button press in Z0SourcePathButton.
 function Z0SourcePathButton_Callback(hObject, eventdata, handles)
 [file,path] = uigetfile('*.txt');
-path=strcat(path,file);
-handles.Z0SourcePathEdit.String=path;
-handles.Z0SourcePathEdit.UserData=1;
+if ~isequal([file,path],[0,0])
+    path=strcat(path,file);
+    handles.Z0SourcePathEdit.String=path;
+    handles.Z0SourcePathEdit.UserData=1;
+else
+    handles.Z0SourcePathEdit.UserData=0;
+end
 
 % hObject    handle to Z0SourcePathButton (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -3206,8 +3217,8 @@ switch modelingTypeParams
             setappdata(handles.output, 'IIteratedObject', obj);
             visualOptions = PointPathVisualisationOptions.GetSetPointPathVisualisationOptions;
             setappdata(handles.output, 'VisOptions', visualOptions);
-            [calcParams] = ModelingParamsForPath.ModelingParamsInitialization(handles);
         end
+        [calcParams] = ModelingParamsForPath.ModelingParamsInitialization(handles);
 
     case 'MultipleCalcRB'
         [obj] = IteratedMatrix();
@@ -3227,16 +3238,20 @@ switch modelingTypeParams
 
         if ~strcmp(class(iteratedObject), 'CellularAutomat')
             [obj] = CellularAutomat();
+            obj.Weights = CellularAutomat.GetSetWeights;
+            if isempty(obj.Weights)
+                obj.Weights = [1 1 1 1 1 1 1 1];
+            end
             [obj] = Initialization(obj, handles);
 
             if isempty(obj)
                 return;
             end
             setappdata(handles.output, 'IIteratedObject', obj);
-            visualOptions = CAVisualisationOptions('jet',@(val,zbase) log(abs(val - zbase)) / log(10),'\fontsize{16}log_{10}(\midz-z^{*}\mid)');
+            visualOptions = getappdata(handles.output, 'CAVisOptions');
             setappdata(handles.output, 'VisOptions', visualOptions);
-            [calcParams] = ModelingParams.ModelingParamsInitialization(handles);
         end
+        [calcParams] = ModelingParams.ModelingParamsInitialization(handles);
 
 end
 
@@ -3989,9 +4004,11 @@ switch string(get(hObject,'Tag'))
         handles.BordersTypePanel.UserData=2;
         
     case "ClosedBordersRB"
-        handles.BordersTypePanel.UserData=3;
-    
+        handles.BordersTypePanel.UserData=3;  
 end
+fakeObject = struct;
+fakeObject.Tag = handles.NeighborhoodTemp.UserData;
+NeighborhoodTemp_SelectionChangedFcn(fakeObject, eventdata, handles)
 
 
 % --- Executes when selected object is changed in HexOrientationPanel.
@@ -5021,13 +5038,14 @@ setappdata(handles.output,'ResProc',ResProc);
 
 % --- Executes when selected object is changed in NeighborhoodTemp.
 function NeighborhoodTemp_SelectionChangedFcn(hObject, eventdata, handles)
-switch get(hObject,'Tag')
+switch hObject.Tag
     
     case 'NeumannRB'
         newNeighborhood = NeumannNeighbourHood(handles.BordersTypePanel.UserData);
-    
+        handles.NeighborhoodTemp.UserData = 'NeumannRB';
     case 'MooreRB'
         newNeighborhood = MooreNeighbourHood(handles.BordersTypePanel.UserData);
+        handles.NeighborhoodTemp.UserData = 'MooreRB';
         
 end
 setappdata(handles.output,'Neighborhood',newNeighborhood);
@@ -5071,10 +5089,9 @@ function CASettingsMenuItem_Callback(hObject, eventdata, handles)
 
 % --------------------------------------------------------------------
 function SetNeighborWeightMenuItem_Callback(hObject, eventdata, handles)
-currCA=getappdata(handles.output,'CurrCA');
-cellWeightsSettings = CellWeightsSettings('UserData', [currCA.FieldType currCA.NeighborhoodType]);
+cellWeightsSettings = CellWeightsSettings([string(handles.FieldTypeGroup.UserData), string(handles.NeighborhoodTemp.UserData)]);
 
-setappdata(cellWeightsSettings, 'NeighborHood', [currCA.FieldType currCA.NeighborhoodType]);
+setappdata(cellWeightsSettings, 'Neighborhood', [string(handles.FieldTypeGroup.UserData), string(handles.NeighborhoodTemp.UserData)]);
 setappdata(handles.output, 'CellWeightsSettings', cellWeightsSettings);
 
 % hObject    handle to SetNeighborWeightMenuItem (see GCBO)
@@ -5085,7 +5102,9 @@ setappdata(handles.output, 'CellWeightsSettings', cellWeightsSettings);
 
 % --------------------------------------------------------------------
 function VisualizationSettingsMenuItem_Callback(hObject, eventdata, handles)
-visualizationSettings = VisualizationSettings;
+caVisualOptions = getappdata(handles.output, 'CAVisOptions');
+visualizationSettings = CAVisualizationSettings;
+setappdata(visualizationSettings, 'CAVisOptions',caVisualOptions);
 % hObject    handle to VisualizationSettingsMenuItem (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)

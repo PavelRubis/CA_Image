@@ -84,6 +84,104 @@ classdef SquareCACell < CA_cell
 
         end
 
+        function neibsArrIndexes = GetAllNeumannNeighborsPlaces(obj)
+            
+            neibsArrIndexes = [];
+            N = obj.CAHandle.N;
+
+            checkDiffMatr1 = [
+                        [0 -1];
+                        [0 N-1];
+                        ];
+
+            neibsArrIndexes = [neibsArrIndexes find(arrayfun(@(neib) any(ismember(abs(neib.CAIndexes - obj.CAIndexes) == checkDiffMatr1, [1 1], 'rows')),obj.CurrNeighbors) )];
+
+            checkDiffMatr2 = [
+                        [-1 0];
+                        [N-1 0];
+                        ];
+
+            neibsArrIndexes = [neibsArrIndexes find(arrayfun(@(neib) any(ismember(abs(neib.CAIndexes - obj.CAIndexes) == checkDiffMatr2, [1 1], 'rows')),obj.CurrNeighbors) )];
+            
+            checkDiffMatr3 = [
+                        [0 1];
+                        [0 -(N-1)];
+                        ];
+
+            neibsArrIndexes = [neibsArrIndexes find(arrayfun(@(neib) any(ismember(abs(neib.CAIndexes - obj.CAIndexes) == checkDiffMatr3, [1 1], 'rows')),obj.CurrNeighbors) )];
+
+            checkDiffMatr4 = [
+                        [1 0];
+                        [-(N-1) 0];
+                        ];
+
+            neibsArrIndexes = [neibsArrIndexes find(arrayfun(@(neib) any(ismember(abs(neib.CAIndexes - obj.CAIndexes) == checkDiffMatr4, [1 1], 'rows')),obj.CurrNeighbors) )];
+            
+        end
+
+        function neibsArrIndexes = GetAllMooreNeighborsPlaces(obj)
+            
+            neibsArrIndexes = [];
+            N = obj.CAHandle.N;
+
+            checkDiffMatr1 = [
+                        [0 -1];
+                        [0 N-1];
+                        ];
+
+            neibsArrIndexes = [neibsArrIndexes find(arrayfun(@(neib) any(ismember(abs(neib.CAIndexes - obj.CAIndexes) == checkDiffMatr1, [1 1], 'rows')),obj.CurrNeighbors) )];
+
+            checkDiffMatr2 = [
+                        [-1 -1];
+                        [N-1 N-1];
+                        ];
+
+            neibsArrIndexes = [neibsArrIndexes find(arrayfun(@(neib) any(ismember(abs(neib.CAIndexes - obj.CAIndexes) == checkDiffMatr2, [1 1], 'rows')),obj.CurrNeighbors) )];
+            
+            checkDiffMatr3 = [
+                        [-1 0];
+                        [N-1 0];
+                        ];
+
+            neibsArrIndexes = [neibsArrIndexes find(arrayfun(@(neib) any(ismember(abs(neib.CAIndexes - obj.CAIndexes) == checkDiffMatr3, [1 1], 'rows')),obj.CurrNeighbors) )];
+            
+            checkDiffMatr4 = [
+                        [-1 1];
+                        [N-1 -(N-1)];
+                        ];
+
+            neibsArrIndexes = [neibsArrIndexes find(arrayfun(@(neib) any(ismember(abs(neib.CAIndexes - obj.CAIndexes) == checkDiffMatr4, [1 1], 'rows')),obj.CurrNeighbors) )];
+
+            checkDiffMatr5 = [
+                        [0 1];
+                        [0 -(N-1)];
+                        ];
+
+            neibsArrIndexes = [neibsArrIndexes find(arrayfun(@(neib) any(ismember(abs(neib.CAIndexes - obj.CAIndexes) == checkDiffMatr5, [1 1], 'rows')),obj.CurrNeighbors) )];
+
+            checkDiffMatr6 = [
+                        [1 1];
+                        [-(N-1) -(N-1)];
+                        ];
+
+            neibsArrIndexes = [neibsArrIndexes find(arrayfun(@(neib) any(ismember(abs(neib.CAIndexes - obj.CAIndexes) == checkDiffMatr6, [1 1], 'rows')),obj.CurrNeighbors) )];
+
+            checkDiffMatr7 = [
+                        [1 0];
+                        [-(N-1) 0];
+                        ];
+
+            neibsArrIndexes = [neibsArrIndexes find(arrayfun(@(neib) any(ismember(abs(neib.CAIndexes - obj.CAIndexes) == checkDiffMatr7, [1 1], 'rows')),obj.CurrNeighbors) )];
+            
+            checkDiffMatr8 = [
+                        [1 -1];
+                        [-(N-1) N-1];
+                        ];
+
+            neibsArrIndexes = [neibsArrIndexes find(arrayfun(@(neib) any(ismember(abs(neib.CAIndexes - obj.CAIndexes) == checkDiffMatr8, [1 1], 'rows')),obj.CurrNeighbors) )];
+            
+        end
+
         function [obj] = Render(obj)
 
             switch obj.VisualizationType

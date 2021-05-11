@@ -33,10 +33,13 @@ classdef IteratedPoint < IIteratedObject
             obj = SetInitValueAndFuncParams(obj, handles);
             obj = IteratedPoint.GetIteratedFuncStr(obj, handles);
             [obj, errorStr] = CreateIteratedFunc(obj, handles);
+            
+            errStruct = struct;
+            errStruct.check = isempty(errorStr);
+            errStruct.msg = errorStr;
+            setappdata(handles.output, 'errStruct', errStruct);
 
-            if isempty(obj)
-                errordlg(errorStr, 'Ошибки ввода')
-            else
+            if ~isempty(obj)
                 obj = BeforeModeling(obj);
             end
 

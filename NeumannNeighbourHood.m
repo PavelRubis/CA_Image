@@ -30,6 +30,9 @@ classdef NeumannNeighbourHood < NeighbourHood
                 case 3
                     caCell.CurrNeighbors = caCell.CAHandle.Cells(find(neibsArrIndexes));
             end
+            
+            sortedNeighbors = GetAllNeumannNeighborsPlaces(caCell);
+            caCell.CurrNeighbors = caCell.CurrNeighbors(sortedNeighbors(find(sortedNeighbors)));
 
         end
 

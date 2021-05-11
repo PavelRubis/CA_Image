@@ -29,15 +29,29 @@ classdef IteratedMatrix < IIteratedObject
 
             errStruct.check = false;
             errStruct.msg = 'Ошибки в текстовых полях параметров: ';
+            setappdata(handles.output, 'errStruct', errStruct);
 
             [obj errStruct] = SetFuncParams(obj, handles, errStruct);
+            if errStruct.check
+                obj = [];
+                setappdata(handles.output, 'errStruct', errStruct);
+                return
+            end
             [obj errStruct] = SetWindowOfValues(obj, handles, errStruct);
+            if errStruct.check
+                obj = [];
+                setappdata(handles.output, 'errStruct', errStruct);
+                return
+            end
+
             obj = IteratedPoint.GetIteratedFuncStr(obj, handles);
             obj.ConstIteratedFuncStr = obj.IteratedFuncStr;
+            
             [obj, errStruct] = CreateIteratedFunc(obj, errStruct);
 
             if errStruct.check
                 obj = [];
+                setappdata(handles.output, 'errStruct', errStruct);
             end
 
         end
@@ -209,9 +223,13 @@ classdef IteratedMatrix < IIteratedObject
                     obj.FuncParams(probalyParamsNames{ind}) = probalyParamsValues{ind};
                 else
                     errStruct.check = true;
-                    strcat(errStruct.msg, probalyParamsNames{ind}, ' ;');
+                    errStruct.msg = strcat(errStruct.msg, probalyParamsNames{ind}, ' ;');
                 end
 
+            end
+            
+            if errStruct.check
+                return;
             end
 
             obj.WindowParam = struct;

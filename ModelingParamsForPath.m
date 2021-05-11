@@ -14,10 +14,7 @@ classdef ModelingParamsForPath < ModelingParams
                 equalityVal double
                 maxPeriod double {mustBeInteger, mustBePositive}
             end
-
-            obj.IterCount = iterCount;
-            obj.InfVal = infVal;
-            obj.EqualityVal = equalityVal;
+            obj@ModelingParams(iterCount,infVal,equalityVal);
             obj.MaxPeriod = maxPeriod;
 
         end
@@ -42,44 +39,43 @@ classdef ModelingParamsForPath < ModelingParams
                 handles struct
             end
 
-            IIteratedObject = getappdata(handles.output, 'IIteratedObject');
-
-            errorCheck = false;
-            errorStr = 'Ошибки в полях управления моделированием: ';
+            errStruct = getappdata(handles.output,'errStruct');
+            errStruct.msg = strcat(errStruct.msg,'Ошибки в полях управления моделированием: '); 
 
             if isempty(regexp(handles.IterCountEdit.String, '^\d+$'))
-                errorCheck = true;
-                errorStr = strcat(errorStr, 'Ошибка в поле числа итераций; ');
+                errStruct.check = 1;
+                errStruct.msg = strcat(errStruct.msg, 'Ошибка в поле числа итераций; ');
             end
 
             if isempty(regexp(handles.InfValueEdit.String, '^\d+$')) || isempty(regexp(handles.ConvergValueEdit.String, '^\d+$'))
-                errorCheck = true;
-                errorStr = strcat(errorStr, 'Ошибка в полях точности вычислений; ');
+                errStruct.check = 1;
+                errStruct.msg = strcat(errStruct.msg, 'Ошибка в полях точности вычислений; ');
             end
 
             if (isempty(regexp(handles.MaxPeriodEdit.String, '^\d+$')))
-                errorCheck = true;
-                errorStr = strcat(errorStr, 'Ошибка в поле максимального периода; ');
+                errStruct.check = 1;
+                errStruct.msg = strcat(errStruct.msg, 'Ошибка в поле максимального периода; ');
             end
 
-            if ~errorCheck
+            if ~errStruct.check
 
                 if str2double(handles.MaxPeriodEdit.String) > str2double(handles.IterCountEdit.String)
-                    errorCheck = true;
-                    errorStr = strcat(errorStr, 'Максимальный период не должен превышать число итераций; ');
+                    errStruct.check = 1;
+                    errStruct.msg = strcat(errStruct.msg, 'Максимальный период не должен превышать число итераций; ');
                 end
 
             end
 
-            if ~errorCheck
+            if ~errStruct.check
                 obj = ModelingParamsForPath(str2double(handles.IterCountEdit.String), str2double(handles.InfValueEdit.String), str2double(strcat('1e-', handles.ConvergValueEdit.String)), str2double(handles.MaxPeriodEdit.String));
                 ModelingParams.GetSetPrecisionParms(obj.InfVal, obj.EqualityVal);
                 ModelingParamsForPath.GetSetMaxPeriod(obj.MaxPeriod);
                 ModelingParams.GetIterCount(obj.IterCount);
             else
                 obj = [];
-                errordlg(errorStr, 'Ошибки ввода')
             end
+            
+            setappdata(handles.output, 'errStruct', errStruct);
 
         end
 

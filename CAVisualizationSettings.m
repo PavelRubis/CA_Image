@@ -22,7 +22,7 @@ function varargout = CAVisualizationSettings(varargin)
 
 % Edit the above text to modify the response to help CAVisualizationSettings
 
-% Last Modified by GUIDE v2.5 07-Jan-2021 19:23:55
+% Last Modified by GUIDE v2.5 05-May-2021 07:50:14
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -144,10 +144,34 @@ close(handles.output);
 % --- Executes on button press in SetVSettingsBtn.
 function SetVSettingsBtn_Callback(hObject, eventdata, handles)
 
-ResultsProcessing.GetSetCAVisualizationSettings({handles.VisualiseDataMenu.Value, cell2mat(handles.ColorMapMenu.String(handles.ColorMapMenu.Value))});
+caVisualOptions = getappdata(handles.output, 'CAVisOptions');
+
+clrbrTitle = '';
+visFunc = [];
+switch handles.VisualiseDataMenu.Value
+    case 1
+        visFunc = @(val,zbase) abs(val);
+        clrbrTitle = '\fontsize{16}\midz\mid';
+    case 2
+        visFunc = @(val,zbase) log(abs(val - zbase)) / log(10);
+        clrbrTitle = '\fontsize{16}log_{10}(\midz-z^{*}\mid)';
+end
+
+caVisualOptions.DataProcessingFunc = visFunc;
+caVisualOptions.ColorBarLabel = clrbrTitle;
+caVisualOptions.ColorMap = cell2mat(handles.ColorMapMenu.String(handles.ColorMapMenu.Value));
 
 msgbox('Настройки визуализации поля КА успешно заданы.');
 close(handles.output);
 % hObject    handle to SetVSettingsBtn (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+
+
+% --- Executes during object creation, after setting all properties.
+function ColorMapAxes_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to ColorMapAxes (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: place code in OpeningFcn to populate ColorMapAxes

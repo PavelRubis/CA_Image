@@ -10,14 +10,14 @@ classdef CellularAutomat < IIteratedObject & handle
         Neighborhood % тип окрестности
         N double {mustBePositive, mustBeInteger} % ребро поля
         Weights(1, :) double = [1, 1, 1, 1, 1] % массив весов всех соседей и центральной ячейки
-        ConstIteratedFuncStr (1, :) char
+        ConstIteratedFuncStr(1, :) char
     end
 
     methods
 
         function obj = CellularAutomat()
 
-            obj.IteratedFunc = @(z,neibs,oness)nan;
+            obj.IteratedFunc = @(z, neibs, oness)nan;
             obj.IteratedFuncStr = '@(z,neibs,oness)nan';
             obj.FuncParams = [];
 
@@ -30,13 +30,15 @@ classdef CellularAutomat < IIteratedObject & handle
                 handles struct
             end
 
-            errStruct.check = false;
+            errStruct.check = 0;
             errStruct.msg = 'Ошибки в текстовых полях параметров: ';
+            setappdata(handles.output, 'errStruct', errStruct);
 
             errStruct = SetMainProperties(obj, handles, errStruct);
 
             if errStruct.check
                 obj = [];
+                setappdata(handles.output, 'errStruct', errStruct);
                 return;
             end
 
@@ -46,6 +48,7 @@ classdef CellularAutomat < IIteratedObject & handle
 
             if errStruct.check
                 obj = [];
+                setappdata(handles.output, 'errStruct', errStruct);
                 return;
             end
 
@@ -54,6 +57,7 @@ classdef CellularAutomat < IIteratedObject & handle
 
             if errStruct.check
                 obj = [];
+                setappdata(handles.output, 'errStruct', errStruct);
                 return;
             end
 
@@ -61,7 +65,7 @@ classdef CellularAutomat < IIteratedObject & handle
 
         function errStruct = SetMainProperties(obj, handles, errStruct)
 
-            if isempty(regexp(handles.NFieldEdit.String, '^\d+$')) && str2double(handles.NFieldEdit.String) < 3
+            if isempty(regexp(handles.NFieldEdit.String, '^\d+$')) || str2double(handles.NFieldEdit.String) < 3
                 errStruct.check = true;
                 errStruct.msg = strcat(errStruct.msg, 'N; ');
             else
@@ -159,6 +163,11 @@ classdef CellularAutomat < IIteratedObject & handle
             testFuncStr = obj.IteratedFuncStr;
             obj.ConstIteratedFuncStr = obj.IteratedFuncStr;
 
+            if ~isempty(regexp(testFuncStr, 'mui'))
+                iteratedFuncStr = strrep(iteratedFuncStr, 'mui', strcat('(', num2str(obj.Weights(1)), ')'));
+                testFuncStr = strrep(testFuncStr, 'mui', '(0)');
+            end
+
             for index = 1:length(obj.FuncParams)
 
                 if contains(iteratedFuncStr, funcParamsNames(index))
@@ -194,7 +203,7 @@ classdef CellularAutomat < IIteratedObject & handle
 
             if ~isempty(regexp(iteratedFuncStr, 'mu[1-9]+'))
 
-                neigborsWeightsStrs = regexp(userFuncStr, 'mu[1-9]+', 'match');
+                neigborsWeightsStrs = regexp(iteratedFuncStr, 'mu[1-9]+', 'match');
                 neigborsWeightsIndxes = regexp(cell2mat(neigborsWeightsStrs), '[1-9]+', 'match');
                 neigborsWeightsCount = max(str2double(neigborsWeightsIndxes));
 
@@ -202,9 +211,9 @@ classdef CellularAutomat < IIteratedObject & handle
                     errStruct.check = true;
                     errStruct.msg = strcat(errStruct.msg, {' Число параметров соседей превышает количество ячеек в окрестности'}, '; ');
                 else
-
+                    weights = obj.Weights(2:end);
                     for k = 1:neigborsWeightsCount
-                        iteratedFuncStr = strrep(iteratedFuncStr, strcat('mu', num2str(k)), strcat('(', num2str(obj.Weights(k)), ')'));
+                        iteratedFuncStr = strrep(iteratedFuncStr, strcat('mu', num2str(k)), strcat('(', num2str(weights(k)), ')'));
                         testFuncStr = strrep(testFuncStr, strcat('mu', num2str(k)), '(0)');
                     end
 
@@ -222,10 +231,6 @@ classdef CellularAutomat < IIteratedObject & handle
 
             end
 
-            if ~isempty(regexp(testFuncStr, 'mui'))
-                testFuncStr = strrep(testFuncStr, 'mui', '(0)');
-            end
-
             if ~isempty(regexp(testFuncStr, 'nc'))
                 testFuncStr = strrep(testFuncStr, 'nc', '(0)');
             end
@@ -234,7 +239,7 @@ classdef CellularAutomat < IIteratedObject & handle
 
                 testFunc = str2func(testFuncStr);
 
-                if any([isnan(testFunc(0,0,0)), isinf(testFunc(0,0,0))])
+                if any([isnan(testFunc(0, 0, 0)), isinf(testFunc(0, 0, 0))])
                     warning(cell2mat(strcat({'Entered iterated function '}, {strrep(obj.IteratedFuncStr, '@(z,neibs,oness)', '')}, {' returns an NaN or Inf values in case of parameters equal to 0'})));
                 end
 
@@ -288,6 +293,12 @@ classdef CellularAutomat < IIteratedObject & handle
 
             CACellCreation = @(CAindexes)HexagonCACell(0, CAindexes, obj, handles.HexOrientationPanel.UserData);
             obj.Cells = arrayfun(CACellCreation, indexesArr);
+            
+            for ind=1:length(obj.Cells)
+                obj.Cells(ind) = SetIsExternal(obj.Cells(ind));
+            end
+
+            HexagonCACell.GetOrSetHandles(handles);
         end
 
         function GenerateSquareField(obj, handles)
@@ -316,9 +327,10 @@ classdef CellularAutomat < IIteratedObject & handle
         function errStruct = CellsInitialization(obj, handles, errStruct)
 
             if handles.Z0SourcePathEdit.UserData
-                errStruct = InitCellsWithRandRange(obj, handles, errStruct);
+                errStruct = InitCellsWithFile(obj, handles, errStruct);
             else
                 errStruct = InitCellsWithRandRange(obj, handles, errStruct);
+                handles.Z0SourcePathEdit.String
             end
 
         end
@@ -402,7 +414,39 @@ classdef CellularAutomat < IIteratedObject & handle
         end
 
         function errStruct = InitCellsWithFile(obj, handles, errStruct)
+            cellCount = length(obj.Cells);
+            z0Arr = [];
+            filePath = handles.Z0SourcePathEdit.String;
 
+            try
+                if ~isempty(regexp(filePath, '\.txt$'))
+                    z0Size = [2, cellCount];
+                    formatSpec = '%f %f\n';
+                
+                    file = fopen(filePath, 'r');
+                    z0Arr = fscanf(file, formatSpec, z0Size);
+                    fclose(file);
+
+                end
+                if ~isempty(regexp(filePath, '\.xlsx$')) || ~isempty(regexp(filePath, '\.xls$'))
+                
+                    z0Arr = xlsread(filePath, 1)';
+
+                end
+                
+                if length(z0Arr(1,:)) < cellCount
+                    i_love_MATLAB^2;
+                end
+                
+                for ind=1:cellCount
+                    obj.Cells(ind).z0 = z0Arr(1,ind) + z0Arr(2,ind)*1i;
+                    obj.Cells(ind).ZPath = z0Arr(1,ind) + z0Arr(2,ind)*1i;
+                end
+            catch
+                errStruct.check = true;
+                regexprep(errStruct.msg, ', $', '. ');
+                errStruct.msg = strcat(errStruct.msg, ' Неверная структура файла с начальной конфигурацией КА; ');
+            end
         end
 
         function obj = Iteration(obj, calcParams)
@@ -410,7 +454,7 @@ classdef CellularAutomat < IIteratedObject & handle
             persistent PrecisionParms;
 
             if isempty(PrecisionParms)
-                PrecisionParms = [calcParams.InfVal, calcParams.EqualityVal];
+                PrecisionParms = [10^calcParams.InfVal, calcParams.EqualityVal];
             end
 
             func = @(caCell)UpdateCellNeighborsValues(obj, caCell);
@@ -418,18 +462,20 @@ classdef CellularAutomat < IIteratedObject & handle
 
             for ind = 1:cellsCount
 
-                if length(obj.Cells(ind).CurrNeighbors) > 0
-                    neibs = arrayfun(@(neib)neib.ZPath(end),obj.Cells(ind).CurrNeighbors);
+                if all([length(obj.Cells(ind).CurrNeighbors) > 0, obj.Cells(ind).ZPath(end) < PrecisionParms(1)])
+                    neibs = arrayfun(@(neib)neib.ZPath(end), obj.Cells(ind).CurrNeighbors);
                     oness = ones(1, length(obj.Cells(ind).CurrNeighbors));
                     oness(1:2:length(oness)) = -1;
-                    
+
                     func = CreateIteratedFuncForCell(obj, obj.Cells(ind));
 
-                    obj.Cells(ind).ZPath = [obj.Cells(ind).ZPath, func(obj.Cells(ind).ZPath(end),neibs,oness)];
+                    obj.Cells(ind).ZPath = [obj.Cells(ind).ZPath, func(obj.Cells(ind).ZPath(end), neibs, oness)];
 
                     if ~(abs(obj.Cells(ind).ZPath(end) - obj.Cells(ind).ZPath(end -1)) < PrecisionParms(2))
                         obj.Cells(ind).Step = obj.Cells(ind).Step + 1;
                     end
+                else
+                    obj.Cells(ind).ZPath = [obj.Cells(ind).ZPath, obj.Cells(ind).ZPath(end)];
                 end
 
             end
@@ -492,6 +538,19 @@ classdef CellularAutomat < IIteratedObject & handle
             check = any(arrayfun(func, obj.Cells));
         end
 
+    end
+
+    methods (Static)
+        % метод get-set для статических массива весов
+        function [Weights] = GetSetWeights(weights)
+            persistent weight_s;
+
+            if nargin
+                weight_s = weights;
+            end
+
+            Weights = weight_s;
+        end
     end
 
 end

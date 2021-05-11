@@ -46,17 +46,18 @@ classdef SaveResults
 
                 end
 
-                [obj] = SaveFig(obj, graphics);
+                [obj] = SaveFig(obj, graphics, iteratedObject);
 
             end
 
         end
 
-        function obj = SaveFig(obj, graphics)
+        function obj = SaveFig(obj, graphics, iteratedObject)
 
             arguments
                 obj SaveResults
                 graphics struct
+                iteratedObject IIteratedObject
             end
 
             fig = graphics.Axs;
@@ -66,14 +67,16 @@ classdef SaveResults
                 set(h, 'units', 'normalized', 'outerposition', [0, 0, 1, 1])
                 colormap(graphics.Clrmp);
                 h.CurrentAxes = copyobj([fig, graphics.Clrbr], h);
-                savefig(h, 'figure.fig');
+                h.Visible = 'on';
+                savefig(h, strcat(strrep(obj.ResultsFilename, '.txt', ''), '.fig'));
+                h.Visible = 'off';
                 clear h;
             else
                 set(fig, 'Units', 'pixel');
                 pos = fig.Position;
                 marg = 40;
 
-                if contParms.SingleOrMultipleCalc
+                if string(class(iteratedObject)) ~= "IteratedMatrix"
                     rect = [-2 * marg, -marg, pos(3) + 2.5 * marg, pos(4) + 2 * marg];
                 else
                     rect = [-2 * marg, -1.5 * marg, pos(3) + 4.5 * marg, pos(4) + 2.5 * marg];
@@ -81,7 +84,7 @@ classdef SaveResults
 
                 photo = getframe(fig, rect);
                 [photo, cmp] = frame2im(photo);
-                photoName = strcat(obj.ResPath, '\CAField');
+                photoName = strrep(obj.ResultsFilename, '.txt', '');
 
                 switch obj.FigureFileFormat
                     case 2
@@ -104,10 +107,21 @@ classdef SaveResults
                 calcParms ModelingParamsForPath
             end
 
+            point.StatePath = point.StatePath(find(~isnan(point.StatePath)));
+
             lastIter = 1;
             res = res(:, 2:end);
+            persistent resultsFilePath;
+            if isempty(resultsFilePath)
+                resultsFilePath = obj.ResultsPath;
+            end
+            pointOrRes = false;
 
-            if isempty(obj.ResultsFilename)
+            if isempty(obj.ResultsFilename) || string(resultsFilePath) ~= string(obj.ResultsPath)
+
+                resultsFilePath = obj.ResultsPath;
+                pointOrRes = true;
+
                 obj.ResultsFilename = strcat('\Modeling-', datestr(clock));
                 obj.ResultsFilename = strcat(obj.ResultsFilename, '-N-1-Path.txt');
                 obj.ResultsFilename = strrep(obj.ResultsFilename, ':', '-');
@@ -148,7 +162,7 @@ classdef SaveResults
 
                 fprintf(fileID, 'Re\t\t\tIm\tFate\tlength\n');
 
-                fprintf(fileID, '%.8e\t%.8e\t%d\t%d\r\n', res(1, end), res(2, end), point.Fate, point.LastIterNum);
+                fprintf(fileID, '%.8e\t%.8e\t%d\t%d\r\n', real(point.StatePath(end)), imag(point.StatePath(end)), point.Fate, point.LastIterNum);
 
                 fprintf(fileID, '\n\nТраектория:\n');
                 fprintf(fileID, 'iter\t\tRe\t\tIm\n');
@@ -178,22 +192,21 @@ classdef SaveResults
             end
 
             iters = (lastIter:(lastIter - 1) + length(res(1, :)));
-            SaveResults.WritePointPathTable2Txt(obj.ResultsFilename, iters, res);
+            SaveResults.WritePointPathTable2Txt(obj.ResultsFilename, iters, res, point, pointOrRes);
         end
 
         function obj = SaveCAState(obj, ca, calcParms)
 
-            ConfFileName = strcat('\CA-Modeling-', datestr(clock), '.txt');
-            ConfFileName = strrep(ConfFileName, ':', '-');
-            ConfFileName = strcat(obj.ResultsPath, ConfFileName);
+            obj.ResultsFilename = strcat('\CA-Modeling-', datestr(clock), '.txt');
+            obj.ResultsFilename = strrep(obj.ResultsFilename, ':', '-');
 
             if SaveResults.IsCustomResultsPath(obj)
-                ConfFileName = strcat(obj.ResultsPath, ConfFileName);
+                obj.ResultsFilename = strcat(obj.ResultsPath, obj.ResultsFilename);
             else
-                ConfFileName(1) = [];
+                obj.ResultsFilename(1) = [];
             end
 
-            fileID = fopen(ConfFileName, 'a');
+            fileID = fopen(obj.ResultsFilename, 'a');
             fprintf(fileID, strcat('Моделирование клеточного автомата от-', datestr(clock)));
             fprintf(fileID, '\n\nКонфигурация КА:\n\n');
 
@@ -204,9 +217,9 @@ classdef SaveResults
             end
 
             if string(class(ca.Neighborhood)) == "MooreNeighbourHood"
-                fprintf(fileID, 'Тип окрестности: фон-Неймана\n');
-            else
                 fprintf(fileID, 'Тип окрестности: Мура\n');
+            else
+                fprintf(fileID, 'Тип окрестности: фон-Неймана\n');
             end
 
             switch ca.Neighborhood.BordersType
@@ -219,7 +232,7 @@ classdef SaveResults
             end
 
             fprintf(fileID, 'Ребро N=%d\n', ca.N);
-            fprintf(fileID, strcat('\nОтображение: ', ca.ConstIteratedFuncStr, '\n'));
+            fprintf(fileID, strcat('\nОтображение: ', strrep(ca.ConstIteratedFuncStr, '@(z,neibs,oness)', 'z->'), '\n'));
 
             funcParamsNames = keys(ca.FuncParams);
             funcParamsValues = values(ca.FuncParams);
@@ -228,49 +241,55 @@ classdef SaveResults
                 fprintf(fileID, cell2mat(strcat({'Параметр '}, funcParamsNames(index), '=', num2str(funcParamsValues{index}), '\n')));
             end
 
-            fprintf(fileID, strcat('Итерация T=', num2str(ca.Cells(1).Step),'\n\n\n'));
-            fprintf(fileID, 'Конфигурация Z0:\n\n');
+            absoluteIter = length(ca.Cells(1).ZPath) - 1;
+            lastAbsoluteIter = absoluteIter - calcParms.IterCount;
+
+            fprintf(fileID, strcat('Всего итераций T=', num2str(absoluteIter), '\n\n\n'));
+            fprintf(fileID, strcat('Конфигурация КА на предыдущем этапе расчета Tl=', num2str(lastAbsoluteIter), ':\n\n'));
             fclose(fileID);
-            dlmwrite(ConfFileName, 'X       Y              Re	Im', '-append', 'delimiter', '');
+            dlmwrite(obj.ResultsFilename, 'X       Y              Re	Im', '-append', 'delimiter', '');
 
             cells = ca.Cells';
-            res = [arrayfun(@(caCell) {num2str(caCell.CAIndexes(1))}, cells), arrayfun(@(caCell) {num2str(caCell.CAIndexes(2))}, cells), arrayfun(@(caCell) {num2str(real(caCell.z0), '%.8e')}, cells), arrayfun(@(caCell) {num2str(imag(caCell.z0), '%.8e')}, cells)];
+            res = [arrayfun(@(caCell) {num2str(caCell.CAIndexes(1))}, cells), arrayfun(@(caCell) {num2str(caCell.CAIndexes(2))}, cells), arrayfun(@(caCell) {num2str(real(caCell.ZPath(lastAbsoluteIter + 1)), '%.8e')}, cells), arrayfun(@(caCell) {num2str(imag(caCell.ZPath(lastAbsoluteIter + 1)), '%.8e')}, cells)];
 
             writeableRes = cell2table(res);
             writetable(writeableRes, 'table.txt', 'Delimiter', '\t', 'WriteVariableNames', false);
 
             txtCell = SaveResults.txt2Cell('table.txt');
-            SaveResults.cell2Txt(ConfFileName, txtCell, 'a');
+            SaveResults.cell2Txt(obj.ResultsFilename, txtCell, 'a');
             delete table.txt;
 
-            fileID = fopen(ConfFileName, 'a');
-            fprintf(fileID, strcat('Значения ячеек на итерации Iter=', num2str(ca.Cells(1).Step),'\n\n'));
-            fclose(fileID);
-            dlmwrite(ConfFileName, 'X       Y              Re	Im', '-append', 'delimiter', '');
+            for ind = lastAbsoluteIter + 2:absoluteIter + 1
 
-            res = [arrayfun(@(caCell) {num2str(caCell.CAIndexes(1))}, cells), arrayfun(@(caCell) {num2str(caCell.CAIndexes(2))}, cells), arrayfun(@(caCell) {num2str(real(caCell.ZPath(end)), '%.8e')}, cells), arrayfun(@(caCell) {num2str(imag(caCell.ZPath(end)), '%.8e')}, cells)];
+                fileID = fopen(obj.ResultsFilename, 'a');
+                fprintf(fileID, strcat('Значения ячеек на итерации Iter=', num2str(ind - 1), '\n\n'));
+                fclose(fileID);
+                dlmwrite(obj.ResultsFilename, 'X       Y              Re	Im', '-append', 'delimiter', '');
 
-            writeableRes = cell2table(res);
-            writetable(writeableRes, 'table.txt', 'Delimiter', '\t', 'WriteVariableNames', false);
+                res = [arrayfun(@(caCell) {num2str(caCell.CAIndexes(1))}, cells), arrayfun(@(caCell) {num2str(caCell.CAIndexes(2))}, cells), arrayfun(@(caCell) {num2str(real(caCell.ZPath(ind)), '%.8e')}, cells), arrayfun(@(caCell) {num2str(imag(caCell.ZPath(ind)), '%.8e')}, cells)];
 
-            txtCell = SaveResults.txt2Cell('table.txt');
-            SaveResults.cell2Txt(ConfFileName, txtCell, 'a');
-            delete table.txt;
+                writeableRes = cell2table(res);
+                writetable(writeableRes, 'table.txt', 'Delimiter', '\t', 'WriteVariableNames', false);
+
+                txtCell = SaveResults.txt2Cell('table.txt');
+                SaveResults.cell2Txt(obj.ResultsFilename, txtCell, 'a');
+                delete table.txt;
+            end
 
         end
 
         function obj = SaveMatrixPath(obj, matr, calcParms)
-            ConfFileName = strcat('\MultiCalc-', datestr(clock));
-            ConfFileName = strcat(ConfFileName, '.txt');
-            ConfFileName = strrep(ConfFileName, ':', '-');
+            obj.ResultsFilename = strcat('\MultiCalc-', datestr(clock));
+            obj.ResultsFilename = strcat(obj.ResultsFilename, '.txt');
+            obj.ResultsFilename = strrep(obj.ResultsFilename, ':', '-');
 
             if SaveResults.IsCustomResultsPath(obj)
-                ConfFileName = strcat(obj.ResultsPath, ConfFileName);
+                obj.ResultsFilename = strcat(obj.ResultsPath, obj.ResultsFilename);
             else
-                ConfFileName(1) = [];
+                obj.ResultsFilename(1) = [];
             end
 
-            fileID = fopen(ConfFileName, 'w');
+            fileID = fopen(obj.ResultsFilename, 'w');
 
             paramsSubStr = matr.ConstIteratedFuncStr(1:find(matr.ConstIteratedFuncStr == ')', 1, 'first'));
 
@@ -306,7 +325,7 @@ classdef SaveResults
             fprintf(fileID, strcat('\nIm: ', num2str(matr.WindowOfValues{2}(1)), ':', num2str(matr.WindowOfValues{2}(2) - matr.WindowOfValues{2}(1)), ':', num2str(matr.WindowOfValues{2}(end)), '\n\n'));
 
             fclose(fileID);
-            dlmwrite(ConfFileName, 'Re              Im              Fate	length', '-append', 'delimiter', '');
+            dlmwrite(obj.ResultsFilename, 'Re              Im              Fate	length', '-append', 'delimiter', '');
 
             WindowParam = matr.WindowOfValues{1} + 1i * matr.WindowOfValues{2};
 
@@ -325,7 +344,7 @@ classdef SaveResults
             writetable(writeableRes, 'table.txt', 'Delimiter', '\t', 'WriteVariableNames', false);
 
             txtCell = SaveResults.txt2Cell('table.txt');
-            SaveResults.cell2Txt(ConfFileName, txtCell, 'a');
+            SaveResults.cell2Txt(obj.ResultsFilename, txtCell, 'a');
             delete table.txt;
         end
 
@@ -333,17 +352,25 @@ classdef SaveResults
 
     methods (Static)
 
-        function WritePointPathTable2Txt(fileName, iters, res)
+        function WritePointPathTable2Txt(fileName, iters, res, point, pointOrRes)
 
             arguments
                 fileName(1, :) char
                 iters(1, :) double
                 res(:, :) double
+                point IteratedPoint
+                pointOrRes logical
             end
 
-            iters = iters';
-            res = res';
-            res = [arrayfun(@(iter) {iter}, iters), arrayfun(@(item) {num2str(item, '%.8e')}, res)];
+            if pointOrRes
+                iters = 1:length(point.StatePath);
+                res = [arrayfun(@(iter) {iter}, iters); arrayfun(@(zPathItem) {num2str(real(zPathItem), '%.8e')}, point.StatePath); arrayfun(@(zPathItem) {num2str(imag(zPathItem), '%.8e')}, point.StatePath)];
+                res = res';
+            else
+                iters = iters';
+                res = res';
+                res = [arrayfun(@(iter) {iter}, iters), arrayfun(@(item) {num2str(item, '%.8e')}, res)];
+            end
             writeableRes = cell2table(res);
 
             writetable(writeableRes, 'table.txt', 'Delimiter', '\t', 'WriteVariableNames', false);

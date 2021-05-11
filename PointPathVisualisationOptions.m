@@ -13,7 +13,7 @@ classdef PointPathVisualisationOptions < VisualisationOptions
     methods (Static)
 
         function out = GetSetPointPathVisualisationOptions(colorMap, xAxesdataProcessingFunc, yAxesdataProcessingFunc, xAxescolorMapLabel, yAxescolorMapLabel, visualpath)
-            mlock
+%             mlock
 
             persistent clrMap;
             persistent xAxesdataFunc;
@@ -67,24 +67,16 @@ classdef PointPathVisualisationOptions < VisualisationOptions
                 handles struct
             end
 
-            str = strcat('Точка ', num2str(point.InitState));
+            str = strcat({'Точка'},{' '}, {num2str(point.InitState)});
 
             switch point.Fate
                 case 0
-                    str = strcat(str, ' уходит в бесконечность на итерации:');
-                    str = strcat(str, '  ');
-                    msg = strcat(str, num2str(point.LastIterNum - 1));
+                    msg = strcat(str, {' уходит в бесконечность на итерации:'},{' '}, {num2str(point.LastIterNum - 1)});
                 case 1
-                    str = strcat(str, ' сходится к аттрактору на итерации:');
-                    str = strcat(str, '  ');
-                    msg = strcat(str, num2str(point.LastIterNum - 1));
+                    msg = strcat(str, {' сходится к аттрактору на итерации:'},{' '}, {num2str(point.LastIterNum - 1)});
                 case inf
                 otherwise
-                    str = strcat(str, ' имеет период: ');
-                    str = strcat(str, num2str(point.Fate));
-                    str = strcat(str, ', найденный на итерации:');
-                    str = strcat(str, '  ');
-                    msg = strcat(str, num2str(point.LastIterNum - 1));
+                    msg = strcat(str, {' имеет период:'},{' '}, {num2str(point.Fate)}, {' '},{', найденный на итерации:'},{num2str(point.LastIterNum - 1)});
             end
 
             visualPath = [];
@@ -149,32 +141,8 @@ classdef PointPathVisualisationOptions < VisualisationOptions
 
                 end
 
-                imStep = (abs(max(visualFormatedPath(2, :)) - min(visualFormatedPath(2, :))) / length(visualFormatedPath(2, :))) * 0.2 * length(visualFormatedPath(2, :));
-                reStep = (abs(max(visualFormatedPath(1, :)) - min(visualFormatedPath(1, :))) / length(visualFormatedPath(1, :))) * 0.2 * length(visualFormatedPath(1, :));
-
-                handles.CAField.YTick = [min(visualFormatedPath(2, :)):imStep:max(visualFormatedPath(2, :))];
-                handles.CAField.XTick = [min(visualFormatedPath(1, :)):reStep:max(visualFormatedPath(1, :))];
-
-                ImLength = max(visualFormatedPath(2, :)) - min(visualFormatedPath(2, :));
-                ReLength = max(visualFormatedPath(1, :)) - min(visualFormatedPath(1, :));
-
-                Coeff = ReLength - ImLength;
-
-                if Coeff ~= 0
-
-                    if Coeff < 0
-                        Coeff = abs(Coeff);
-
-                        handles.CAField.XLim = [min(visualFormatedPath(1, :)) - Coeff / 2 max(visualFormatedPath(1, :)) + Coeff / 2];
-
-                    else
-
-                        handles.CAField.YLim = [min(visualFormatedPath(2, :)) - Coeff / 2 max(visualFormatedPath(2, :)) + Coeff / 2];
-
-                    end
-
-                end
-
+                handles.CAField.DataAspectRatio = [1 1 1];
+                                
                 xticks('auto');
                 yticks('auto');
 
@@ -197,6 +165,8 @@ classdef PointPathVisualisationOptions < VisualisationOptions
             end
 
         end
+
+        check
 
         function MakeTitle(obj, point, handles)
 
