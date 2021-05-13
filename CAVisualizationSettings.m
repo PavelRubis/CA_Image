@@ -144,22 +144,34 @@ close(handles.output);
 % --- Executes on button press in SetVSettingsBtn.
 function SetVSettingsBtn_Callback(hObject, eventdata, handles)
 
-caVisualOptions = getappdata(handles.output, 'CAVisOptions');
+mainWindowHandles = getappdata(handles.output, 'MainWindowHandles');
+
+caVisualOptions = getappdata(mainWindowHandles.output, 'CAVisOptions');
 
 clrbrTitle = '';
 visFunc = [];
 switch handles.VisualiseDataMenu.Value
     case 1
         visFunc = @(val,zbase) abs(val);
+        paramFunc = @(param)param;
         clrbrTitle = '\fontsize{16}\midz\mid';
     case 2
         visFunc = @(val,zbase) log(abs(val - zbase)) / log(10);
+        paramFunc = @(param) log(param) / log(10);
         clrbrTitle = '\fontsize{16}log_{10}(\midz-z^{*}\mid)';
 end
 
 caVisualOptions.DataProcessingFunc = visFunc;
+caVisualOptions.PrecisionParmsFunc = paramFunc;
 caVisualOptions.ColorBarLabel = clrbrTitle;
 caVisualOptions.ColorMap = cell2mat(handles.ColorMapMenu.String(handles.ColorMapMenu.Value));
+
+ca = getappdata(mainWindowHandles.output, 'IIteratedObject');
+if ~isempty(ca)
+    if string(class(ca)) == "CellularAutomat"
+        PrepareDataAndAxes(caVisualOptions, ca, mainWindowHandles);
+    end
+end
 
 msgbox('Настройки визуализации поля КА успешно заданы.');
 close(handles.output);

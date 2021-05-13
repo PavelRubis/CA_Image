@@ -141,7 +141,33 @@ classdef PointPathVisualisationOptions < VisualisationOptions
 
                 end
 
-                handles.CAField.DataAspectRatio = [1 1 1];
+                %handles.CAField.DataAspectRatio = [1 1 1];
+                
+                imStep = (abs(max(visualFormatedPath(2, :)) - min(visualFormatedPath(2, :))) / length(visualFormatedPath(2, :))) * 0.2 * length(visualFormatedPath(2, :));
+                reStep = (abs(max(visualFormatedPath(1, :)) - min(visualFormatedPath(1, :))) / length(visualFormatedPath(1, :))) * 0.2 * length(visualFormatedPath(1, :));
+
+                handles.CAField.YTick = [min(visualFormatedPath(2, :)):imStep:max(visualFormatedPath(2, :))];
+                handles.CAField.XTick = [min(visualFormatedPath(1, :)):reStep:max(visualFormatedPath(1, :))];
+
+                ImLength = max(visualFormatedPath(2, :)) - min(visualFormatedPath(2, :));
+                ReLength = max(visualFormatedPath(1, :)) - min(visualFormatedPath(1, :));
+
+                Coeff = ReLength - ImLength;
+
+                if Coeff ~= 0
+
+                    if Coeff < 0
+                        Coeff = abs(Coeff);
+
+                        handles.CAField.XLim = [min(visualFormatedPath(1, :)) - Coeff / 2 max(visualFormatedPath(1, :)) + Coeff / 2];
+
+                    else
+
+                        handles.CAField.YLim = [min(visualFormatedPath(2, :)) - Coeff / 2 max(visualFormatedPath(2, :)) + Coeff / 2];
+
+                    end
+
+                end
                                 
                 xticks('auto');
                 yticks('auto');

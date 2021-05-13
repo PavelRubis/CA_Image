@@ -164,6 +164,7 @@ classdef IteratedPoint < IIteratedObject
             obj.StatePath(obj.Step) = obj.IteratedFunc(obj.StatePath(obj.Step - 1));
             obj.Step = obj.Step + 1;
             [obj] = CheckConvergence(obj, calcParams);
+            
         end
 
         function [obj] = CheckConvergence(obj, calcParams)
@@ -220,6 +221,30 @@ classdef IteratedPoint < IIteratedObject
 
         function check = IsContinue(obj)
             check = (obj.Fate == Inf);
+        end
+
+        function [status] = GetModellingStatus(obj)
+            status = true;
+            
+            if isinf(obj.Fate)
+                return;
+            end
+
+            temp = ModelingParamsForPath.GetSetPrecisionParms;
+            newPrecisionParms = struct;
+            newPrecisionParms.InfVal = temp(1);
+            newPrecisionParms.EqualityVal = temp(2);
+            newPrecisionParms.MaxPeriod = ModelingParamsForPath.GetSetMaxPeriod;
+
+            oldFate = obj.Fate;
+            [obj] = CheckConvergence(obj, newPrecisionParms);
+            
+            if obj.Fate == oldFate
+                status = false;
+                return;
+            end
+            obj.Fate = oldFate;
+
         end
 
     end

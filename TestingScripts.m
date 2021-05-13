@@ -273,6 +273,18 @@ classdef TestingScripts
         
         end
         
+        function regexTesting()
+            clear;
+            clc;
+            
+            pattern = 'exp\(\s*i\s*\*\s*z\s*)';
+            
+            testStrs = [{'exp(i*z)'},{'exp(i * z)'},{'exp( i*z )'},{'exp(i*z )'},{'exp( i*z)'},{'exp(  z  *  i  )'}];
+            
+            for ind=1:length(testStrs)
+                regexp(testStrs{ind},pattern)
+            end
+        end
     end
     
 end

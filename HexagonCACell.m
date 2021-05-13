@@ -586,9 +586,9 @@ classdef HexagonCACell < CA_cell
                 y_arr = [y0 y0 + dy y0 + 3 * dy y0 + 4 * dy y0 + 3 * dy y0 + dy];
 
                 patchik = patch(x_arr, y_arr, [obj.RenderColor(1) obj.RenderColor(2) obj.RenderColor(3)]); % рисование гексагона
-                patchik.UserData = strcat({'ячейка с координитами:'}, {' '}, {'('}, {num2str(obj.CAIndexes(1))}, {','}, {num2str(obj.CAIndexes(2))}, {');'}, {' '}, {'и состо€нием z='},{num2str(obj.ZPath(end))});
+                patchik.UserData = strcat({'ячейка с координатами:'}, {' '}, {'('}, {num2str(obj.CAIndexes(1))}, {','}, {num2str(obj.CAIndexes(2))}, {');'}, {' '}, {'и состо€нием z='},{num2str(obj.ZPath(end))});
 
-                set(patchik, 'ButtonDownFcn', @HexagonCACell.showCellInfo);
+                set(patchik, 'ButtonDownFcn', @CA_cell.showCellInfo);
                 %%
             else
                 %% ќтрисовка горизонтального гексагона в гексагональном поле
@@ -609,34 +609,14 @@ classdef HexagonCACell < CA_cell
                 y_arr = [y0 y0 + dy y0 + 2 * (dy) y0 + 2 * (dy) y0 + dy y0];
 
                 patchik = patch(x_arr, y_arr, [obj.RenderColor(1) obj.RenderColor(2) obj.RenderColor(3)]); % рисование гексагона
-                patchik.UserData = strcat({'ячейка с координитами:'}, {' '}, {'('}, {num2str(obj.CAIndexes(1))}, {','}, {num2str(obj.CAIndexes(2))}, {');'}, {' '}, {'и состо€нием z='},{num2str(obj.ZPath(end))});
+                patchik.UserData = strcat({'ячейка с координатами:'}, {' '}, {'('}, {num2str(obj.CAIndexes(1))}, {','}, {num2str(obj.CAIndexes(2))}, {');'}, {' '}, {'и состо€нием z='},{num2str(obj.ZPath(end))});
                 
-                set(patchik, 'ButtonDownFcn', @HexagonCACell.showCellInfo);
+                set(patchik, 'ButtonDownFcn', @CA_cell.showCellInfo);
                 %%
             end
 
         end
 
-    end
-
-    methods (Static)
-
-        function out = GetOrSetHandles(handles)
-            persistent Handles;
-
-            if nargin == 1
-                Handles = handles;
-            end
-
-            out = Handles;
-        end
-        
-        function showCellInfo(sender, event)
-            handles = HexagonCACell.GetOrSetHandles;
-
-            handles.CellInfoLabel.String = sender.UserData;
-
-        end
     end
 
 end

@@ -191,7 +191,10 @@ classdef SquareCACell < CA_cell
                     x_arr = [obj.CAIndexes(2) obj.CAIndexes(2) + 1 obj.CAIndexes(2) + 1 obj.CAIndexes(2)];
                     y_arr = [(obj.CAIndexes(1)) (obj.CAIndexes(1)) (obj.CAIndexes(1)) + 1 (obj.CAIndexes(1)) + 1];
 
-                    patch(x_arr, y_arr, [obj.RenderColor(1) obj.RenderColor(2) obj.RenderColor(3)]); % рисование квадрата
+                    patchik = patch(x_arr, y_arr, [obj.RenderColor(1) obj.RenderColor(2) obj.RenderColor(3)]); % рисование квадрата
+                    patchik.UserData = strcat({'ячейка с координатами:'}, {' '}, {'('}, {num2str(obj.CAIndexes(1))}, {','}, {num2str(obj.CAIndexes(2))}, {');'}, {' '}, {'и состо€нием z='},{num2str(obj.ZPath(end))});
+                
+                    set(patchik, 'ButtonDownFcn', @CA_cell.showCellInfo);
                     %%
                 case 1
                     %% ќтрисовка вертикального гексагона в квадратном поле
@@ -218,7 +221,10 @@ classdef SquareCACell < CA_cell
                     x_arr = [x0 x0 + dx x0 + dx x0 x0 - dx x0 - dx];
                     y_arr = [y0 y0 + dy y0 + 3 * dy y0 + 4 * dy y0 + 3 * dy y0 + dy];
 
-                    patch(x_arr, y_arr, [obj.RenderColor(1) obj.RenderColor(2) obj.RenderColor(3)]); % рисование гексагона
+                    patchik = patch(x_arr, y_arr, [obj.RenderColor(1) obj.RenderColor(2) obj.RenderColor(3)]); % рисование гексагона
+                    patchik.UserData = strcat({'ячейка с координатами:'}, {' '}, {'('}, {num2str(obj.CAIndexes(1))}, {','}, {num2str(obj.CAIndexes(2))}, {');'}, {' '}, {'и состо€нием z='},{num2str(obj.ZPath(end))});
+                
+                    set(patchik, 'ButtonDownFcn', @CA_cell.showCellInfo);
                     %%
                 case 2
                     %% ќтрисовка горизонтального гексагона в квадратном поле
@@ -245,7 +251,10 @@ classdef SquareCACell < CA_cell
                     x_arr = [x0 x0 + dx x0 x0 - (2 * dx) x0 - (3 * dx) x0 - (2 * dx)];
                     y_arr = [y0 y0 + dy y0 + 2 * (dy) y0 + 2 * (dy) y0 + dy y0];
 
-                    patch(x_arr, y_arr, [obj.RenderColor(1) obj.RenderColor(2) obj.RenderColor(3)]); % рисование гексагона
+                    patchik = patch(x_arr, y_arr, [obj.RenderColor(1) obj.RenderColor(2) obj.RenderColor(3)]); % рисование гексагона
+                    patchik.UserData = strcat({'ячейка с координатами:'}, {' '}, {'('}, {num2str(obj.CAIndexes(1))}, {','}, {num2str(obj.CAIndexes(2))}, {');'}, {' '}, {'и состо€нием z='},{num2str(obj.ZPath(end))});
+                
+                    set(patchik, 'ButtonDownFcn', @CA_cell.showCellInfo);
                     %%
             end
 

@@ -9,6 +9,7 @@ classdef (Abstract, HandleCompatible) IIteratedObject
     methods (Abstract)
         [obj] = Iteration(obj)
         [obj] = Initialization(obj, handles)
+        [status] = GetModellingStatus(obj);
     end
 
 end

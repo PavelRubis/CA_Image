@@ -134,6 +134,10 @@ classdef IteratedMatrix < IIteratedObject
             delete(wb);
         end
 
+        function [status] = GetModellingStatus(obj)
+            status = true;
+        end
+
         function [step, fate] = IterableWindowParamCalc(obj, initVal, calcParams)
 
             itersCount = calcParams.IterCount;

@@ -71,7 +71,7 @@ classdef ModelingParams
             end
 
             if ~errorCheck
-                obj = ModelingParams(str2double(handles.IterCountEdit.String), str2double(handles.InfValueEdit.String), str2double(strcat('1e-', handles.ConvergValueEdit.String)));
+                obj = ModelingParams(str2double(handles.IterCountEdit.String), str2double(strcat('1e', handles.InfValueEdit.String)), str2double(strcat('1e-', handles.ConvergValueEdit.String)));
                 ModelingParams.GetSetPrecisionParms(obj.InfVal, obj.EqualityVal);
                 ModelingParams.GetIterCount(obj.IterCount);
             else

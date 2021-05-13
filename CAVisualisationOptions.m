@@ -2,6 +2,7 @@ classdef CAVisualisationOptions < VisualisationOptions & handle
 
     properties
         DataProcessingFunc function_handle
+        PrecisionParmsFunc function_handle = @(param)param
         ColorBarLabel(1, :) char
     end
 
@@ -80,7 +81,7 @@ classdef CAVisualisationOptions < VisualisationOptions & handle
             %отрисовка пол€
             arrayfun(@(CACell) CACell.Render(), ca.Cells, 'UniformOutput', false);
             zoom off;
-            
+
             colors = arrayfun(@(CACell) {CACell.RenderColor}, ca.Cells(indxes));
             colors = cell2mat(colors');
 
@@ -112,6 +113,9 @@ classdef CAVisualisationOptions < VisualisationOptions & handle
             graphics.Axs = handles.CAField;
             graphics.Clrbr = clrbr;
             graphics.Clrmp = clrmp;
+            if ~IsContinue(ca) 
+                msgbox('«начени€ одной или нескольких €чеек ушли в бесконечность.', 'ћоделирование завершено');
+            end
         end
 
         function PlotFormatting(obj, ca, handles)

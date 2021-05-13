@@ -22,7 +22,7 @@ function varargout = CA(varargin)
 
 % Edit the above text to modify the response to help CA
 
-% Last Modified by GUIDE v2.5 01-Apr-2021 11:19:24
+% Last Modified by GUIDE v2.5 13-May-2021 06:41:09
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -47,6 +47,10 @@ end
 % --- Executes just before CA is made visible.
 function CA_OpeningFcn(hObject, eventdata, handles, varargin)
 set(hObject,'units','normalized','outerposition',[0 0 1 1])
+
+jFrame=get(hObject, 'javaframe');
+jicon=javax.swing.ImageIcon('icon.png');
+jFrame.setFigureIcon(jicon);
 
 xLabel = 'Re(z)';
 xFunc = @(z)z(1, :);
@@ -83,6 +87,15 @@ axis image;
 
 % Choose default command line output for CA
 handles.output = hObject;
+fieldNames = fieldnames(handles);
+
+for ind=1:length(fieldNames)
+    if any(arrayfun(@(prop) string(cell2mat(prop))=="ButtonDownFcn",properties(getfield(handles,fieldNames{ind}))))
+        set(getfield(handles,fieldNames{ind}), 'ButtonDownFcn', @CA_cell.showCellInfo);
+    end
+end
+
+CA_cell.GetOrSetHandles(handles);
 
 % Update handles structure
 guidata(hObject, handles);
@@ -111,6 +124,13 @@ function StartButton_Callback(hObject, eventdata, handles)
 %%
 SaveParamsButton_Callback(handles.SaveParamsButton, eventdata, handles)
 
+badObjectStatus = getappdata(handles.output, 'badObjectStatus');
+if ~isempty(badObjectStatus)
+    errordlg(badObjectStatus,'Ошибка:');
+    setappdata(handles.output, 'badObjectStatus',[]);
+    return;
+end
+
 IteratedObject = getappdata(handles.output, 'IIteratedObject');
 calcParams = getappdata(handles.output, 'calcParams');
 saveRes = getappdata(handles.output, 'SaveResults');
@@ -119,7 +139,7 @@ visualOptions = getappdata(handles.output, 'VisOptions');
 errStruct = getappdata(handles.output, 'errStruct');
 
 if any([isempty(IteratedObject) isempty(calcParams) isempty(saveRes)])
-    errordlg(errStruct.msg,'Ошибки ввода:');
+    errordlg(errStruct.msg,'Ошибка:');
     setappdata(handles.output, 'errStruct',[]);
     setappdata(handles.output, 'IIteratedObject',[]);
     return;
@@ -2103,19 +2123,19 @@ function radiobutton25_Callback(hObject, eventdata, handles)
 function NFieldEdit_Callback(hObject, eventdata, handles)
     if all([~isnan(str2double(hObject.String)) ~isinf(str2double(hObject.String)) (str2double(hObject.String) > 1)])
         handles.LambdaMenu.String = [
-                                {'Сумма состояний соседей'},
-                                {'Нормированный модуль суммы (состояние соседа - z *)'},
-                                {'Модуль суммы состояний соседей с переменным знаком'},
-                                {'Нормированная сумма (состояние соседа - z *)'},
-                                {'Константа (mu0 + mu)'}
+                                {'<HTML>&#956<sub>0</sub> + &#8721;<sup>n</sup><sub>k=1</sub> &#956<sub>k</sub> &#8901; z<sup>t</sup><sub>k</sub>'},% 'Сумма состояний соседей '
+                                {'<HTML>&#956 + &#956<sub>0</sub>&#8739;<sup>1</sup>&frasl;<sub>n</sub> &#8901; &#8721;<sup>n</sup><sub>k=1</sub>z<sup>t</sup><sub>k</sub>-z<sup>*</sup>(&#956)&#8739;'}, % 'Нормированный модуль суммы (состояние соседа - z *) '
+                                {'<HTML>&#956 + &#956<sub>0</sub>&#8739;<sup>1</sup>&frasl;<sub>n</sub> &#8901; &#8721;<sup>n</sup><sub>k=1</sub>(-1<sup>k</sup>)z<sup>t</sup><sub>k</sub>&#8739;'}, % 'Модуль суммы состояний соседей с переменным знаком'
+                                {'<HTML>&#956 + &#956<sub>0</sub>(<sup>1</sup>&frasl;<sub>n</sub> &#8901; &#8721;<sup>n</sup><sub>k=1</sub>z<sup>t</sup><sub>k</sub>-z<sup>*</sup>(&#956))'}, % 'Нормированная сумма (состояние соседа - z *) '
+                                {'<HTML>&#956 + &#956<sub>0</sub>'} % 'Константа (mu0 + mu)'
                                 ];
     else
         handles.LambdaMenu.String = [
-                                {'mu + z'},
-                                {'mu + (mu0 * abs(z - (z*)))'},
-                                {'mu + (mu0 * abs(z))'},
-                                {'mu + (mu0 * (z - (z*)))'},
-                                {'mu + mu0'}
+                                {'<HTML>&#956 + z'}, %mu + z
+                                {'<HTML>&#956 + (&#956<sub>0</sub> &#8901; &#8739;z - z<sup>*</sup>&#8739;)'}, %mu + (mu0 * abs(z - (z*)))
+                                {'<HTML>&#956 + (&#956<sub>0</sub> &#8901; &#8739;z&#8739;)'}, %mu + (mu0 * abs(z))
+                                {'<HTML>&#956 + (&#956<sub>0</sub> &#8901; (z - z<sup>*</sup>))'}, %mu + (mu0 * (z - (z*)))
+                                {'<HTML>&#956 + &#956<sub>0</sub>'} %mu + mu0
                                 ];
                                 
     end
@@ -3201,12 +3221,15 @@ function SaveParamsButton_Callback(hObject, eventdata, handles)
 
 modelingTypeParams = strcat(handles.NFieldEdit.String, handles.CalcGroup.SelectedObject.Tag);
 calcParams = [];
+isObjectExist = true;
+
 switch modelingTypeParams
     case '1SingleCalcRB'
 
         iteratedObject = getappdata(handles.output, 'IIteratedObject');
 
-        if ~strcmp(class(iteratedObject), 'IteratedPoint')
+        if string(class(iteratedObject)) ~= "IteratedPoint"
+            isObjectExist = false;
             [obj] = IteratedPoint();
             [obj] = Initialization(obj, handles);
 
@@ -3219,6 +3242,13 @@ switch modelingTypeParams
             setappdata(handles.output, 'VisOptions', visualOptions);
         end
         [calcParams] = ModelingParamsForPath.ModelingParamsInitialization(handles);
+        
+        if ~isempty(iteratedObject)
+            if ~GetModellingStatus(iteratedObject) && isObjectExist
+                setappdata(handles.output, 'badObjectStatus', 'Моделирование c заданной точностью и точностью ниже  завершено.');
+                return;
+            end
+        end
 
     case 'MultipleCalcRB'
         [obj] = IteratedMatrix();
@@ -3236,7 +3266,7 @@ switch modelingTypeParams
     otherwise
         iteratedObject = getappdata(handles.output, 'IIteratedObject');
 
-        if ~strcmp(class(iteratedObject), 'CellularAutomat')
+        if string(class(iteratedObject)) ~= "CellularAutomat"
             [obj] = CellularAutomat();
             obj.Weights = CellularAutomat.GetSetWeights;
             if isempty(obj.Weights)
@@ -3252,7 +3282,13 @@ switch modelingTypeParams
             setappdata(handles.output, 'VisOptions', visualOptions);
         end
         [calcParams] = ModelingParams.ModelingParamsInitialization(handles);
-
+        
+        if ~isempty(iteratedObject)
+            if ~GetModellingStatus(iteratedObject) && isObjectExist
+                setappdata(handles.output, 'badObjectStatus', 'Моделирование c заданной точностью и точностью ниже  завершено.');
+                return;
+            end
+        end
 end
 
 if isempty(calcParams)
@@ -4973,11 +5009,10 @@ handles.ParamNameMenu.Value=1;
 
 % --- Executes on button press in DefaultFuncsCB.
 function DefaultFuncsCB_Callback(hObject, eventdata, handles)
-CurrCA=getappdata(handles.output,'CurrCA');
-ContParms=getappdata(handles.output,'ContParms');
-if ContParms.SingleOrMultipleCalc
-    CurrCA.Base=@(z)(exp(i*z));
-    CurrCA.Lambda = @(z_k)Miu0 + sum(z_k);
+
+iteratedObject=getappdata(handles.output, 'IIteratedObject');
+
+if string(class(iteratedObject)) ~= "IteratedMatrix"
     if strcmp(handles.LambdaMenu.Enable,'off')
         handles.LambdaMenu.Value=5;
     else
@@ -4985,14 +5020,11 @@ if ContParms.SingleOrMultipleCalc
     end
 else
     handles.LambdaMenu.Value=5;
-    ContParms.ImageFunc=@(z)exp(i*z)*(Miu+Miu0);
 end
 handles.BaseImagMenu.Value=1;
 handles.UsersBaseImagEdit.Enable='off';
 handles.UsersBaseImagEdit.String='';
 
-setappdata(handles.output,'CurrCA',CurrCA);
-setappdata(handles.output,'ContParms',ContParms);
 % hObject    handle to DefaultFuncsCB (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -5102,9 +5134,8 @@ setappdata(handles.output, 'CellWeightsSettings', cellWeightsSettings);
 
 % --------------------------------------------------------------------
 function VisualizationSettingsMenuItem_Callback(hObject, eventdata, handles)
-caVisualOptions = getappdata(handles.output, 'CAVisOptions');
 visualizationSettings = CAVisualizationSettings;
-setappdata(visualizationSettings, 'CAVisOptions',caVisualOptions);
+setappdata(visualizationSettings, 'MainWindowHandles',handles);
 % hObject    handle to VisualizationSettingsMenuItem (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -5131,3 +5162,11 @@ function MainWindow_DeleteFcn(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 %delete(gcp('nocreate'))
+
+
+% --------------------------------------------------------------------
+function aboutProg_Callback(hObject, eventdata, handles)
+about
+% hObject    handle to aboutProg (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)

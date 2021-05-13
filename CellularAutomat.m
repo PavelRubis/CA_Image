@@ -221,7 +221,7 @@ classdef CellularAutomat < IIteratedObject & handle
 
             end
 
-            if contains(testFuncStr, 'eq')
+            if contains(testFuncStr, 'eq') && (~isempty(regexp(testFuncStr,'exp\(\s*z\s*\*\s*i\s*)')) || ~isempty(regexp(testFuncStr,'exp\(\s*i\s*\*\s*z\s*)')))
 
                 zBase = IteratedPoint.calcZBase(obj.FuncParams('mu'));
                 obj.FuncParams('z*') = zBase;
@@ -297,8 +297,6 @@ classdef CellularAutomat < IIteratedObject & handle
             for ind=1:length(obj.Cells)
                 obj.Cells(ind) = SetIsExternal(obj.Cells(ind));
             end
-
-            HexagonCACell.GetOrSetHandles(handles);
         end
 
         function GenerateSquareField(obj, handles)
@@ -528,14 +526,15 @@ classdef CellularAutomat < IIteratedObject & handle
         end
 
         function check = IsContinue(obj)
-            persistent PrecisionParms;
+            PrecisionParms = ModelingParams.GetSetPrecisionParms;
 
-            if isempty(PrecisionParms)
-                PrecisionParms = ModelingParams.GetSetPrecisionParms;
-            end
+            PrecisionParms(1)
+            func = @(caCell) isinf(caCell.ZPath(end)) || isnan(caCell.ZPath(end)) || caCell.ZPath(end) >= PrecisionParms(1) || caCell.ZPath(end) <= -PrecisionParms(1);
+            check = ~any(arrayfun(func, obj.Cells));
+        end
 
-            func = @(caCell) isinf(caCell.ZPath(end)) || isnan(caCell.ZPath(end)) || log(caCell.ZPath(end)) / log(10) <= PrecisionParms(1);
-            check = any(arrayfun(func, obj.Cells));
+        function [status] = GetModellingStatus(obj)
+            status = IsContinue(obj);
         end
 
     end
