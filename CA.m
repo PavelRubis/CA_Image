@@ -22,7 +22,7 @@ function varargout = CA(varargin)
 
 % Edit the above text to modify the response to help CA
 
-% Last Modified by GUIDE v2.5 13-May-2021 06:41:09
+% Last Modified by GUIDE v2.5 14-May-2021 13:57:34
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -57,9 +57,8 @@ xFunc = @(z)z(1, :);
 yLabel = 'Im(z)';
 yFunc = @(z)z(2, :);
 
-VisOptions = PointPathVisualisationOptions('jet', xFunc, yFunc, xLabel, yLabel, []);
-PointPathVisualisationOptions.GetSetPointPathVisualisationOptions('jet', xFunc, yFunc, xLabel, yLabel, []);
-setappdata(hObject, 'VisOptions', VisOptions);
+pointVisOptions = PointPathVisualisationOptions('jet', xFunc, yFunc, xLabel, yLabel, []);
+setappdata(hObject, 'pointVisOptions', pointVisOptions);
 
 caVisualOptions = CAVisualisationOptions('jet',@(val,zbase) log(abs(val - zbase)) / log(10),'\fontsize{16}log_{10}(\midz-z^{*}\mid)');
 setappdata(hObject, 'CAVisOptions', caVisualOptions);
@@ -75,7 +74,8 @@ handles.HexOrientationPanel.UserData=0;
 handles.BordersTypePanel.UserData=2;
 
 newNeighborhood = NeumannNeighbourHood(handles.BordersTypePanel.UserData);
-setappdata(hObject,'Neighborhood',newNeighborhood)
+setappdata(hObject,'Neighborhood',newNeighborhood);
+setappdata(hObject, 'DistributionFig',[]);
 
 axis image;
 
@@ -153,6 +153,7 @@ switch class(IteratedObject)
     case 'IteratedMatrix'
         IteratedObject = Iteration(IteratedObject, calcParams, wb);
     otherwise
+        IteratedObject = BeforeModeling(IteratedObject);
         wbStep = ceil(calcParams.IterCount / 20);
 
         for iter = 1:calcParams.IterCount
@@ -171,6 +172,8 @@ end
 delete(wb);
 
 wb = waitbar(0, 'Отрисовка...', 'WindowStyle', 'modal');
+
+axes(handles.CAField);
 [res visualOptions graphics] = PrepareDataAndAxes(visualOptions, IteratedObject, handles);
 
 if saveRes.IsSaveData
@@ -181,9 +184,6 @@ end
 setappdata(handles.output, 'graphics', graphics);
 setappdata(handles.output, 'IIteratedObject', IteratedObject);
 setappdata(handles.output, 'VisOptions', visualOptions);
-if string(class(visualOptions)) ==  "PointPathVisualisationOptions"
-    PointPathVisualisationOptions.GetSetPointPathVisualisationOptions(visualOptions.ColorMap, visualOptions.XAxesdataProcessingFunc, visualOptions.YAxesdataProcessingFunc, visualOptions.XAxescolorMapLabel, visualOptions.YAxescolorMapLabel, visualOptions.VisualPath);
-end
 setappdata(handles.output, 'SaveResults',saveRes);
 handles.ResetButton.Enable='on';
 
@@ -1459,6 +1459,7 @@ setappdata(handles.output, 'calcParams', []);
 
 handles.SaveAllModelParamsB.Enable='off';
 handles.VisualIteratedObjectMenu.Visible='off';
+handles.CellInfoLabel.Visible='off';
 handles.LambdaMenu.Enable='on';
 
 if string(class(oldIteratedObject)) ~= "IteratedMatrix"
@@ -3026,129 +3027,7 @@ end
 
 % --- Executes on button press in ReadZ0SourceButton.
 function ReadZ0SourceButton_Callback(hObject, eventdata, handles)
-if(isempty(regexp(handles.NFieldEdit.String,'^\d+(\.?)(?(1)\d+|)$')) || isempty(handles.Z0SourcePathEdit.String) || ~ischar(handles.Z0SourcePathEdit.String))
-    errordlg('Ошибка. Недопустимое для задания начальной конфигурации значение ребра поля N, или неверный путь к файлу','modal');
-else
-    path=handles.Z0SourcePathEdit.String;
-    N=str2double(handles.NFieldEdit.String);
-    
-    currCA=getappdata(handles.output,'CurrCA');
-    fileWasRead = getappdata(handles.output,'FileWasRead');
-    
-    [ca,FileWasRead] = Initializations.Z0FileInit(currCA,N,path,fileWasRead);
-    
-    setappdata(handles.output,'CurrCA',ca);
-    setappdata(handles.output,'FileWasRead',FileWasRead);
-    
-%     cellCount=0;
-%     fieldType= currCA.FieldType;
-%     z0Arr=[];
-% 
-%     
-%     if(regexp(path,'\.txt$'))
-%         if fieldType
-%             if N~=1
-%                 cellCount=N*(N-1)*3+1;
-%             else
-%                 cellCount=1;
-%             end
-%             z0Size=[5 cellCount];
-%             formatSpec = '%d %d %d %f %f\n';
-%         else
-%             cellCount=N*N;
-%             z0Size=[4 cellCount];
-%             formatSpec = '%d %d %f %f\n';
-%         end
-%         file = fopen(path, 'r');
-%         z0Arr = fscanf(file, formatSpec,z0Size);
-%         fclose(file);
-% 
-%     else
-%         if fieldType
-%             cellCount=N*(N-1)*3+1;
-%         else
-%             cellCount=N*N;
-%         end
-%         z0Arr=xlsread(path,1);
-%         z0Arr=z0Arr';
-%     end
-%     
-%     if length(z0Arr(1,:))~=cellCount || (fieldType && length(z0Arr(:,1))==4)|| (~fieldType && length(z0Arr(:,1))==5)
-%         errordlg('Ошибка. Количество начальных состояний в файле не соответствует заданному числу ячеек, или данные в файле не подходят для инициализации Z0.','modal');
-%         setappdata(handles.output,'CurrCA',currCA);
-%     else
-%         valuesArr=[];
-%         idxes=[];
-%         colors=[];
-%         z0Arr=z0Arr';
-%         
-%         if fieldType
-%             
-%             if N==1
-%                 value=complex(z0Arr(1,4),z0Arr(1,5));
-%                 currCA.Cells=CACell(value, value, [0 1 1], [0 0 0], fieldType, 1);
-%                 
-%                 N1Path=[real(currCA.Cells(1).z0);imag(currCA.Cells(1).z0)];
-%                 setappdata(handles.output,'N1Path',N1Path);
-%                 
-%                 msgbox(strcat('Начальная конфигурация КА была успешно задана из файла',path),'modal');
-%                 currCA.N=N;
-%                 setappdata(handles.output,'CurrCA',currCA);
-%                 fileWasRead = getappdata(handles.output,'FileWasRead');
-%                 fileWasRead=true;
-%                 setappdata(handles.output,'FileWasRead',fileWasRead);
-%                 return;
-%             end
-%             
-%             valuesArr=arrayfun(@(re,im) complex(re,im),z0Arr(:,4),z0Arr(:,5));
-%             for i=1:cellCount
-%                 idxes=[idxes {z0Arr(i,1:3)}];
-%             end
-%         else
-%             
-%             if N==1
-%                 value=complex(z0Arr(1,3),z0Arr(1,4));
-%                 currCA.Cells=CACell(value, value, [0 1 1], [0 0 0], fieldType, 1);
-%                 
-%                 N1Path=[real(currCA.Cells(1).z0);imag(currCA.Cells(1).z0)];
-%                 setappdata(handles.output,'N1Path',N1Path);
-%                 
-%                 msgbox(strcat('Начальная конфигурация КА была успешно задана из файла',path),'modal');
-%                 currCA.N=N;
-%                 setappdata(handles.output,'CurrCA',currCA);
-%                 fileWasRead = getappdata(handles.output,'FileWasRead');
-%                 fileWasRead=true;
-%                 setappdata(handles.output,'FileWasRead',fileWasRead);
-%                 return;
-%             end
-%             
-%             valuesArr=arrayfun(@(re,im) complex(re,im),z0Arr(:,3),z0Arr(:,4));
-%             for i=1:cellCount
-%                 idxes=[idxes {[z0Arr(i,1:2) 0]}];
-%             end
-%         end
-%         fileWasRead = getappdata(handles.output,'FileWasRead');
-%         fileWasRead=true;
-%         setappdata(handles.output,'FileWasRead',fileWasRead);
-%         valuesArr=valuesArr';
-%         
-%         colors=cell(1,cellCount);
-%         colors(:)=num2cell([0 0 0],[1 2]);
-%         
-%         fieldTypeArr=zeros(1,cellCount);
-%         fieldTypeArr(:)=fieldType;
-%         
-%         NArr=zeros(1,cellCount);
-%         NArr(:)=N;
-%         
-%         currCA.Cells=arrayfun(@(value, path, indexes, color, FieldType, N) CACell(value, path, indexes, color, FieldType, N) ,valuesArr,valuesArr,idxes,colors,fieldTypeArr,NArr);
-%         
-%         msgbox(strcat('Начальная конфигурация КА была успешно задана из файла',path),'modal');
-%         currCA.N=N;
-%         setappdata(handles.output,'CurrCA',currCA);
-%     end
-    
-end
+
 
 % hObject    handle to ReadZ0SourceButton (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -3219,6 +3098,7 @@ end
 % --- Executes on button press in SaveParamsButton.
 function SaveParamsButton_Callback(hObject, eventdata, handles)
 
+handles.CellInfoLabel.Visible='off';
 modelingTypeParams = strcat(handles.NFieldEdit.String, handles.CalcGroup.SelectedObject.Tag);
 calcParams = [];
 isObjectExist = true;
@@ -3238,7 +3118,7 @@ switch modelingTypeParams
             end
 
             setappdata(handles.output, 'IIteratedObject', obj);
-            visualOptions = PointPathVisualisationOptions.GetSetPointPathVisualisationOptions;
+            visualOptions = getappdata(handles.output, 'pointVisOptions');
             setappdata(handles.output, 'VisOptions', visualOptions);
         end
         [calcParams] = ModelingParamsForPath.ModelingParamsInitialization(handles);
@@ -3265,6 +3145,7 @@ switch modelingTypeParams
 
     otherwise
         iteratedObject = getappdata(handles.output, 'IIteratedObject');
+        handles.CellInfoLabel.Visible='on';
 
         if string(class(iteratedObject)) ~= "CellularAutomat"
             [obj] = CellularAutomat();
@@ -3279,19 +3160,37 @@ switch modelingTypeParams
             end
             setappdata(handles.output, 'IIteratedObject', obj);
             visualOptions = getappdata(handles.output, 'CAVisOptions');
+
             setappdata(handles.output, 'VisOptions', visualOptions);
         end
         [calcParams] = ModelingParams.ModelingParamsInitialization(handles);
-        
+
         if ~isempty(iteratedObject)
             if ~GetModellingStatus(iteratedObject) && isObjectExist
                 setappdata(handles.output, 'badObjectStatus', 'Моделирование c заданной точностью и точностью ниже  завершено.');
                 return;
             end
         end
+
+        if isempty(getappdata(handles.output, 'badObjectStatus'))
+            ca = getappdata(handles.output, 'IIteratedObject');
+            fig = figure('Visible','off');
+            axes(fig);
+            cla reset;
+            axis image;
+            set(gca,'xtick',[]);
+            set(gca,'ytick',[]);
+            PrepareDataAndAxes(getappdata(handles.output, 'VisOptions'), ca, handles);
+            lastTitle = fig.CurrentAxes.Title.String;
+            lastTitle = {'Конфигурация КА на предыдущем этапе расчета Tl=', num2str(length(ca.Cells(1).ZPath) - 1),lastTitle};
+            title(fig.CurrentAxes,lastTitle);
+            fig.Visible = 'on';
+            axes(handles.CAField);
+        end
 end
 
 if isempty(calcParams)
+    setappdata(handles.output, 'calcParams', []);
     return;
 end
 
@@ -5150,7 +5049,8 @@ function PointPathSettingsMenuItem_Callback(hObject, eventdata, handles)
 
 % --------------------------------------------------------------------
 function PointVisualizationSettingsMenuItem_Callback(hObject, eventdata, handles)
-pointPathVisualSettings = PointPathVisualSettings('UserData',handles);
+pointPathVisualSettings = PointPathVisualSettings;
+setappdata(pointPathVisualSettings, 'MainWindowHandles',handles);
 % hObject    handle to PointVisualizationSettingsMenuItem (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -5165,8 +5065,50 @@ function MainWindow_DeleteFcn(hObject, eventdata, handles)
 
 
 % --------------------------------------------------------------------
-function aboutProg_Callback(hObject, eventdata, handles)
-about
-% hObject    handle to aboutProg (see GCBO)
+function HelpMenuItem_Callback(hObject, eventdata, handles)
+% hObject    handle to HelpMenuItem (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+
+
+% --- Executes on button press in ShowDistributionBtn.
+function ShowDistributionBtn_Callback(hObject, eventdata, handles)
+
+fig = getappdata(handles.output, 'DistributionFig');
+if ~isempty(fig)
+    if isvalid(fig)
+        close(fig);
+        setappdata(handles.output, 'DistributionFig',[]);
+        return;
+    end
+end
+
+switch handles.DistributionTypeMenu.Value
+ case 1
+    setappdata(handles.output, 'DistributionFig',pretty_equation({'$$z(x,y)=z_{0}+a+bx+cy$$'}));
+ case 2
+    formulaStr = {'$$z(x,y)=z_{0}+a+b \mid x-\frac{N-1}{2} \mid + c \mid y-\frac{N-1}{2} \mid$$'};
+    if string(handles.FieldTypeGroup.UserData) == "HexFieldRB"
+        formulaStr = {'$$z(x,y)=z_{0}+a+b \mid x-N-1 \mid + c \mid y-N-1 \mid$$'};
+    end
+    setappdata(handles.output, 'DistributionFig',pretty_equation(formulaStr));
+ case 3
+    setappdata(handles.output, 'DistributionFig',pretty_equation({'$$z(x,y)=z_{0}+a+(b-a)p_{1}+ic[a+(b-a)p_{2}],$$','$$b>a, Im(a)=Im(b)=Im(c)=0,$$','$$p_{1,2} \in [0;1]$$'}));
+ case 4
+    setappdata(handles.output, 'DistributionFig',pretty_equation({'$$z(x,y)=z_{0}+c(p_{1}(a,b) + ip_{2}(a,b))$$','$$Re(b)>0, Im(a) = Im(b)= Im(c) = 0,$$','$$p_{1,2}=\frac{1}{b\cdot\sqrt{2\cdot\pi}} \cdot exp(-\frac{(x - a)^{2}}{2\cdot b^{2}})$$'}));
+     
+end
+% hObject    handle to ShowDistributionBtn (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
+% --------------------------------------------------------------------
+function help_Callback(hObject, eventdata, handles)
+winopen('help.pdf');
+% hObject    handle to help (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+function aboutProg_Callback(hObject, eventdata, handles)
+about

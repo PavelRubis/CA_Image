@@ -1,4 +1,4 @@
-classdef PointPathVisualisationOptions < VisualisationOptions
+classdef PointPathVisualisationOptions < VisualisationOptions & handle
 
     properties
         XAxesdataProcessingFunc function_handle
@@ -8,32 +8,6 @@ classdef PointPathVisualisationOptions < VisualisationOptions
         YAxescolorMapLabel (1, :) char
 
         VisualPath (1, :) double
-    end
-
-    methods (Static)
-
-        function out = GetSetPointPathVisualisationOptions(colorMap, xAxesdataProcessingFunc, yAxesdataProcessingFunc, xAxescolorMapLabel, yAxescolorMapLabel, visualpath)
-%             mlock
-
-            persistent clrMap;
-            persistent xAxesdataFunc;
-            persistent yAxesdataFunc;
-            persistent xAxesLabel;
-            persistent yAxesLabel;
-            persistent visualPath;
-
-            if nargin == 6
-                clrMap = colorMap;
-                xAxesdataFunc = xAxesdataProcessingFunc;
-                yAxesdataFunc = yAxesdataProcessingFunc;
-                xAxesLabel = xAxescolorMapLabel;
-                yAxesLabel = yAxescolorMapLabel;
-                visualPath = visualpath;
-            end
-
-            out = PointPathVisualisationOptions(clrMap, xAxesdataFunc, yAxesdataFunc, xAxesLabel, yAxesLabel, visualPath);
-        end
-
     end
 
     methods
@@ -78,11 +52,11 @@ classdef PointPathVisualisationOptions < VisualisationOptions
                 otherwise
                     msg = strcat(str, {' имеет период:'},{' '}, {num2str(point.Fate)}, {' '},{', найденный на итерации:'},{num2str(point.LastIterNum - 1)});
             end
-
+            
             visualPath = [];
 
-            if length(point.StatePath) > ModelingParams.GetIterCount
-                visualPath = point.StatePath(length(point.StatePath) - ModelingParams.GetIterCount:end);
+            if length(point.StatePath) > ModelingParamsForPath.GetIterCount
+                visualPath = point.StatePath(length(point.StatePath) - ModelingParamsForPath.GetIterCount:end);
             else
                 visualPath = point.StatePath;
             end
@@ -97,6 +71,8 @@ classdef PointPathVisualisationOptions < VisualisationOptions
             if point.Fate ~= inf
                 msgbox(msg, 'Моделирование завершено');
             end
+            
+            point.StatePath = point.StatePath(find(~isnan(point.StatePath)));
 
         end
 
@@ -205,7 +181,7 @@ classdef PointPathVisualisationOptions < VisualisationOptions
             titleStr = strcat('z\rightarrow', strrep(point.IteratedFuncStr, '@(z)', ''));
 
             titleStr = strrep(titleStr, 'mu0', '\mu_{0}');
-            titleStr = regexprep(titleStr, 'mu(?!_)', '\mu');
+            titleStr = regexprep(titleStr, 'mu(?!_)', '\\mu');
             titleStr = strrep(titleStr, '*', '\cdot');
 
             titleStr = strcat(titleStr, ' ; z_{0}=', num2str(point.FuncParams('z0')));
@@ -214,7 +190,7 @@ classdef PointPathVisualisationOptions < VisualisationOptions
 
             if contains(titleStr, 'eq')
                 titleStr = strrep(titleStr, 'eq', 'z^{*}');
-                titleStr = strcat(titleStr, ' ; z^{*}', num2str(point.FuncParams('z*')));
+                titleStr = strcat(titleStr, ' ; z^{*}=', num2str(point.FuncParams('z*')));
             end
 
             title(handles.CAField, strcat('\fontsize{16}', titleStr));

@@ -33,10 +33,7 @@ classdef SaveResults
 
                 switch class(iteratedObject)
                     case 'IteratedPoint'
-
-                        if isinf(oldIteratedObject.Fate)
-                            obj = SavePointPath(obj, res, iteratedObject, calcParms);
-                        end
+                        obj = SavePointPath(obj, res, iteratedObject, calcParms);
 
                     case 'IteratedMatrix'
                         obj = SaveMatrixPath(obj, iteratedObject, calcParms);
@@ -137,7 +134,7 @@ classdef SaveResults
                 fprintf(fileID, strcat('\n\n\nОтображение: ', strrep(point.IteratedFuncStr, '@(z)', '')));
 
                 fprintf(fileID, strcat('\n\nМаксимальный период=', num2str(calcParms.MaxPeriod), '\n'));
-                fprintf(fileID, strcat('Порог бесконечности = ', num2str(10^calcParms.InfVal, '%.1e'), '\n'));
+                fprintf(fileID, strcat('Порог бесконечности = ', num2str(calcParms.InfVal, '%.1e'), '\n'));
                 fprintf(fileID, strcat('Порог сходимости=', num2str(calcParms.EqualityVal, '%.1e'), '\n'));
 
                 funcParamsNames = keys(point.FuncParams);
@@ -300,7 +297,7 @@ classdef SaveResults
             PrecisionParms = ModelingParams.GetSetPrecisionParms;
 
             fprintf(fileID, strcat('\n\nМаксимальный период=', num2str(ModelingParamsForPath.GetSetMaxPeriod), '\n'));
-            fprintf(fileID, strcat('Порог бесконечности = ', num2str(10^PrecisionParms(1), '%.1e'), '\n'));
+            fprintf(fileID, strcat('Порог бесконечности = ', num2str(PrecisionParms(1), '%.1e'), '\n'));
             fprintf(fileID, strcat('Порог сходимости=', num2str(PrecisionParms(2), '%.1e'), '\n'));
 
             funcParamsNames = keys(matr.FuncParams);

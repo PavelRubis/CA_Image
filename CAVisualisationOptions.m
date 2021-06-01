@@ -33,8 +33,6 @@ classdef CAVisualisationOptions < VisualisationOptions & handle
 
             res = [];
 
-            axes(handles.CAField);
-
             modulesArr = zeros(1, length(ca.Cells));
             zbase = ones(1, length(ca.Cells));
 
@@ -50,6 +48,7 @@ classdef CAVisualisationOptions < VisualisationOptions & handle
             colorBarTitle = obj.ColorBarLabel;
 
             [modulesArrSrt, indxes] = sort(modulesArr);
+            PrecisionParms(1) = obj.PrecisionParmsFunc(PrecisionParms(1));
 
             infValCACellsIndxes = find(modulesArr > PrecisionParms(1) | isnan(modulesArr));
 
@@ -57,15 +56,8 @@ classdef CAVisualisationOptions < VisualisationOptions & handle
                 ca.Cells(infValCACellsIndxes(ind)).RenderColor = [0, 0, 0];
             end
 
-            minusinfValCACellsIndxes = find(modulesArr < -PrecisionParms(1));
-
-            for ind = 1:length(minusinfValCACellsIndxes)
-                ca.Cells(minusinfValCACellsIndxes(ind)).RenderColor = [1, 1, 1];
-            end
-
             modulesArrNanInfFiltered = modulesArr;
             modulesArrNanInfFiltered(infValCACellsIndxes) = [];
-            modulesArrNanInfFiltered(minusinfValCACellsIndxes) = [];
             modulesArrNanInfFiltered = sort(modulesArrNanInfFiltered);
 
             %создание палитры
@@ -89,13 +81,8 @@ classdef CAVisualisationOptions < VisualisationOptions & handle
                 colors = [colors; [0, 0, 0]];
             end
 
-            if ~isempty(minusinfValCACellsIndxes)
-                colors = [[1, 1, 1]; colors];
-            end
-
             visualValsArr = modulesArr;
             visualValsArr(infValCACellsIndxes) = inf;
-            visualValsArr(minusinfValCACellsIndxes) = -inf;
             visualValsArr = sort(visualValsArr);
 
             [unqVisualValsArr, unqVisualValsArrIndxs] = unique(visualValsArr);
@@ -121,7 +108,7 @@ classdef CAVisualisationOptions < VisualisationOptions & handle
         function PlotFormatting(obj, ca, handles)
 
             titleStr = '';
-            if ~handles.CustomIterFuncCB.Value 
+            if ~handles.CustomIterFuncCB.Value
                 switch handles.BaseImagMenu.Value
                     case 1
                         titleStr = 'z\rightarrow\lambda\cdotexp(i\cdotz)';
@@ -149,7 +136,7 @@ classdef CAVisualisationOptions < VisualisationOptions & handle
             end
 
             titleStr = strrep(titleStr, 'mu0', '\mu_{0}');
-            titleStr = strrep(titleStr, 'mu', '\mu');
+            titleStr = regexprep(titleStr, 'mu(?!_)', '\mu');
             titleStr = strrep(titleStr, '*', '\cdot');
             titleStr = strcat(titleStr, ' ');
 
@@ -194,7 +181,7 @@ classdef CAVisualisationOptions < VisualisationOptions & handle
 
             end
 
-            title(handles.CAField, strcat('\fontsize{16}', titleStr));
+            title(handles.CAField, strcat('\fontsize{16}', titleStr));%,'interpreter','latex'
         end
 
     end

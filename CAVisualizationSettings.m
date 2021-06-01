@@ -46,6 +46,11 @@ end
 
 % --- Executes just before CAVisualizationSettings is made visible.
 function CAVisualizationSettings_OpeningFcn(hObject, eventdata, handles, varargin)
+    
+jFrame=get(hObject, 'javaframe');
+jicon=javax.swing.ImageIcon('icon.png');
+jFrame.setFigureIcon(jicon);
+
 axes(handles.ColorMapAxes);
 clrMap = meshgrid(0:0.001:0.255, 0:0.001:0.255);
 pcolor(0:255, 0:255, clrMap);

@@ -1,4 +1,4 @@
-classdef IteratedPoint < IIteratedObject
+classdef IteratedPoint < IIteratedObject & handle
 
     properties
         IteratedFunc %function_handle;
@@ -38,11 +38,6 @@ classdef IteratedPoint < IIteratedObject
             errStruct.check = isempty(errorStr);
             errStruct.msg = errorStr;
             setappdata(handles.output, 'errStruct', errStruct);
-
-            if ~isempty(obj)
-                obj = BeforeModeling(obj);
-            end
-
         end
 
         function [obj] = SetInitValueAndFuncParams(obj, handles)
@@ -156,7 +151,7 @@ classdef IteratedPoint < IIteratedObject
             end
 
             obj.Step = length(obj.StatePath) + 1;
-            obj.StatePath = [obj.StatePath nan(1, ModelingParams.GetIterCount)];
+            obj.StatePath = [obj.StatePath nan(1, ModelingParamsForPath.GetIterCount)];
         end
 
         function [obj] = Iteration(obj, calcParams)
@@ -175,7 +170,7 @@ classdef IteratedPoint < IIteratedObject
             pointPath = obj.StatePath(find(~isnan(obj.StatePath)));
 
             %уход в бесконечность
-            if (log(pointPath(end)) / log(10) > PrecisionParms(1)) || isnan(pointPath(end)) || isinf(pointPath(end))
+            if (abs(pointPath(end)) > PrecisionParms(1)) || isnan(pointPath(end)) || isinf(pointPath(end))
                 obj.LastIterNum = length(pointPath);
                 obj.Fate = 0;
                 return;
@@ -190,7 +185,8 @@ classdef IteratedPoint < IIteratedObject
                 obj.Fate = 1;
                 return;
             end
-
+            
+            Q = 10;
             %период и мб сходимость
             for n = 2:length(pointPath)
 
@@ -198,19 +194,24 @@ classdef IteratedPoint < IIteratedObject
                 qArr = 1:q - 1;
                 r = abs(pointPath(n - qArr) - pointPath(n));
 
-                if r(1) < PrecisionParms(2) || norm(r) < 2 * q * PrecisionParms(2)
+                [r_min, s_min] = min(r);
+                if r_min < calcParams.EqualityVal && s_min == 1
                     obj.LastIterNum = n - 1;
                     obj.Fate = 1;
                     return;
-                else
-                    [minR prd] = min(r);
+                end
 
-                    if minR < PrecisionParms(2)
-                        obj.LastIterNum = n; %n - prd;
-                        obj.Fate = prd;
+                if r_min < calcParams.EqualityVal
+                    r_max = max(r(1:s_min));
+                    if  r_max / r_min > Q
+                         obj.LastIterNum = n;
+                         obj.Fate = s_min;
+                        return;
+                    else
+                        obj.LastIterNum = n - 1;
+                        obj.Fate = 1;
                         return;
                     end
-
                 end
 
             end
@@ -308,18 +309,6 @@ classdef IteratedPoint < IIteratedObject
             [zeq, zer] = fminsearch(mapz_zero_xy, [real(z0) imag(z0)], optimset('TolX', 1e-9));
 
             zBase = complex(zeq(1), zeq(2));
-        end
-
-        function zBase = VisualPointCallBack(handles)
-            obj = getappdata(handles.output, 'IIteratedObject');
-            visOptions = PointPathVisualisationOptions.GetSetPointPathVisualisationOptions;
-
-            if ~isempty(handles.CAField.Children)
-                graphics = FormatAndPlotPath(visOptions, obj, handles);
-            end
-
-            setappdata(handles.output, 'graphics', graphics);
-
         end
 
     end

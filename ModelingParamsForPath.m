@@ -67,7 +67,7 @@ classdef ModelingParamsForPath < ModelingParams
             end
 
             if ~errStruct.check
-                obj = ModelingParamsForPath(str2double(handles.IterCountEdit.String), str2double(handles.InfValueEdit.String), str2double(strcat('1e-', handles.ConvergValueEdit.String)), str2double(handles.MaxPeriodEdit.String));
+                obj = ModelingParamsForPath(str2double(handles.IterCountEdit.String), str2double(strcat('1e+', handles.InfValueEdit.String)), str2double(strcat('1e-', handles.ConvergValueEdit.String)), str2double(handles.MaxPeriodEdit.String));
                 ModelingParams.GetSetPrecisionParms(obj.InfVal, obj.EqualityVal);
                 ModelingParamsForPath.GetSetMaxPeriod(obj.MaxPeriod);
                 ModelingParams.GetIterCount(obj.IterCount);

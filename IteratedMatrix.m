@@ -73,16 +73,12 @@ classdef IteratedMatrix < IIteratedObject
             wbStep = ceil(pointsCount / 20);
 
             if obj.IsIteratableWindowParam
-                obj.IteratedFuncStr = strrep(obj.IteratedFuncStr, 'eq', strcat('(', num2str(IteratedMatrix.CountZBaze(obj.FuncParams('mu'), obj.WindowParam.Value)), ')'));
+                obj.FuncParams('z*') = IteratedMatrix.CountZBaze(str2double(obj.FuncParams('mu')), obj.WindowParam.Value);
+                obj.IteratedFuncStr = strrep(obj.IteratedFuncStr, 'eq', strcat('(', num2str(IteratedMatrix.CountZBaze(str2double(obj.FuncParams('mu')), obj.WindowParam.Value)), ')'));
                 obj.IteratedFunc = str2func(obj.IteratedFuncStr);
 
                 parfor ind = 1:pointsCount
                     [pointsStep, pointsFate] = IterableWindowParamCalc(obj, windowOfValues(ind), calcParams);
-
-                    if length(pointsFate) == 2
-                        pointsStep = pointsFate(2);
-                        pointsFate = pointsFate(1);
-                    end
 
                     pointsSteps(ind) = pointsStep;
                     pointsFates(ind) = pointsFate;
@@ -105,18 +101,14 @@ classdef IteratedMatrix < IIteratedObject
                     end
 
                 else
-                    z_eq(:) = IteratedMatrix.CountZBaze(obj.FuncParams('mu'), obj.FuncParams('z0'));
+                    obj.FuncParams('z*') = IteratedMatrix.CountZBaze(str2double(obj.FuncParams('mu')), initVal);
+                    z_eq(:) = IteratedMatrix.CountZBaze(str2double(obj.FuncParams('mu')), initVal);
                 end
 
                 obj.IteratedFunc = str2func(obj.IteratedFuncStr);
 
                 parfor ind = 1:pointsCount
                     [pointsStep, pointsFate] = NonIterableWindowParamCalc(obj, initVal, windowOfValues(ind), z_eq(ind), calcParams);
-
-                    if length(pointsFate) == 2
-                        pointsStep = pointsFate(2);
-                        pointsFate = pointsFate(1);
-                    end
 
                     pointsSteps(ind) = pointsStep;
                     pointsFates(ind) = pointsFate;
@@ -149,18 +141,18 @@ classdef IteratedMatrix < IIteratedObject
             pointPath(1) = initVal;
             pointVal2ItersBack = inf;
 
-            for step = 2:itersCount + 1
+            for ind = 2:itersCount + 1
 
-                if log(pointPath(step - 1)) / (2.302585092994046) >= infVal || abs(pointPath(step - 1) - pointVal2ItersBack) < equalityVal
+                if abs(pointPath(ind - 1)) >= infVal || abs(pointPath(ind - 1) - pointVal2ItersBack) < equalityVal
                     break;
                 else
-                    pointPath(step) = iteratedFunc(pointPath(step - 1));
-                    pointVal2ItersBack = pointPath(step - 1);
+                    pointPath(ind) = iteratedFunc(pointPath(ind - 1));
+                    pointVal2ItersBack = pointPath(ind - 1);
                 end
 
             end
 
-            fate = IteratedMatrix.CheckFate(pointPath, calcParams);
+            [fate, step] = IteratedMatrix.CheckFate(pointPath, calcParams);
 
         end
 
@@ -177,7 +169,7 @@ classdef IteratedMatrix < IIteratedObject
 
             for step = 2:itersCount + 1
 
-                if log(pointPath(step - 1)) / (2.302585092994046) >= infVal || abs(pointPath(step - 1) - pointVal2ItersBack) < equalityVal
+                if abs(pointPath(step - 1)) >= infVal || abs(pointPath(step - 1) - pointVal2ItersBack) < equalityVal
                     break;
                 else
                     pointPath(step) = iteratedFunc(pointPath(step - 1), windowParamVal, z_eq);
@@ -186,7 +178,7 @@ classdef IteratedMatrix < IIteratedObject
 
             end
 
-            fate = IteratedMatrix.CheckFate(pointPath, calcParams);
+            [fate, step] = IteratedMatrix.CheckFate(pointPath, calcParams);
 
         end
 
@@ -266,8 +258,8 @@ classdef IteratedMatrix < IIteratedObject
             if (~isnan(obj.WindowParam.Value))
                 ReDelta = str2double(handles.ParamReDeltaEdit.String);
                 ImDelta = str2double(handles.ParamImDeltaEdit.String);
-                ReStep = (ReDelta * 2) / str2double(handles.ParamRePointsEdit.String);
-                ImStep = (ImDelta * 2) / str2double(handles.ParamImPointsEdit.String);
+                ReStep = ReDelta / str2double(handles.ParamRePointsEdit.String);
+                ImStep = ImDelta / str2double(handles.ParamImPointsEdit.String);
                 ReCenter = real(str2double(obj.WindowParam.Value));
                 ImCenter = imag(str2double(obj.WindowParam.Value));
 
@@ -345,26 +337,29 @@ classdef IteratedMatrix < IIteratedObject
             z_eq = complex(zeq(1), zeq(2));
         end
 
-        function [Fate] = CheckFate(pointPath, calcParams)
+        function [Fate, Step] = CheckFate(pointPath, calcParams)
 
             MaxPeriod = calcParams.MaxPeriod;
             pointPath = pointPath(find(~isnan(pointPath)));
 
             %уход в бесконечность
-            if (log(pointPath(end)) / log(10) > calcParams.InfVal) || isnan(pointPath(end)) || isinf(pointPath(end))
+            if (abs(pointPath(end)) > calcParams.InfVal) || isnan(pointPath(end)) || isinf(pointPath(end))
+                Step = length(pointPath);
                 Fate = 0;
                 return;
             end
-
+            
             %сходимость
             c = 3:length(pointPath);
             converg = abs(pointPath(c - 1) - pointPath(c)) <= calcParams.EqualityVal;
 
             if any(converg)
+                Step = c(find(converg, 1, 'first'));
                 Fate = 1;
                 return;
             end
 
+            Q = 10;
             %период и мб сходимость
             for n = 2:length(pointPath)
 
@@ -372,21 +367,29 @@ classdef IteratedMatrix < IIteratedObject
                 qArr = 1:q - 1;
                 r = abs(pointPath(n - qArr) - pointPath(n));
 
-                if r(1) < calcParams.EqualityVal || norm(r) < 2 * q * calcParams.EqualityVal
+                [r_min, s_min] = min(r);
+                if r_min < calcParams.EqualityVal && s_min == 1
+                    Step = n - 1;
                     Fate = 1;
                     return;
-                else
-                    [minR prd] = min(r);
+                end
 
-                    if minR < calcParams.EqualityVal
-                        Fate = [prd (n - 1)];
+                if r_min < calcParams.EqualityVal
+                    r_max = max(r(1:s_min));
+                    if  r_max / r_min > Q
+                        Step = n;
+                        Fate = s_min;
+                        return;
+                    else
+                        Step = n - 1;
+                        Fate = 1;
                         return;
                     end
-
                 end
 
             end
 
+            Step = length(pointPath);
             Fate = Inf;
         end
 

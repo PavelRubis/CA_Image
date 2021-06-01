@@ -55,7 +55,7 @@ classdef MatrixVisualisationOptions < VisualisationOptions
             Fcode(find(Fcode == 0 | Fcode == inf)) = -1;
             Fcode(find(Fcode > 1 & Fcode ~= inf)) = 1;
 
-            clmp = [spring(chaosCheck); flipud(gray(maxNegSteps)); flipud(winter(maxPosSteps)); autumn(maxPeriodSteps)];
+            clmp = [spring(chaosCheck); flipud(gray(maxNegSteps)); flipud(winter(maxPosSteps)); autumn(maxPeriodSteps - 1)];
             clrmp = colormap(clmp);
 
             pcolor(matr.WindowOfValues{1}, matr.WindowOfValues{2}, (fStepNew .* Fcode));
@@ -100,7 +100,7 @@ classdef MatrixVisualisationOptions < VisualisationOptions
             paramsSubStr = matr.ConstIteratedFuncStr(1:find(matr.ConstIteratedFuncStr == ')', 1, 'first'));
             titleStr = strcat('z\rightarrow', strrep(matr.ConstIteratedFuncStr, paramsSubStr, ''));
 
-            titleStr = regexprep(titleStr, 'mu(?!\d)', '\mu');
+            titleStr = regexprep(titleStr, 'mu(?!\d)', '\\mu');
             titleStr = strrep(titleStr, 'mu0', '\mu_{0}');
             titleStr = strrep(titleStr, '*', '\cdot');
 
@@ -112,7 +112,7 @@ classdef MatrixVisualisationOptions < VisualisationOptions
 
                     if contains(titleStr, 'eq')
                         titleStr = strrep(titleStr, 'eq', 'z^{*}');
-                        titleStr = strcat(titleStr, ' ; z^{*}=', num2str(IteratedMatrix.CountZBaze(matr.FuncParams('mu'), matr.WindowParam.Value)));
+                        titleStr = strcat(titleStr, ' ; z^{*}=', num2str(matr.FuncParams('z*')));
                     end
 
                     xlabel('Re(z_{0})');
@@ -134,13 +134,15 @@ classdef MatrixVisualisationOptions < VisualisationOptions
 
                     if contains(titleStr, 'eq')
                         titleStr = strrep(titleStr, 'eq', 'z^{*}');
-                        titleStr = strcat(titleStr, ' ; z^{*}=', num2str(IteratedMatrix.CountZBaze(matr.FuncParams('mu'), matr.FuncParams('z0'))));
+                        titleStr = strcat(titleStr, ' ; z^{*}=', num2str(matr.FuncParams('z*')));
                     end
 
                     xlabel('Re(\mu_{0})');
                     ylabel('Im(\mu_{0})');
 
             end
+            xticks('auto');
+            yticks('auto');
 
             title(handles.CAField, strcat('\fontsize{16}', titleStr));
             handles.CAField.FontSize = 10;

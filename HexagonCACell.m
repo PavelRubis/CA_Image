@@ -8,7 +8,9 @@ classdef HexagonCACell < CA_cell
         RenderColor
         CAIndexes
         Step
-
+        %temporal
+        HexRingNum double {mustBeInteger} = 0
+        %temporal
         CAHandle CellularAutomat
         Indexes (1, 3) double
         cellOrientation logical
@@ -42,6 +44,22 @@ classdef HexagonCACell < CA_cell
                 obj = SetCellIndexes(obj);
             else
                 obj.IsExternal = false;
+            end
+        end
+        
+        function [obj] = RingNumSet(obj)
+
+            for ringNum=0:(obj.CAHandle.N - 1)
+                maxRow = 2 * (obj.CAHandle.N - 1) - ringNum;
+                maxColInd = length(find(arrayfun(@(caCell)caCell.CAIndexes(1) == obj.CAIndexes(1),obj.CAHandle.Cells))) - (ringNum + 1);
+
+                if all([all([obj.CAIndexes(1) >= ringNum, obj.CAIndexes(1) <= maxRow ]), any([obj.CAIndexes(1) == ringNum, obj.CAIndexes(2) == ringNum, obj.CAIndexes(1) == maxRow, obj.CAIndexes(2) == maxColInd])])
+                    obj.HexRingNum = ringNum;
+                    break;
+                end
+
+                any([obj.CAIndexes(1) == ringNum, obj.CAIndexes(2) == ringNum, obj.CAIndexes(1) == maxRow, obj.CAIndexes(2) == maxColInd])
+            
             end
         end
 
@@ -586,7 +604,7 @@ classdef HexagonCACell < CA_cell
                 y_arr = [y0 y0 + dy y0 + 3 * dy y0 + 4 * dy y0 + 3 * dy y0 + dy];
 
                 patchik = patch(x_arr, y_arr, [obj.RenderColor(1) obj.RenderColor(2) obj.RenderColor(3)]); % рисование гексагона
-                patchik.UserData = strcat({'Ячейка с координатами:'}, {' '}, {'('}, {num2str(obj.CAIndexes(1))}, {','}, {num2str(obj.CAIndexes(2))}, {');'}, {' '}, {'и состоянием z='},{num2str(obj.ZPath(end))});
+                patchik.UserData = strcat({'Ячейка с координатами:'}, {' '}, {'('}, {num2str(obj.CAIndexes(2))}, {','}, {num2str(obj.CAIndexes(1))}, {');'}, {' '}, {'и состоянием z='},{num2str(obj.ZPath(end))});
 
                 set(patchik, 'ButtonDownFcn', @CA_cell.showCellInfo);
                 %%
@@ -609,7 +627,7 @@ classdef HexagonCACell < CA_cell
                 y_arr = [y0 y0 + dy y0 + 2 * (dy) y0 + 2 * (dy) y0 + dy y0];
 
                 patchik = patch(x_arr, y_arr, [obj.RenderColor(1) obj.RenderColor(2) obj.RenderColor(3)]); % рисование гексагона
-                patchik.UserData = strcat({'Ячейка с координатами:'}, {' '}, {'('}, {num2str(obj.CAIndexes(1))}, {','}, {num2str(obj.CAIndexes(2))}, {');'}, {' '}, {'и состоянием z='},{num2str(obj.ZPath(end))});
+                patchik.UserData = strcat({'Ячейка с координатами:'}, {' '}, {'('}, {num2str(obj.CAIndexes(2))}, {','}, {num2str(obj.CAIndexes(1))}, {');'}, {' '}, {'и состоянием z='},{num2str(obj.ZPath(end))});
                 
                 set(patchik, 'ButtonDownFcn', @CA_cell.showCellInfo);
                 %%

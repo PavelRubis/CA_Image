@@ -63,6 +63,15 @@ classdef CellularAutomat < IIteratedObject & handle
 
         end
 
+
+        function [obj] = BeforeModeling(obj)
+
+            arguments
+                obj CellularAutomat
+            end
+            obj = obj;
+        end
+
         function errStruct = SetMainProperties(obj, handles, errStruct)
 
             if isempty(regexp(handles.NFieldEdit.String, '^\d+$')) || str2double(handles.NFieldEdit.String) < 3
@@ -221,7 +230,7 @@ classdef CellularAutomat < IIteratedObject & handle
 
             end
 
-            if contains(testFuncStr, 'eq') && (~isempty(regexp(testFuncStr,'exp\(\s*z\s*\*\s*i\s*)')) || ~isempty(regexp(testFuncStr,'exp\(\s*i\s*\*\s*z\s*)')))
+            if contains(testFuncStr, 'eq') && (~isempty(regexp(testFuncStr, 'exp\(\s*z\s*\*\s*i\s*)')) || ~isempty(regexp(testFuncStr, 'exp\(\s*i\s*\*\s*z\s*)')))
 
                 zBase = IteratedPoint.calcZBase(obj.FuncParams('mu'));
                 obj.FuncParams('z*') = zBase;
@@ -293,10 +302,13 @@ classdef CellularAutomat < IIteratedObject & handle
 
             CACellCreation = @(CAindexes)HexagonCACell(0, CAindexes, obj, handles.HexOrientationPanel.UserData);
             obj.Cells = arrayfun(CACellCreation, indexesArr);
-            
-            for ind=1:length(obj.Cells)
+
+            indRingCellsCount = zeros(1,N);
+            for ind = 1:length(obj.Cells)
                 obj.Cells(ind) = SetIsExternal(obj.Cells(ind));
+                obj.Cells(ind) = RingNumSet(obj.Cells(ind));
             end
+            
         end
 
         function GenerateSquareField(obj, handles)
@@ -348,7 +360,7 @@ classdef CellularAutomat < IIteratedObject & handle
             end
 
             switch handles.DistributionTypeMenu.Value
-                case 1
+                case {1, 2}
 
                     if (isnan(str2num(aParam)) || isinf(str2num(aParam)) || isnan(str2num(bParam)) || isinf(str2num(bParam)) || isnan(str2num(cParam)) || isinf(str2num(cParam)))
                         errStruct.check = true;
@@ -356,7 +368,7 @@ classdef CellularAutomat < IIteratedObject & handle
                         errStruct.msg = strcat(errStruct.msg, ' Не задана начальная конфигурация: неправильный формат параметров равномерного случайного диапазона значений Z0 или точки z0; ');
                     end
 
-                case 2
+                case 3
 
                     if (str2double(aParam) >= str2double(bParam) || isempty(regexp(aParam, '^\d+(\.?)(?(1)\d+|)$')) || isempty(regexp(bParam, '^\d+(\.?)(?(1)\d+|)$')) || isempty(regexp(cParam, '^\d+(\.?)(?(1)\d+|)$')))
                         errStruct.check = true;
@@ -364,7 +376,7 @@ classdef CellularAutomat < IIteratedObject & handle
                         errStruct.msg = strcat(errStruct.msg, ' Не задана начальная конфигурация: неправильный формат параметров случайного однородного диапазона значений Z0 или точки z0; ');
                     end
 
-                case 3
+                case 4
 
                     if (str2double(bParam) <= 0 || isempty(regexp(aParam, '^\d+(\.?)(?(1)\d+|)$')) || isempty(regexp(bParam, '^\d+(\.?)(?(1)\d+|)$')) || isempty(regexp(cParam, '^\d+(\.?)(?(1)\d+|)$')))
                         errStruct.check = true;
@@ -384,24 +396,31 @@ classdef CellularAutomat < IIteratedObject & handle
 
             cellsInxs = arrayfun(@(caCell)caCell.CAIndexes, obj.Cells, 'UniformOutput', false);
             cellCount = length(cellsInxs);
+            n = obj.N;
 
             switch DistributType
                 case 1
-                    valuesArr = arrayfun(@(cellInxs) z0+a+b*cellInxs{1}(1)+c*cellInxs{1}(2), cellsInxs)';
+                    valuesArr = arrayfun(@(cellInxs) z0+a+b*cellInxs{1}(2)+c*cellInxs{1}(1), cellsInxs)';
                 case 2
-                    p1Arr = zeros(cellCount, 1);
-                    p2Arr = p1Arr;
-                    p1Arr = arrayfun(@(p1) unifrnd(0, 1), p1Arr);
-                    p2Arr = arrayfun(@(p2) unifrnd(0, 1), p2Arr);
-
-                    valuesArr = arrayfun(@(p1, p2) z0+a+(b - a)*p1+sqrt(-1)*c*(a + ((b - a) * p2)), p1Arr, p2Arr)';
+                    if string(class(obj.Cells(1))) == "HexagonCACell"
+                        Ns = zeros(1,length(obj.Cells));
+                        Ns(:) = n;
+                        diffArr = arrayfun(@(CAcell,n) abs(CAcell.HexRingNum - n - 1), obj.Cells, Ns);
+                        valuesArr = arrayfun(@(cellInxs, dif) z0 + a + dif*(c + b), cellsInxs, diffArr)';
+                    else
+                        dif = (n - 1) / 2;
+                        valuesArr = arrayfun(@(cellInxs) z0 + a + b * abs(cellInxs{1}(1) - dif) + c * abs(cellInxs{1}(2) - dif), cellsInxs)';
+                    end
                 case 3
-                    p1Arr = zeros(cellCount, 1);
-                    p2Arr = p1Arr;
-                    p1Arr = arrayfun(@(p1) normrnd(a, b), p1Arr);
-                    p2Arr = arrayfun(@(p2) normrnd(a, b), p2Arr);
+                    p1Arr = rand(cellCount, 1);
+                    p2Arr = rand(cellCount, 1);
 
-                    valuesArr = arrayfun(@(p1, p2) z0+c*(p1 + sqrt(-1) * p2), p1Arr, p2Arr)';
+                    valuesArr = (z0 + a + (b - a) * p1Arr + 1i * c * (a + ((b - a) * p2Arr)))';
+                case 4
+                    p1Arr = arrayfun(@(cellInxs) 1/(b * sqrt(2 * pi))*exp(-(cellInxs{1}(1) - a)^2 / (2 * b^2)), cellsInxs);
+                    p2Arr = arrayfun(@(cellInxs) 1/(b * sqrt(2 * pi))*exp(-(cellInxs{1}(1) - a)^2 / (2 * b^2)), cellsInxs);
+
+                    valuesArr = arrayfun(@(p1, p2) z0+c*(p1 + 1i * p2), p1Arr, p2Arr)';
             end
 
             for ind = 1:length(obj.Cells)
@@ -420,25 +439,25 @@ classdef CellularAutomat < IIteratedObject & handle
                 if ~isempty(regexp(filePath, '\.txt$'))
                     z0Size = [2, cellCount];
                     formatSpec = '%f %f\n';
-                
+
                     file = fopen(filePath, 'r');
                     z0Arr = fscanf(file, formatSpec, z0Size);
                     fclose(file);
 
                 end
                 if ~isempty(regexp(filePath, '\.xlsx$')) || ~isempty(regexp(filePath, '\.xls$'))
-                
+
                     z0Arr = xlsread(filePath, 1)';
 
                 end
-                
-                if length(z0Arr(1,:)) < cellCount
+
+                if length(z0Arr(1, :)) < cellCount
                     i_love_MATLAB^2;
                 end
-                
-                for ind=1:cellCount
-                    obj.Cells(ind).z0 = z0Arr(1,ind) + z0Arr(2,ind)*1i;
-                    obj.Cells(ind).ZPath = z0Arr(1,ind) + z0Arr(2,ind)*1i;
+
+                for ind = 1:cellCount
+                    obj.Cells(ind).z0 = z0Arr(1, ind) + z0Arr(2, ind) * 1i;
+                    obj.Cells(ind).ZPath = z0Arr(1, ind) + z0Arr(2, ind) * 1i;
                 end
             catch
                 errStruct.check = true;
@@ -452,7 +471,7 @@ classdef CellularAutomat < IIteratedObject & handle
             persistent PrecisionParms;
 
             if isempty(PrecisionParms)
-                PrecisionParms = [10^calcParams.InfVal, calcParams.EqualityVal];
+                PrecisionParms = [calcParams.InfVal, calcParams.EqualityVal];
             end
 
             func = @(caCell)UpdateCellNeighborsValues(obj, caCell);
@@ -460,7 +479,7 @@ classdef CellularAutomat < IIteratedObject & handle
 
             for ind = 1:cellsCount
 
-                if all([length(obj.Cells(ind).CurrNeighbors) > 0, obj.Cells(ind).ZPath(end) < PrecisionParms(1)])
+                if all([length(obj.Cells(ind).CurrNeighbors) > 0, abs(obj.Cells(ind).ZPath(end)) < PrecisionParms(1)])
                     neibs = arrayfun(@(neib)neib.ZPath(end), obj.Cells(ind).CurrNeighbors);
                     oness = ones(1, length(obj.Cells(ind).CurrNeighbors));
                     oness(1:2:length(oness)) = -1;
@@ -528,8 +547,7 @@ classdef CellularAutomat < IIteratedObject & handle
         function check = IsContinue(obj)
             PrecisionParms = ModelingParams.GetSetPrecisionParms;
 
-            PrecisionParms(1)
-            func = @(caCell) isinf(caCell.ZPath(end)) || isnan(caCell.ZPath(end)) || caCell.ZPath(end) >= PrecisionParms(1) || caCell.ZPath(end) <= -PrecisionParms(1);
+            func = @(caCell) isinf(caCell.ZPath(end)) || isnan(caCell.ZPath(end)) || abs(caCell.ZPath(end)) >= PrecisionParms(1);
             check = ~any(arrayfun(func, obj.Cells));
         end
 

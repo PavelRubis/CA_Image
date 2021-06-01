@@ -46,6 +46,11 @@ end
 
 % --- Executes just before CellWeightsSettings is made visible.
 function CellWeightsSettings_OpeningFcn(hObject, eventdata, handles, varargin)
+   
+    jFrame=get(hObject, 'javaframe');
+    jicon=javax.swing.ImageIcon('icon.png');
+    jFrame.setFigureIcon(jicon);
+
     axes(handles.axes2);
     axis image;
     set(gca, 'xtick', []);

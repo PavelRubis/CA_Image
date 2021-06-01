@@ -192,7 +192,7 @@ classdef SquareCACell < CA_cell
                     y_arr = [(obj.CAIndexes(1)) (obj.CAIndexes(1)) (obj.CAIndexes(1)) + 1 (obj.CAIndexes(1)) + 1];
 
                     patchik = patch(x_arr, y_arr, [obj.RenderColor(1) obj.RenderColor(2) obj.RenderColor(3)]); % рисование квадрата
-                    patchik.UserData = strcat({'Ячейка с координатами:'}, {' '}, {'('}, {num2str(obj.CAIndexes(1))}, {','}, {num2str(obj.CAIndexes(2))}, {');'}, {' '}, {'и состоянием z='},{num2str(obj.ZPath(end))});
+                    patchik.UserData = strcat({'Ячейка с координатами:'}, {' '}, {'('}, {num2str(obj.CAIndexes(2))}, {','}, {num2str(obj.CAIndexes(1))}, {');'}, {' '}, {'и состоянием z='},{num2str(obj.ZPath(end))});
                 
                     set(patchik, 'ButtonDownFcn', @CA_cell.showCellInfo);
                     %%
@@ -222,7 +222,7 @@ classdef SquareCACell < CA_cell
                     y_arr = [y0 y0 + dy y0 + 3 * dy y0 + 4 * dy y0 + 3 * dy y0 + dy];
 
                     patchik = patch(x_arr, y_arr, [obj.RenderColor(1) obj.RenderColor(2) obj.RenderColor(3)]); % рисование гексагона
-                    patchik.UserData = strcat({'Ячейка с координатами:'}, {' '}, {'('}, {num2str(obj.CAIndexes(1))}, {','}, {num2str(obj.CAIndexes(2))}, {');'}, {' '}, {'и состоянием z='},{num2str(obj.ZPath(end))});
+                    patchik.UserData = strcat({'Ячейка с координатами:'}, {' '}, {'('}, {num2str(obj.CAIndexes(2))}, {','}, {num2str(obj.CAIndexes(1))}, {');'}, {' '}, {'и состоянием z='},{num2str(obj.ZPath(end))});
                 
                     set(patchik, 'ButtonDownFcn', @CA_cell.showCellInfo);
                     %%
@@ -252,7 +252,7 @@ classdef SquareCACell < CA_cell
                     y_arr = [y0 y0 + dy y0 + 2 * (dy) y0 + 2 * (dy) y0 + dy y0];
 
                     patchik = patch(x_arr, y_arr, [obj.RenderColor(1) obj.RenderColor(2) obj.RenderColor(3)]); % рисование гексагона
-                    patchik.UserData = strcat({'Ячейка с координатами:'}, {' '}, {'('}, {num2str(obj.CAIndexes(1))}, {','}, {num2str(obj.CAIndexes(2))}, {');'}, {' '}, {'и состоянием z='},{num2str(obj.ZPath(end))});
+                    patchik.UserData = strcat({'Ячейка с координатами:'}, {' '}, {'('}, {num2str(obj.CAIndexes(2))}, {','}, {num2str(obj.CAIndexes(1))}, {');'}, {' '}, {'и состоянием z='},{num2str(obj.ZPath(end))});
                 
                     set(patchik, 'ButtonDownFcn', @CA_cell.showCellInfo);
                     %%

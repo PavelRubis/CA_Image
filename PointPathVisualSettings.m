@@ -46,6 +46,11 @@ end
 
 % --- Executes just before PointPathVisualSettings is made visible.
 function PointPathVisualSettings_OpeningFcn(hObject, eventdata, handles, varargin)
+    
+    jFrame=get(hObject, 'javaframe');
+    jicon=javax.swing.ImageIcon('icon.png');
+    jFrame.setFigureIcon(jicon);
+
     axes(handles.ColorMapAxes);
     clrMap = meshgrid(0:0.001:0.255, 0:0.001:0.255);
     pcolor(0:255, 0:255, clrMap);
@@ -143,6 +148,9 @@ function CancelVSettingsBtn_Callback(hObject, eventdata, handles)
 % --- Executes on button press in SetVSettingsBtn.
 function SetVSettingsBtn_Callback(hObject, eventdata, handles)
 
+mainWindowHandles = getappdata(handles.output, 'MainWindowHandles');
+vsOptions = getappdata(mainWindowHandles.output, 'pointVisOptions');
+
 switch handles.VisualiseDataMenu.Value
 
     case 1
@@ -172,11 +180,18 @@ switch handles.VisualiseDataMenu.Value
         yFunc = @(N1PathNewVisual)abs(complex(N1PathNewVisual(1, :), N1PathNewVisual(2, :)));
 end
 
-vsOptions = PointPathVisualisationOptions.GetSetPointPathVisualisationOptions;
+vsOptions.ColorMap = handles.ColorMapMenu.String(handles.ColorMapMenu.Value);
 
-PointPathVisualisationOptions.GetSetPointPathVisualisationOptions(cell2mat(handles.ColorMapMenu.String(handles.ColorMapMenu.Value)), xFunc, yFunc, xLabel, yLabel, vsOptions.VisualPath);
-if ~isempty(vsOptions.VisualPath)
-    IteratedPoint.VisualPointCallBack(handles.output.UserData);
+vsOptions.XAxesdataProcessingFunc = xFunc;
+vsOptions.YAxesdataProcessingFunc = yFunc;
+vsOptions.XAxescolorMapLabel = xLabel;
+vsOptions.YAxescolorMapLabel = yLabel;
+
+point = getappdata(mainWindowHandles.output, 'IIteratedObject');
+if ~isempty(point)
+    if string(class(point)) == "IteratedPoint"
+        FormatAndPlotPath(vsOptions, point, mainWindowHandles);
+    end
 end
 
 msgbox('Настройки визуализации траектории точки успешно заданы.');
