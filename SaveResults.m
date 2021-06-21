@@ -193,6 +193,8 @@ classdef SaveResults
         end
 
         function obj = SaveCAState(obj, ca, calcParms)
+            
+            persistent lastIterNum;
 
             obj.ResultsFilename = strcat('\CA-Modeling-', datestr(clock), '.txt');
             obj.ResultsFilename = strrep(obj.ResultsFilename, ':', '-');
@@ -240,6 +242,13 @@ classdef SaveResults
 
             absoluteIter = length(ca.Cells(1).ZPath) - 1;
             lastAbsoluteIter = absoluteIter - calcParms.IterCount;
+            if lastAbsoluteIter < 0
+                if isempty(lastIterNum)
+                    lastAbsoluteIter = 0;
+                else
+                    lastAbsoluteIter = lastIterNum;
+                end
+            end
 
             fprintf(fileID, strcat('Всего итераций T=', num2str(absoluteIter), '\n\n\n'));
             fprintf(fileID, strcat('Конфигурация КА на предыдущем этапе расчета Tl=', num2str(lastAbsoluteIter), ':\n\n'));
@@ -272,6 +281,8 @@ classdef SaveResults
                 SaveResults.cell2Txt(obj.ResultsFilename, txtCell, 'a');
                 delete table.txt;
             end
+
+            lastIterNum = calcParms.IterCount;
 
         end
 

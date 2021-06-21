@@ -90,8 +90,17 @@ classdef CAVisualisationOptions < VisualisationOptions & handle
 
             clrbr = colorbar;
             clrmp = colormap(unqColors);
-            clrbr.Ticks = [0:1 / length(unqVisualValsArr):1 - (1 / length(unqVisualValsArr))];
-            clrbr.TickLabels = unqVisualValsArr;
+            
+%             clrbr.Ticks = [0:1 / length(unqVisualValsArr):1 - (1 / length(unqVisualValsArr))];
+%             clrbr.TickLabels = unqVisualValsArr;
+
+            if(length(unqVisualValsArr) < 11)
+                clrbr.Ticks = [0:1 / length(unqVisualValsArr):1 - (1 / length(unqVisualValsArr))];
+                clrbr.TickLabels = unqVisualValsArr;
+            else
+                indXs = [1:floor(length(unqVisualValsArr)/11):length(unqVisualValsArr)];
+                clrbr.TickLabels =unqVisualValsArr(indXs);
+            end
 
             clrbr.Label.String = colorBarTitle;
 
@@ -101,7 +110,7 @@ classdef CAVisualisationOptions < VisualisationOptions & handle
             graphics.Clrbr = clrbr;
             graphics.Clrmp = clrmp;
             if ~IsContinue(ca) 
-                msgbox('«начени€ одной или нескольких €чеек ушли в бесконечность.', 'ћоделирование завершено');
+                msgbox(strcat({'«начени€ одной или нескольких €чеек ушли в бесконечность на итерации '},{num2str(length(ca.Cells(1).ZPath) - 1)}), 'ћоделирование завершено');
             end
         end
 
@@ -153,8 +162,8 @@ classdef CAVisualisationOptions < VisualisationOptions & handle
                 titleStr = strcat(titleStr, ' ; z^{*}(\mu)=', num2str(ca.FuncParams('z*')));
             end
 
-            if ~isempty(regexp(titleStr, 'mui'))
-                titleStr = strrep(titleStr, 'mui', '\mu_{i}');
+            if ~isempty(regexp(titleStr, 'muc'))
+                titleStr = strrep(titleStr, 'muc', '\mu_{c}');
             end
 
             neigborsStrs = regexp(titleStr, 'z[1-9]+', 'match');

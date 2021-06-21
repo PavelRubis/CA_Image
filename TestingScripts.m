@@ -303,6 +303,24 @@ classdef TestingScripts
             [zeq, zer] = fminsearch(mapz_zero_xy, [real(z0), imag(z0)], optimset('TolX', 1e-9));
             z_eq = complex(zeq(1), zeq(2));
         end
+        
+        function drawBar()
+            periods = xlsread('diagrams','I2:I76');
+            nums = xlsread('diagrams','J2:J76');
+
+            indxs = find(periods < 40);
+            sortedPeriods = periods(indxs);
+            sortedNums = nums(indxs);
+            
+            h = figure;
+            h.Color = [1 1 1];
+            b = bar(sortedPeriods,sortedNums,'BarWidth',1);
+            ax = gca;
+            ax.XGrid = 'off';
+            ax.YGrid = 'on';
+            xlabel('Уникальные периоды');
+            ylabel('Количество');
+        end
 
         function asyncTest()
             p = gcp();

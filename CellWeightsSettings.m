@@ -104,7 +104,219 @@ end
 set(handles.WeightsTable, 'data',tableData);
 
 title(handles.axes2, strcat('\fontsize{11}', 'Шаблон окрестности:'));
-DataFormatting.DrawNeighborhood(neighborhoodType);
+DrawNeighborhood(neighborhoodType);
+
+function DrawNeighborhood(neighborhoodType)
+
+            switch neighborhoodType
+                    %8
+                case 1
+                    %???????????
+                    xArrCenter = [0 1 1 0];
+                    yArrCenter = [0 0 1 1];
+
+                    patch(xArrCenter, yArrCenter, [1 1 1]);
+                    text(0.4, 0.5, 'i', 'FontSize', 16);
+
+                    %??
+                    xArr1 = [0 1 1 0];
+                    yArr1 = [-1 -1 0 0];
+
+                    patch(xArr1, yArr1, [1 1 1]);
+                    text(0.4, -0.5, '1', 'FontSize', 16);
+
+                    %???-?????
+                    xArr2 = [-1 0 0 -1];
+                    yArr2 = [-1 -1 0 0];
+
+                    patch(xArr2, yArr2, [1 1 1]);
+                    text(-0.6, -0.5, '2', 'FontSize', 16);
+
+                    %?????
+                    xArr3 = [-1 0 0 -1];
+                    yArr3 = [0 0 1 1];
+
+                    patch(xArr3, yArr3, [1 1 1]);
+                    text(-0.6, 0.5, '3', 'FontSize', 16);
+
+                    %??????-?????
+                    xArr4 = [-1 0 0 -1];
+                    yArr4 = [1 1 2 2];
+
+                    patch(xArr4, yArr4, [1 1 1]);
+                    text(-0.6, 1.5, '4', 'FontSize', 16);
+
+                    %?????
+                    xArr5 = [0 1 1 0];
+                    yArr5 = [1 1 2 2];
+
+                    patch(xArr5, yArr5, [1 1 1]);
+                    text(0.4, 1.5, '5', 'FontSize', 16);
+
+                    %??????-??????
+                    xArr6 = [1 2 2 1];
+                    yArr6 = [1 1 2 2];
+
+                    patch(xArr6, yArr6, [1 1 1]);
+                    text(1.4, 1.5, '6', 'FontSize', 16);
+
+                    %??????
+                    xArr7 = [1 2 2 1];
+                    yArr7 = [0 0 1 1];
+
+                    patch(xArr7, yArr7, [1 1 1]);
+                    text(1.4, 0.5, '7', 'FontSize', 16);
+
+                    %???-??????
+                    xArr8 = [1 2 2 1];
+                    yArr8 = [-1 -1 0 0];
+
+                    patch(xArr8, yArr8, [1 1 1]);
+                    text(1.4, -0.5, '8', 'FontSize', 16);
+
+                    %4
+                case 2
+                    %???????????
+                    xArrCenter = [0 1 1 0];
+                    yArrCenter = [0 0 1 1];
+
+                    patch(xArrCenter, yArrCenter, [1 1 1]);
+                    text(0.4, 0.5, 'i', 'FontSize', 16);
+
+                    %?????
+                    xArr1 = [0 1 1 0];
+                    yArr1 = [-1 -1 0 0];
+
+                    patch(xArr1, yArr1, [1 1 1]);
+                    text(0.4, -0.5, '1', 'FontSize', 16);
+
+                    %?????
+                    xArr2 = [-1 0 0 -1];
+                    yArr2 = [0 0 1 1];
+
+                    patch(xArr2, yArr2, [1 1 1]);
+                    text(-0.6, 0.5, '2', 'FontSize', 16);
+
+                    %??????
+                    xArr3 = [0 1 1 0];
+                    yArr3 = [1 1 2 2];
+
+                    patch(xArr3, yArr3, [1 1 1]);
+                    text(0.4, 1.5, '3', 'FontSize', 16);
+
+                    %??????
+                    xArr4 = [1 2 2 1];
+                    yArr4 = [0 0 1 1];
+
+                    patch(xArr4, yArr4, [1 1 1]);
+                    text(1.4, 0.5, '4', 'FontSize', 16);
+
+                    %6
+                case 3
+                    %???????????
+                    dx = sqrt(3) / 2;
+                    dy = 1/2;
+
+                    xArrCenter = [0 0 + dx 0 + dx 0 0 - dx 0 - dx];
+                    yArrCenter = [0 0 + dy 0 + 3 * dy 0 + 4 * dy 0 + 3 * dy 0 + dy];
+
+                    patch(xArrCenter, yArrCenter, [1 1 1]);
+                    text(-dx / 4, 2 * dy, 'i', 'FontSize', 16);
+
+                    %??? ????
+                    xDiff = -(sqrt(3) / 2);
+                    yDiff = -3/2;
+                    xArr1 = [xDiff xDiff + dx xDiff + dx xDiff xDiff - dx xDiff - dx];
+                    yArr1 = [yDiff yDiff + dy yDiff + 3 * dy yDiff + 4 * dy yDiff + 3 * dy yDiff + dy];
+
+                    patch(xArr1, yArr1, [1 1 1]);
+                    text(xDiff + (-dx / 4), yDiff + (2 * dy), '1', 'FontSize', 16);
+
+                    %????
+                    xDiff = -2 * (sqrt(3) / 2);
+                    yDiff = 0;
+                    xArr2 = [xDiff xDiff + dx xDiff + dx xDiff xDiff - dx xDiff - dx];
+                    yArr2 = [yDiff yDiff + dy yDiff + 3 * dy yDiff + 4 * dy yDiff + 3 * dy yDiff + dy];
+
+                    patch(xArr2, yArr2, [1 1 1]);
+                    text(xDiff + (-dx / 4), yDiff + (2 * dy), '2', 'FontSize', 16);
+
+                    %???? ????
+                    xDiff = -(sqrt(3) / 2);
+                    yDiff = 3/2;
+                    xArr3 = [xDiff xDiff + dx xDiff + dx xDiff xDiff - dx xDiff - dx];
+                    yArr3 = [yDiff yDiff + dy yDiff + 3 * dy yDiff + 4 * dy yDiff + 3 * dy yDiff + dy];
+
+                    patch(xArr3, yArr3, [1 1 1]);
+                    text(xDiff + (-dx / 4), yDiff + (2 * dy), '3', 'FontSize', 16);
+
+                    %???? ?????
+                    xDiff = (sqrt(3) / 2);
+                    yDiff = 3/2;
+                    xArr4 = [xDiff xDiff + dx xDiff + dx xDiff xDiff - dx xDiff - dx];
+                    yArr4 = [yDiff yDiff + dy yDiff + 3 * dy yDiff + 4 * dy yDiff + 3 * dy yDiff + dy];
+
+                    patch(xArr4, yArr4, [1 1 1]);
+                    text(xDiff + (-dx / 4), yDiff + (2 * dy), '4', 'FontSize', 16);
+
+                    %?????
+                    xDiff = 2 * (sqrt(3) / 2);
+                    yDiff = 0;
+                    xArr5 = [xDiff xDiff + dx xDiff + dx xDiff xDiff - dx xDiff - dx];
+                    yArr5 = [yDiff yDiff + dy yDiff + 3 * dy yDiff + 4 * dy yDiff + 3 * dy yDiff + dy];
+
+                    patch(xArr5, yArr5, [1 1 1]);
+                    text(xDiff + (-dx / 4), yDiff + (2 * dy), '5', 'FontSize', 16);
+
+                    %??? ?????
+                    xDiff = (sqrt(3) / 2);
+                    yDiff = -3/2;
+                    xArr6 = [xDiff xDiff + dx xDiff + dx xDiff xDiff - dx xDiff - dx];
+                    yArr6 = [yDiff yDiff + dy yDiff + 3 * dy yDiff + 4 * dy yDiff + 3 * dy yDiff + dy];
+
+                    patch(xArr6, yArr6, [1 1 1]);
+                    text(xDiff + (-dx / 4), yDiff + (2 * dy), '6', 'FontSize', 16);
+
+                    %3
+                case 4
+                    %???????????
+                    dx = sqrt(3) / 2;
+                    dy = 1/2;
+
+                    xArrCenter = [0 0 + dx 0 + dx 0 0 - dx 0 - dx];
+                    yArrCenter = [0 0 + dy 0 + 3 * dy 0 + 4 * dy 0 + 3 * dy 0 + dy];
+
+                    patch(xArrCenter, yArrCenter, [1 1 1]);
+                    text(-dx / 4, 2 * dy, 'i', 'FontSize', 16);
+
+                    %??? ????
+                    xDiff = -(sqrt(3) / 2);
+                    yDiff = -3/2;
+                    xArr1 = [xDiff xDiff + dx xDiff + dx xDiff xDiff - dx xDiff - dx];
+                    yArr1 = [yDiff yDiff + dy yDiff + 3 * dy yDiff + 4 * dy yDiff + 3 * dy yDiff + dy];
+
+                    patch(xArr1, yArr1, [1 1 1]);
+                    text(xDiff + (-dx / 4), yDiff + (2 * dy), '1', 'FontSize', 16);
+
+                    %???? ????
+                    xDiff = -(sqrt(3) / 2);
+                    yDiff = 3/2;
+                    xArr2 = [xDiff xDiff + dx xDiff + dx xDiff xDiff - dx xDiff - dx];
+                    yArr2 = [yDiff yDiff + dy yDiff + 3 * dy yDiff + 4 * dy yDiff + 3 * dy yDiff + dy];
+
+                    patch(xArr2, yArr2, [1 1 1]);
+                    text(xDiff + (-dx / 4), yDiff + (2 * dy), '2', 'FontSize', 16);
+
+                    %?????
+                    xDiff = 2 * (sqrt(3) / 2);
+                    yDiff = 0;
+                    xArr2 = [xDiff xDiff + dx xDiff + dx xDiff xDiff - dx xDiff - dx];
+                    yArr2 = [yDiff yDiff + dy yDiff + 3 * dy yDiff + 4 * dy yDiff + 3 * dy yDiff + dy];
+
+                    patch(xArr2, yArr2, [1 1 1]);
+                    text(xDiff + (-dx / 4), yDiff + (2 * dy), '3', 'FontSize', 16);
+
+            end
 
 % --- Outputs from this function are returned to the command line.
 function varargout = CellWeightsSettings_OutputFcn(hObject, eventdata, handles) 

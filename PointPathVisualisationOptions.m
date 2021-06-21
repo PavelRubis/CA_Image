@@ -62,6 +62,7 @@ classdef PointPathVisualisationOptions < VisualisationOptions & handle
             end
 
             visualPath = visualPath(find(~isnan(visualPath)));
+            visualPath = visualPath(find(~isinf(visualPath)));
             obj.VisualPath = visualPath;
 
             graphics = FormatAndPlotPath(obj, point, handles);

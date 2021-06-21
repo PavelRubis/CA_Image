@@ -122,6 +122,8 @@ varargout{1} = handles.output;
 % --- Executes on button press in StartButton.
 function StartButton_Callback(hObject, eventdata, handles)
 %%
+profile on;
+
 SaveParamsButton_Callback(handles.SaveParamsButton, eventdata, handles)
 
 badObjectStatus = getappdata(handles.output, 'badObjectStatus');
@@ -180,6 +182,8 @@ if saveRes.IsSaveData
     waitbar(1, wb, 'Сохранение выходных данных...', 'WindowStyle', 'modal');
     saveRes = SaveModelingResults(saveRes, res, oldIteratedObject, IteratedObject, calcParams, graphics);
 end
+
+profile viewer;
 
 setappdata(handles.output, 'graphics', graphics);
 setappdata(handles.output, 'IIteratedObject', IteratedObject);
@@ -1643,7 +1647,11 @@ graphics = getappdata(handles.output, 'graphics');
 h = figure;
 set(h, 'units', 'normalized', 'outerposition', [0 0 1 1])
 colormap(graphics.Clrmp);
-h.CurrentAxes = copyobj([graphics.Axs graphics.Clrbr], h);
+if isvalid(graphics.Clrbr)
+    h.CurrentAxes = copyobj([graphics.Axs graphics.Clrbr], h);
+else
+    h.CurrentAxes = copyobj([graphics.Axs], h);
+end
 h.Visible = 'on';
 % hObject    handle to SaveFigCB (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB

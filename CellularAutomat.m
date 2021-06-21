@@ -172,9 +172,9 @@ classdef CellularAutomat < IIteratedObject & handle
             testFuncStr = obj.IteratedFuncStr;
             obj.ConstIteratedFuncStr = obj.IteratedFuncStr;
 
-            if ~isempty(regexp(testFuncStr, 'mui'))
-                iteratedFuncStr = strrep(iteratedFuncStr, 'mui', strcat('(', num2str(obj.Weights(1)), ')'));
-                testFuncStr = strrep(testFuncStr, 'mui', '(0)');
+            if ~isempty(regexp(testFuncStr, 'muc'))
+                iteratedFuncStr = strrep(iteratedFuncStr, 'muc', strcat('(', num2str(obj.Weights(1)), ')'));
+                testFuncStr = strrep(testFuncStr, 'muc', '(0)');
             end
 
             for index = 1:length(obj.FuncParams)
