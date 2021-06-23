@@ -269,10 +269,10 @@ classdef CellularAutomat < IIteratedObject & handle
                 handles struct
             end
 
-            switch string(handles.FieldTypeGroup.UserData)
-                case "HexFieldRB"
+            switch handles.FieldTypeGroup.UserData
+                case 1
                     GenerateHexField(obj, handles)
-                case "SquareFieldRB"
+                case 0
                     GenerateSquareField(obj, handles)
             end
 
@@ -300,10 +300,9 @@ classdef CellularAutomat < IIteratedObject & handle
             indexesArrfunc = @(ind)({indexesMatr(ind, :)});
             indexesArr = arrayfun(indexesArrfunc, 1:cellsCount);
 
-            CACellCreation = @(CAindexes)HexagonCACell(0, CAindexes, obj, handles.HexOrientationPanel.UserData);
+            CACellCreation = @(CAindexes)HexagonCACell(0, CAindexes, obj, handles);
             obj.Cells = arrayfun(CACellCreation, indexesArr);
 
-            indRingCellsCount = zeros(1,N);
             for ind = 1:length(obj.Cells)
                 obj.Cells(ind) = SetIsExternal(obj.Cells(ind));
                 obj.Cells(ind) = RingNumSet(obj.Cells(ind));
@@ -330,8 +329,13 @@ classdef CellularAutomat < IIteratedObject & handle
             indexesArrfunc = @(ind)({indexesMatr(ind, :)});
             indexesArr = arrayfun(indexesArrfunc, 1:cellsCount);
 
-            CACellCreation = @(CAindexes)SquareCACell(0, CAindexes, obj, handles.HexOrientationPanel.UserData);
+            creationFunc = handles.HexOrientationPanel.UserData{1};
+            CACellCreation = @(CAindexes)creationFunc(0, CAindexes, obj, handles);
             obj.Cells = arrayfun(CACellCreation, indexesArr);
+            
+            for ind = 1:length(obj.Cells)
+                obj.Cells(ind) = SetIsExternal(obj.Cells(ind));
+            end
         end
 
         function errStruct = CellsInitialization(obj, handles, errStruct)

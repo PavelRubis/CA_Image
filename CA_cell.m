@@ -12,8 +12,16 @@ classdef (Abstract) CA_cell
 
     methods (Abstract)
         [obj] = Render(obj)
-        [obj] = GetAllMooreNeighbors(obj)
-        [obj] = GetAllNeumannNeighbors(obj)
+
+        [obj] = GetMooreNeighbs(obj)
+        [obj] = GetNeumannNeighbs(obj)
+        [indexes] = GetMooreNeighbsPlaces(obj)
+        [indexes] = GetNeumannNeighbsPlaces(obj)
+
+        [obj] = GetSquareFieldMooreNeighbs(obj)
+        [obj] = GetSquareFieldNeumannNeighbs(obj)
+        [indexes] = GetSquareFieldMooreNeighbsPlaces(obj)
+        [indexes] = GetSquareFieldNeumannNeighbsPlaces(obj)
     end
     
     methods (Static)

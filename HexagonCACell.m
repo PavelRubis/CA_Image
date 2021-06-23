@@ -13,12 +13,16 @@ classdef HexagonCACell < CA_cell
         %temporal
         CAHandle CellularAutomat
         Indexes (1, 3) double
-        cellOrientation logical
+        CellOrientation logical
+        FieldType logical
     end
 
     methods
         %конструктор €чейки
-        function obj = HexagonCACell(value, CAindexes, CAhandle, orientation)
+        function obj = HexagonCACell(value, CAindexes, CAhandle, handles)
+
+            cellOrientation = handles.HexOrientationPanel.UserData{2};
+            fieldType = handles.FieldTypeGroup.UserData;
 
             if iscell(CAindexes)
                 CAindexes = cell2mat(CAindexes);
@@ -27,7 +31,8 @@ classdef HexagonCACell < CA_cell
             obj.z0 = value;
             obj.ZPath = value;
             obj.CAHandle = CAhandle;
-            obj.cellOrientation = mod(orientation, 2);
+            obj.CellOrientation = cellOrientation;
+            obj.FieldType = fieldType;
             obj.CAIndexes = CAindexes;
 
             obj.RenderColor = [0 0 0];
@@ -36,6 +41,24 @@ classdef HexagonCACell < CA_cell
         end
 
         function [obj] = SetIsExternal(obj)
+            if obj.FieldType
+               obj = SetIsExternalHex(obj);
+            else
+               obj = SetIsExternalSquare(obj);
+            end
+        end
+        
+        function [obj] = SetIsExternalSquare(obj)
+            CAindexes = obj.CAIndexes;
+            n = obj.CAHandle.N;
+            if any([CAindexes(2) == 0, CAindexes(1) == 0, CAindexes(1) == (n - 1), CAindexes(2) == (n - 1)])
+                obj.IsExternal = true;
+            else
+                obj.IsExternal = false;
+            end
+        end
+
+        function [obj] = SetIsExternalHex(obj)
 
             rowLength = length(find(arrayfun(@(caCell)caCell.CAIndexes(1) == obj.CAIndexes(1),obj.CAHandle.Cells)));
 
@@ -119,7 +142,173 @@ classdef HexagonCACell < CA_cell
 
         end
 
-        function [neibsArrIndexes, extraNeibsArrIndexes] = GetAllMooreNeighbors(obj)
+        function [neibsArrIndexes, extraNeibsArrIndexes] = GetMooreNeighbs(obj)
+            if obj.FieldType
+                [neibsArrIndexes, extraNeibsArrIndexes] = GetHexFieldMooreNeighbs(obj);
+            else
+                [neibsArrIndexes, extraNeibsArrIndexes] = GetSquareFieldMooreNeighbs(obj);
+            end
+        end
+        
+        function [neibsArrIndexes, extraNeibsArrIndexes] = GetNeumannNeighbs(obj)
+            if obj.FieldType
+                [neibsArrIndexes, extraNeibsArrIndexes] = GetHexFieldNeumannNeighbs(obj);
+            else
+                [neibsArrIndexes, extraNeibsArrIndexes] = GetSquareFieldNeumannNeighbs(obj);
+            end
+        end
+        
+        function sortedNeighbors = GetMooreNeighbsPlaces(obj)
+            if obj.FieldType
+                sortedNeighbors = GetHexFieldMooreNeighbsPlaces(obj);
+            else
+                sortedNeighbors = GetSquareFieldMooreNeighbsPlaces(obj);
+            end
+        end
+        
+        function sortedNeighbors = GetNeumannNeighbsPlaces(obj)
+            if obj.FieldType
+                sortedNeighbors = GetHexFieldNeumannNeighbsPlaces(obj);
+            else
+                sortedNeighbors = GetSquareFieldNeumannNeighbsPlaces(obj);
+            end
+        end
+
+        function sortedNeighbors =  GetSquareFieldNeumannNeighbsPlaces(obj)
+            sortedNeighbors = 1:length(obj.CurrNeighbors);
+        end
+        
+        function [neibsArrIndexes, extraNeibsArrIndexes] =  GetSquareFieldNeumannNeighbs(obj)
+            neibsArrIndexes = [];
+            extraNeibsArrIndexes = [];
+        end
+
+        function sortedNeighbors = GetSquareFieldMooreNeighbsPlaces(obj)
+            
+            sortedNeighbors = neighborsOnTheirPlaces(obj, obj.CurrNeighbors, [{[-1 -1]},{[0 -1]},{[1 -1]},{[1 0]},{[0 1]},{[-1 0]}]);
+            
+            if obj.IsExternal && obj.CAHandle.Neighborhood.BordersType == 2
+                sortedNeighbors =  extraSquareMooreNeighborsPlaces(obj, sortedNeighbors);
+            end
+        end
+
+        function neibsArrIndexes = extraSquareMooreNeighborsPlaces(obj, neibsArrIndexes)
+
+            n = obj.CAHandle.N;
+            objIndxsArr = cell(1,length(obj.CurrNeighbors));
+            objIndxsArr(:) = {obj.CAIndexes};
+            neibsSearchFunc = @(allCells,currCellIndxs,checkDiffMatr)find(arrayfun(@(neighbor,currCellIndxs) any(ismember(neighbor.CAIndexes - cell2mat(currCellIndxs) == checkDiffMatr, [1 1], 'rows')), allCells, currCellIndxs));
+
+            if ~neibsArrIndexes(1)
+                checkDiffMatr = [
+                        [(n - 1) (n - 1)];
+                        [-1 (n - 1)];
+                        [(n - 1) -1];
+                ];
+                neibsArrIndexes(1) = neibsSearchFunc(obj.CurrNeighbors, objIndxsArr, checkDiffMatr);
+            end
+            
+            if ~neibsArrIndexes(2)
+                checkDiffMatr = [
+                        [0 (n - 1)];
+                ];
+                neibsArrIndexes(2) = neibsSearchFunc(obj.CurrNeighbors, objIndxsArr, checkDiffMatr);
+            end
+            
+            if ~neibsArrIndexes(3)
+                checkDiffMatr = [
+                        [1 (n - 1)];
+                        [-(n - 1) -1];
+                        [-(n - 1) (n - 1)];
+                ];
+                neibsArrIndexes(3) = neibsSearchFunc(obj.CurrNeighbors, objIndxsArr, checkDiffMatr);
+            end
+
+            if ~neibsArrIndexes(4)
+                checkDiffMatr = [
+                        [-(n - 1) 0];
+                        [1 -(n - 1)];
+                ];
+                neibsArrIndexes(4) = neibsSearchFunc(obj.CurrNeighbors, objIndxsArr, checkDiffMatr);
+            end
+            
+            if ~neibsArrIndexes(5)
+                checkDiffMatr = [
+                        [0 -(n - 1)];
+                ];
+                neibsArrIndexes(5) = neibsSearchFunc(obj.CurrNeighbors, objIndxsArr, checkDiffMatr);
+            end
+
+            if ~neibsArrIndexes(6)
+                checkDiffMatr = [
+                    [(n - 1) 0];
+                    [-1 -(n - 1)];
+                ];
+                neibsArrIndexes(6) = neibsSearchFunc(obj.CurrNeighbors, objIndxsArr, checkDiffMatr);
+            end
+        end
+
+        function [neibsArrIndexes, extraNeibsArrIndexes] = GetSquareFieldMooreNeighbs(obj)
+            
+            checkDiffMatr = [
+                        [-1 -1];
+                        [0  -1];
+                        [1  -1];
+                        [1   0];
+                        [0   1];
+                        [-1  0];
+            ];
+            neibsArrIndexes = (arrayfun(@(neighbor) any(ismember(neighbor.CAIndexes - obj.CAIndexes == checkDiffMatr, [1 1], 'rows')), obj.CAHandle.Cells));
+            
+            extraNeibsArrIndexes = [];
+
+            if obj.IsExternal
+                n = obj.CAHandle.N;
+                objIndxsArr = cell(1,length(obj.CAHandle.Cells));
+                extraNeibsArrIndexes = zeros(1,length(obj.CAHandle.Cells));
+                objIndxsArr(:) = {obj.CAIndexes};
+                neibsSearchFunc = @(allCells,currCellIndxs,checkDiffMatr)(arrayfun(@(neighbor,currCellIndxs) any(ismember(neighbor.CAIndexes - cell2mat(currCellIndxs) == checkDiffMatr, [1 1], 'rows')), allCells, currCellIndxs));
+
+                checkDiffMatr = [
+                        [(n - 1) (n - 1)];
+                        [-1 (n - 1)];
+                        [(n - 1) -1];
+                ];
+                extraNeibsArrIndexes = extraNeibsArrIndexes + neibsSearchFunc(obj.CAHandle.Cells, objIndxsArr, checkDiffMatr);
+            
+                checkDiffMatr = [
+                        [0 (n - 1)];
+                ];
+                extraNeibsArrIndexes = extraNeibsArrIndexes + neibsSearchFunc(obj.CAHandle.Cells, objIndxsArr, checkDiffMatr);
+                
+                checkDiffMatr = [
+                        [1 (n - 1)];
+                        [-(n - 1) -1];
+                        [-(n - 1) (n - 1)];
+                ];
+                extraNeibsArrIndexes = extraNeibsArrIndexes + neibsSearchFunc(obj.CAHandle.Cells, objIndxsArr, checkDiffMatr);
+
+                checkDiffMatr = [
+                        [-(n - 1) 0];
+                        [1 -(n - 1)];
+                ];
+                extraNeibsArrIndexes = extraNeibsArrIndexes + neibsSearchFunc(obj.CAHandle.Cells, objIndxsArr, checkDiffMatr);
+
+                checkDiffMatr = [
+                        [0 -(n - 1)];
+                ];
+                extraNeibsArrIndexes = extraNeibsArrIndexes + neibsSearchFunc(obj.CAHandle.Cells, objIndxsArr, checkDiffMatr);
+
+                checkDiffMatr = [
+                    [(n - 1) 0];
+                    [-1 -(n - 1)];
+                ];
+                extraNeibsArrIndexes = extraNeibsArrIndexes + neibsSearchFunc(obj.CAHandle.Cells, objIndxsArr, checkDiffMatr);
+                
+            end
+        end
+
+        function [neibsArrIndexes, extraNeibsArrIndexes] = GetHexFieldMooreNeighbs(obj)
 
             neibsArrIndexes = [];
             extraNeibsArrIndexes = [];
@@ -185,7 +374,7 @@ classdef HexagonCACell < CA_cell
 
         end
 
-        function [neibsArrIndexes, extraNeibsArrIndexes] = GetAllNeumannNeighbors(obj)
+        function [neibsArrIndexes, extraNeibsArrIndexes] = GetHexFieldNeumannNeighbs(obj)
 
             neibsArrIndexes = [];
             extraNeibsArrIndexes = [];
@@ -260,7 +449,7 @@ classdef HexagonCACell < CA_cell
 
         end
 
-        function neibsArrIndexes = GetAllMooreNeighborsPlaces(obj)
+        function neibsArrIndexes = GetHexFieldMooreNeighbsPlaces(obj)
             
             n = obj.CAHandle.N;
             neibsArrIndexes = [];
@@ -268,11 +457,11 @@ classdef HexagonCACell < CA_cell
             if ~isempty(obj.CurrNeighbors)
 
                 if obj.CAIndexes(1) < n - 1
-                    neibsArrIndexes = mooreNeighborsPlaces(obj, [{[-1,-1]},{[0, -1]},{[1,  0]},{[1,  1]},{[0,  1]},{[-1, 0]}]);
+                    neibsArrIndexes = neighborsOnTheirPlaces(obj, obj.CurrNeighbors, [{[-1,-1]},{[0, -1]},{[1,  0]},{[1,  1]},{[0,  1]},{[-1, 0]}]);
                 elseif obj.CAIndexes(1) > n - 1
-                    neibsArrIndexes = mooreNeighborsPlaces(obj, [{[-1, 0]},{[0, -1]},{[1, -1]},{[1,  0]},{[0,  1]},{[-1, 1]}]);
+                    neibsArrIndexes = neighborsOnTheirPlaces(obj, obj.CurrNeighbors, [{[-1, 0]},{[0, -1]},{[1, -1]},{[1,  0]},{[0,  1]},{[-1, 1]}]);
                 elseif obj.CAIndexes(1) == n - 1
-                    neibsArrIndexes = mooreNeighborsPlaces(obj, [{[-1 -1]},{[0 -1]},{[1 -1]},{[1  0]},{[0  1]},{[-1 0]}]);
+                    neibsArrIndexes = neighborsOnTheirPlaces(obj, obj.CurrNeighbors, [{[-1 -1]},{[0 -1]},{[1 -1]},{[1  0]},{[0  1]},{[-1 0]}]);
                 end
 
                 if obj.IsExternal && obj.CAHandle.Neighborhood.BordersType == 2
@@ -283,23 +472,20 @@ classdef HexagonCACell < CA_cell
 
         end
 
-        function neibsArrIndexes = mooreNeighborsPlaces(obj, diffsArr)
+        function neibsArrIndexes = neighborsOnTheirPlaces(obj, neibs, diffsArr)
             
-            neibsArrIndexes = zeros(1, 6);
+            neibsArrIndexes = zeros(1, length(diffsArr));
             
-            findFuncs = [
-                {@(neib) isequal(neib.CAIndexes - obj.CAIndexes, diffsArr{1})},
-                {@(neib) isequal(neib.CAIndexes - obj.CAIndexes, diffsArr{2})},
-                {@(neib) isequal(neib.CAIndexes - obj.CAIndexes, diffsArr{3})},
-                {@(neib) isequal(neib.CAIndexes - obj.CAIndexes, diffsArr{4})},
-                {@(neib) isequal(neib.CAIndexes - obj.CAIndexes, diffsArr{5})},
-                {@(neib) isequal(neib.CAIndexes - obj.CAIndexes, diffsArr{6})},
-            ];
-
-            for ind=1:length(findFuncs)
-                val = find(arrayfun(findFuncs{ind}, obj.CurrNeighbors));
-                if ~isempty(val)
-                    neibsArrIndexes(ind) = val;
+            findFunc = @(neib,dif)isequal(neib.CAIndexes - obj.CAIndexes, cell2mat(dif));
+            
+            localDiff = cell(1,length(neibs));
+            for ind=1:length(diffsArr)
+                localDiff(:) = diffsArr(ind);
+                if ~isempty(neibs)
+                    val = find(arrayfun(findFunc, neibs, localDiff));
+                    if ~isempty(val)
+                        neibsArrIndexes(ind) = val;
+                    end
                 end
             end
 
@@ -438,7 +624,7 @@ classdef HexagonCACell < CA_cell
         end
 
         
-        function neibsArrIndexes = GetAllNeumannNeighborsPlaces(obj)
+        function neibsArrIndexes = GetHexFieldNeumannNeighbsPlaces(obj)
             
             n = obj.CAHandle.N;
             neibsArrIndexes = [];
@@ -446,36 +632,17 @@ classdef HexagonCACell < CA_cell
             if ~isempty(obj.CurrNeighbors)
 
                 if obj.CAIndexes(1) < n - 1
-                    neibsArrIndexes = neumannNeighborsPlaces(obj, [{[-1,-1]},{[1,  0]},{[0,  1]}]);
+                    neibsArrIndexes = neighborsOnTheirPlaces(obj, obj.CurrNeighbors, [{[-1,-1]},{[1,  0]},{[0,  1]}]);
                 elseif obj.CAIndexes(1) > n - 1
-                    neibsArrIndexes = neumannNeighborsPlaces(obj, [{[-1, 0]},{[1, -1]},{[0,  1]}]);
+                    neibsArrIndexes = neighborsOnTheirPlaces(obj, obj.CurrNeighbors, [{[-1, 0]},{[1, -1]},{[0,  1]}]);
                 elseif obj.CAIndexes(1) == n - 1
-                    neibsArrIndexes = neumannNeighborsPlaces(obj, [{[-1 -1]},{[1 -1]},{[0  1]}]);
+                    neibsArrIndexes = neighborsOnTheirPlaces(obj, obj.CurrNeighbors, [{[-1 -1]},{[1 -1]},{[0  1]}]);
                 end
 
                 if obj.IsExternal && obj.CAHandle.Neighborhood.BordersType == 2
                    neibsArrIndexes =  extraNeumannNeighborsPlaces(obj, neibsArrIndexes);
                 end
 
-            end
-
-        end
-
-        function neibsArrIndexes = neumannNeighborsPlaces(obj, diffsArr)
-            
-            neibsArrIndexes = zeros(1, 3);
-            
-            findFuncs = [
-                {@(neib) isequal(neib.CAIndexes - obj.CAIndexes, diffsArr{1})},
-                {@(neib) isequal(neib.CAIndexes - obj.CAIndexes, diffsArr{2})},
-                {@(neib) isequal(neib.CAIndexes - obj.CAIndexes, diffsArr{3})},
-            ];
-
-            for ind=1:length(findFuncs)
-                val = find(arrayfun(findFuncs{ind}, obj.CurrNeighbors));
-                if ~isempty(val)
-                    neibsArrIndexes(ind) = val;
-                end
             end
 
         end
@@ -585,52 +752,116 @@ classdef HexagonCACell < CA_cell
 
         function [obj] = Render(obj)
 
-            if obj.cellOrientation == 1
-                %% ќтрисовка вертикального гексагона в гексагональном поле
-                a = obj.CAIndexes(1);
-                b = obj.CAIndexes(2);
+            if obj.FieldType
+                if obj.CellOrientation
+                    %% ќтрисовка вертикального гексагона в гексагональном поле
+                    a = obj.CAIndexes(1);
+                    b = obj.CAIndexes(2);
 
-                N = obj.CAHandle.N;
+                    N = obj.CAHandle.N;
 
-                xShift = sqrt(3) / 2 * (N - 1 - abs(a - (N - 1)));
+                    xShift = sqrt(3) / 2 * (N - 1 - abs(a - (N - 1)));
 
-                x0 = b * sqrt(3) - xShift;
-                y0 = 3/2 * a;
+                    x0 = b * sqrt(3) - xShift;
+                    y0 = 3/2 * a;
 
-                dx = sqrt(3) / 2;
-                dy = 1/2;
+                    dx = sqrt(3) / 2;
+                    dy = 1/2;
 
-                x_arr = [x0 x0 + dx x0 + dx x0 x0 - dx x0 - dx];
-                y_arr = [y0 y0 + dy y0 + 3 * dy y0 + 4 * dy y0 + 3 * dy y0 + dy];
+                    x_arr = [x0 x0 + dx x0 + dx x0 x0 - dx x0 - dx];
+                    y_arr = [y0 y0 + dy y0 + 3 * dy y0 + 4 * dy y0 + 3 * dy y0 + dy];
 
-                patchik = patch(x_arr, y_arr, [obj.RenderColor(1) obj.RenderColor(2) obj.RenderColor(3)]); % рисование гексагона
-                patchik.UserData = strcat({'ячейка с координатами:'}, {' '}, {'('}, {num2str(obj.CAIndexes(2))}, {','}, {num2str(obj.CAIndexes(1))}, {');'}, {' '}, {'и состо€нием z='},{num2str(obj.ZPath(end))});
+                    patchik = patch(x_arr, y_arr, [obj.RenderColor(1) obj.RenderColor(2) obj.RenderColor(3)]); % рисование гексагона
+                    patchik.UserData = strcat({'ячейка с координатами:'}, {' '}, {'('}, {num2str(obj.CAIndexes(2))}, {','}, {num2str(obj.CAIndexes(1))}, {');'}, {' '}, {'и состо€нием z='},{num2str(obj.ZPath(end))});
 
-                set(patchik, 'ButtonDownFcn', @CA_cell.showCellInfo);
-                %%
-            else
-                %% ќтрисовка горизонтального гексагона в гексагональном поле
-                a = obj.CAIndexes(1);
-                b = obj.CAIndexes(2);
+                    set(patchik, 'ButtonDownFcn', @CA_cell.showCellInfo);
+                    %%
+                else
+                    %% ќтрисовка горизонтального гексагона в гексагональном поле
+                    a = obj.CAIndexes(1);
+                    b = obj.CAIndexes(2);
 
-                N = obj.CAHandle.N;
+                    N = obj.CAHandle.N;
 
-                yShift = sqrt(3) / 2 * (N - 1 - abs(a - (N - 1)));
+                    yShift = sqrt(3) / 2 * (N - 1 - abs(a - (N - 1)));
 
-                x0 = 3/2 * a;
-                y0 = -b * sqrt(3) + yShift;
+                    x0 = 3/2 * a;
+                    y0 = -b * sqrt(3) + yShift;
 
-                dy = sqrt(3) / 2;
-                dx = 1/2;
+                    dy = sqrt(3) / 2;
+                    dx = 1/2;
 
-                x_arr = [x0 x0 + dx x0 x0 - (2 * dx) x0 - (3 * dx) x0 - (2 * dx)];
-                y_arr = [y0 y0 + dy y0 + 2 * (dy) y0 + 2 * (dy) y0 + dy y0];
+                    x_arr = [x0 x0 + dx x0 x0 - (2 * dx) x0 - (3 * dx) x0 - (2 * dx)];
+                    y_arr = [y0 y0 + dy y0 + 2 * (dy) y0 + 2 * (dy) y0 + dy y0];
 
-                patchik = patch(x_arr, y_arr, [obj.RenderColor(1) obj.RenderColor(2) obj.RenderColor(3)]); % рисование гексагона
-                patchik.UserData = strcat({'ячейка с координатами:'}, {' '}, {'('}, {num2str(obj.CAIndexes(2))}, {','}, {num2str(obj.CAIndexes(1))}, {');'}, {' '}, {'и состо€нием z='},{num2str(obj.ZPath(end))});
+                    patchik = patch(x_arr, y_arr, [obj.RenderColor(1) obj.RenderColor(2) obj.RenderColor(3)]); % рисование гексагона
+                    patchik.UserData = strcat({'ячейка с координатами:'}, {' '}, {'('}, {num2str(obj.CAIndexes(2))}, {','}, {num2str(obj.CAIndexes(1))}, {');'}, {' '}, {'и состо€нием z='},{num2str(obj.ZPath(end))});
                 
-                set(patchik, 'ButtonDownFcn', @CA_cell.showCellInfo);
-                %%
+                    set(patchik, 'ButtonDownFcn', @CA_cell.showCellInfo);
+                 %%
+                end
+            else
+                if obj.CellOrientation
+                    %% ќтрисовка вертикального гексагона в квадратном поле
+                    x0 = obj.CAIndexes(1, 1); % визуальна€ координата на оси x
+                    y0 = obj.CAIndexes(1, 2); % визуальна€ координата на оси y
+
+                    %расчет шести точек гексагона на экране
+                    if (x0)
+                        x0 = x0 + (x0 * sqrt(3) - x0);
+                    end
+
+                    if (y0)
+
+                        if mod(y0, 2)
+                            x0 = x0 + sqrt(3) / 2;
+                        end
+
+                        y0 = y0 + (y0 * 1/2);
+                    end
+
+                    dx = sqrt(3) / 2;
+                    dy = 1/2;
+
+                    x_arr = [x0 x0 + dx x0 + dx x0 x0 - dx x0 - dx];
+                    y_arr = [y0 y0 + dy y0 + 3 * dy y0 + 4 * dy y0 + 3 * dy y0 + dy];
+
+                    patchik = patch(x_arr, y_arr, [obj.RenderColor(1) obj.RenderColor(2) obj.RenderColor(3)]); % рисование гексагона
+                    patchik.UserData = strcat({'ячейка с координатами:'}, {' '}, {'('}, {num2str(obj.CAIndexes(2))}, {','}, {num2str(obj.CAIndexes(1))}, {');'}, {' '}, {'и состо€нием z='},{num2str(obj.ZPath(end))});
+                
+                    set(patchik, 'ButtonDownFcn', @CA_cell.showCellInfo);
+                    %%
+                else
+                    %% ќтрисовка горизонтального гексагона в квадратном поле
+                    x0 = obj.CAIndexes(1, 1); % визуальна€ координата на оси x
+                    y0 = obj.CAIndexes(1, 2); % визуальна€ координата на оси y
+
+                    %расчет шести точек гексагона на экране
+                    if (y0)
+                        y0 = y0 + (y0 * sqrt(3) - y0);
+                    end
+
+                    if (x0)
+
+                        if mod(x0, 2)
+                            y0 = y0 + sqrt(3) / 2;
+                        end
+
+                        x0 = x0 + (x0 * 1/2);
+                    end
+
+                    dy = sqrt(3) / 2;
+                    dx = 1/2;
+
+                    x_arr = [x0 x0 + dx x0 x0 - (2 * dx) x0 - (3 * dx) x0 - (2 * dx)];
+                    y_arr = [y0 y0 + dy y0 + 2 * (dy) y0 + 2 * (dy) y0 + dy y0];
+
+                    patchik = patch(x_arr, y_arr, [obj.RenderColor(1) obj.RenderColor(2) obj.RenderColor(3)]); % рисование гексагона
+                    patchik.UserData = strcat({'ячейка с координатами:'}, {' '}, {'('}, {num2str(obj.CAIndexes(2))}, {','}, {num2str(obj.CAIndexes(1))}, {');'}, {' '}, {'и состо€нием z='},{num2str(obj.ZPath(end))});
+                
+                    set(patchik, 'ButtonDownFcn', @CA_cell.showCellInfo);
+                    %%
+                end
             end
 
         end

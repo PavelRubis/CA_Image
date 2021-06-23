@@ -11,7 +11,7 @@ classdef NeumannNeighbourHood < NeighbourHood
         end
 
         function [caCell] = GetNeighbours(obj, caCell)
-            [neibsArrIndexes, extraNeibsArrIndexes] = GetAllNeumannNeighbors(caCell);
+            [neibsArrIndexes, extraNeibsArrIndexes] = GetNeumannNeighbs(caCell);
 
             switch obj.BordersType
                 case 1
@@ -31,7 +31,7 @@ classdef NeumannNeighbourHood < NeighbourHood
                     caCell.CurrNeighbors = caCell.CAHandle.Cells(find(neibsArrIndexes));
             end
             
-            sortedNeighbors = GetAllNeumannNeighborsPlaces(caCell);
+            sortedNeighbors = GetNeumannNeighbsPlaces(caCell);
             caCell.CurrNeighbors = caCell.CurrNeighbors(sortedNeighbors(find(sortedNeighbors)));
 
         end

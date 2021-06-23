@@ -68,9 +68,9 @@ setappdata(hObject, 'SaveResults', saveRes);
 
 handles.LambdaMenu.Value=5;
 
-handles.FieldTypeGroup.UserData = 'SquareFieldRB';
+handles.FieldTypeGroup.UserData = 0;
 handles.NeighborhoodTemp.UserData = 'NeumannRB';
-handles.HexOrientationPanel.UserData=0;
+handles.HexOrientationPanel.UserData = [{@SquareCACell} -1];
 handles.BordersTypePanel.UserData=2;
 
 newNeighborhood = NeumannNeighbourHood(handles.BordersTypePanel.UserData);
@@ -3960,18 +3960,13 @@ function HexOrientationPanel_SelectionChangedFcn(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-
 switch string(get(hObject,'Tag'))
-    
-    case "GorOrientRB"
-        handles.HexOrientationPanel.UserData=2;
-    
     case "VertOrientRB"
-        handles.HexOrientationPanel.UserData=1;
-        
+        handles.HexOrientationPanel.UserData = [{@HexagonCACell} 1];
+    case "GorOrientRB"
+        handles.HexOrientationPanel.UserData = [{@HexagonCACell} 0];
     otherwise
-        handles.HexOrientationPanel.UserData=0;
-    
+        handles.HexOrientationPanel.UserData = [{@SquareCACell} -1];
 end
 
 
@@ -3982,13 +3977,14 @@ function FieldTypeGroup_SelectionChangedFcn(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 
 if strcmp(get(hObject,'Tag'),'HexFieldRB')
-    handles.GorOrientRB.Value=1;
-    handles.FieldTypeGroup.UserData = 'HexFieldRB';
+    handles.VertOrientRB.Value=1;
+    handles.FieldTypeGroup.UserData = 1;
+    handles.HexOrientationPanel.UserData = [{@HexagonCACell} 1];
 else
     handles.GorOrientRB.Value=0;
     handles.VertOrientRB.Value=0;
-    handles.FieldTypeGroup.UserData = 'SquareFieldRB';
-    handles.HexOrientationPanel.UserData = 0;
+    handles.FieldTypeGroup.UserData = 0;
+    handles.HexOrientationPanel.UserData = [{@SquareCACell} -1];
 end
 
 
