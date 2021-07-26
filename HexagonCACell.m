@@ -175,12 +175,7 @@ classdef HexagonCACell < CA_cell
         end
 
         function sortedNeighbors =  GetSquareFieldNeumannNeighbsPlaces(obj)
-            sortedNeighbors = 1:length(obj.CurrNeighbors);
-        end
-        
-        function [neibsArrIndexes, extraNeibsArrIndexes] =  GetSquareFieldNeumannNeighbs(obj)
-            neibsArrIndexes = [];
-            extraNeibsArrIndexes = [];
+            sortedNeighbors = GetSquareFieldMooreNeighbsPlaces(obj);
         end
 
         function sortedNeighbors = GetSquareFieldMooreNeighbsPlaces(obj)
@@ -188,64 +183,81 @@ classdef HexagonCACell < CA_cell
             sortedNeighbors = neighborsOnTheirPlaces(obj, obj.CurrNeighbors, [{[-1 -1]},{[0 -1]},{[1 -1]},{[1 0]},{[0 1]},{[-1 0]}]);
             
             if obj.IsExternal && obj.CAHandle.Neighborhood.BordersType == 2
-                sortedNeighbors =  extraSquareMooreNeighborsPlaces(obj, sortedNeighbors);
+                sortedNeighbors = extraSquareMooreNeighborsPlaces(obj, sortedNeighbors);
             end
+
+            mooreNeibs = obj.CurrNeighbors(sortedNeighbors(find(sortedNeighbors)));
+
+            sortedNeighbors = zeros(1,3);
+            for ind=1:length(mooreNeibs)
+                neibNum = GetSquareFieldMooreNeighbNum(obj, mooreNeibs(ind));
+
+                if ~isempty(neibNum)
+                    switch neibNum
+                    case 1
+                        sortedNeighbors(1) = find(arrayfun(@(otherNeib)isequal(otherNeib.CAIndexes,mooreNeibs(ind).CAIndexes),mooreNeibs));
+                    case 3
+                        sortedNeighbors(2) = find(arrayfun(@(otherNeib)isequal(otherNeib.CAIndexes,mooreNeibs(ind).CAIndexes),mooreNeibs));
+                    case 5
+                        sortedNeighbors(3) = find(arrayfun(@(otherNeib)isequal(otherNeib.CAIndexes,mooreNeibs(ind).CAIndexes),mooreNeibs));
+                    end
+                end
+
+            end
+            
+            sortedNeighbors = sortedNeighbors(find(sortedNeighbors));
+
         end
 
-        function neibsArrIndexes = extraSquareMooreNeighborsPlaces(obj, neibsArrIndexes)
-
+        function neibNum = GetSquareFieldMooreNeighbNum(obj, neib)
+            
             n = obj.CAHandle.N;
-            objIndxsArr = cell(1,length(obj.CurrNeighbors));
-            objIndxsArr(:) = {obj.CAIndexes};
-            neibsSearchFunc = @(allCells,currCellIndxs,checkDiffMatr)find(arrayfun(@(neighbor,currCellIndxs) any(ismember(neighbor.CAIndexes - cell2mat(currCellIndxs) == checkDiffMatr, [1 1], 'rows')), allCells, currCellIndxs));
+            neibNum = [];
 
-            if ~neibsArrIndexes(1)
-                checkDiffMatr = [
-                        [(n - 1) (n - 1)];
-                        [-1 (n - 1)];
-                        [(n - 1) -1];
-                ];
-                neibsArrIndexes(1) = neibsSearchFunc(obj.CurrNeighbors, objIndxsArr, checkDiffMatr);
-            end
-            
-            if ~neibsArrIndexes(2)
-                checkDiffMatr = [
-                        [0 (n - 1)];
-                ];
-                neibsArrIndexes(2) = neibsSearchFunc(obj.CurrNeighbors, objIndxsArr, checkDiffMatr);
-            end
-            
-            if ~neibsArrIndexes(3)
-                checkDiffMatr = [
-                        [1 (n - 1)];
-                        [-(n - 1) -1];
-                        [-(n - 1) (n - 1)];
-                ];
-                neibsArrIndexes(3) = neibsSearchFunc(obj.CurrNeighbors, objIndxsArr, checkDiffMatr);
-            end
-
-            if ~neibsArrIndexes(4)
-                checkDiffMatr = [
-                        [-(n - 1) 0];
-                        [1 -(n - 1)];
-                ];
-                neibsArrIndexes(4) = neibsSearchFunc(obj.CurrNeighbors, objIndxsArr, checkDiffMatr);
-            end
-            
-            if ~neibsArrIndexes(5)
-                checkDiffMatr = [
-                        [0 -(n - 1)];
-                ];
-                neibsArrIndexes(5) = neibsSearchFunc(obj.CurrNeighbors, objIndxsArr, checkDiffMatr);
-            end
-
-            if ~neibsArrIndexes(6)
-                checkDiffMatr = [
+            checkDiffMatrArr = [
+                {[
+                    [-1 -1];
+                    [(n - 1) (n - 1)];
+                    [-1 (n - 1)];
+                    [(n - 1) -1];
+                ]},
+                {[
+                    [0  -1];
+                    [0 (n - 1)];
+                ]},
+                {[
+                    [1  -1];
+                    [1 (n - 1)];
+                    [-(n - 1) -1];
+                    [-(n - 1) (n - 1)];
+                ]},
+                {[
+                    [1   0];
+                    [-(n - 1) 0];
+                    [1 -(n - 1)];
+                ]},
+                {[
+                    [0   1];
+                    [0 -(n - 1)];
+                ]},
+                {[
+                    [-1  0];
                     [(n - 1) 0];
                     [-1 -(n - 1)];
-                ];
-                neibsArrIndexes(6) = neibsSearchFunc(obj.CurrNeighbors, objIndxsArr, checkDiffMatr);
+                ]}
+            ];
+
+            for ind=1:length(checkDiffMatrArr)
+                if any(ismember(neib.CAIndexes - obj.CAIndexes == checkDiffMatrArr{ind}, [1 1], 'rows'))
+                    neibNum = ind;
+                    return;
+                end
             end
+            
+        end
+        
+        function [neibsArrIndexes, extraNeibsArrIndexes] =  GetSquareFieldNeumannNeighbs(obj)
+            [neibsArrIndexes, extraNeibsArrIndexes] = GetSquareFieldMooreNeighbs(obj);
         end
 
         function [neibsArrIndexes, extraNeibsArrIndexes] = GetSquareFieldMooreNeighbs(obj)
@@ -305,6 +317,62 @@ classdef HexagonCACell < CA_cell
                 ];
                 extraNeibsArrIndexes = extraNeibsArrIndexes + neibsSearchFunc(obj.CAHandle.Cells, objIndxsArr, checkDiffMatr);
                 
+            end
+        end
+        
+        function neibsArrIndexes = extraSquareMooreNeighborsPlaces(obj, neibsArrIndexes)
+
+            n = obj.CAHandle.N;
+            objIndxsArr = cell(1,length(obj.CurrNeighbors));
+            objIndxsArr(:) = {obj.CAIndexes};
+            neibsSearchFunc = @(allCells,currCellIndxs,checkDiffMatr)find(arrayfun(@(neighbor,currCellIndxs) any(ismember(neighbor.CAIndexes - cell2mat(currCellIndxs) == checkDiffMatr, [1 1], 'rows')), allCells, currCellIndxs));
+
+            if ~neibsArrIndexes(1)
+                checkDiffMatr = [
+                        [(n - 1) (n - 1)];
+                        [-1 (n - 1)];
+                        [(n - 1) -1];
+                ];
+                neibsArrIndexes(1) = neibsSearchFunc(obj.CurrNeighbors, objIndxsArr, checkDiffMatr);
+            end
+            
+            if ~neibsArrIndexes(2)
+                checkDiffMatr = [
+                        [0 (n - 1)];
+                ];
+                neibsArrIndexes(2) = neibsSearchFunc(obj.CurrNeighbors, objIndxsArr, checkDiffMatr);
+            end
+            
+            if ~neibsArrIndexes(3)
+                checkDiffMatr = [
+                        [1 (n - 1)];
+                        [-(n - 1) -1];
+                        [-(n - 1) (n - 1)];
+                ];
+                neibsArrIndexes(3) = neibsSearchFunc(obj.CurrNeighbors, objIndxsArr, checkDiffMatr);
+            end
+
+            if ~neibsArrIndexes(4)
+                checkDiffMatr = [
+                        [-(n - 1) 0];
+                        [1 -(n - 1)];
+                ];
+                neibsArrIndexes(4) = neibsSearchFunc(obj.CurrNeighbors, objIndxsArr, checkDiffMatr);
+            end
+            
+            if ~neibsArrIndexes(5)
+                checkDiffMatr = [
+                        [0 -(n - 1)];
+                ];
+                neibsArrIndexes(5) = neibsSearchFunc(obj.CurrNeighbors, objIndxsArr, checkDiffMatr);
+            end
+
+            if ~neibsArrIndexes(6)
+                checkDiffMatr = [
+                    [(n - 1) 0];
+                    [-1 -(n - 1)];
+                ];
+                neibsArrIndexes(6) = neibsSearchFunc(obj.CurrNeighbors, objIndxsArr, checkDiffMatr);
             end
         end
 
