@@ -22,7 +22,7 @@ function varargout = CA(varargin)
 
 % Edit the above text to modify the response to help CA
 
-% Last Modified by GUIDE v2.5 14-May-2021 13:57:34
+% Last Modified by GUIDE v2.5 30-Jul-2021 02:16:29
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -77,6 +77,8 @@ newNeighborhood = NeumannNeighbourHood(handles.BordersTypePanel.UserData);
 setappdata(hObject,'Neighborhood',newNeighborhood);
 setappdata(hObject, 'DistributionFig',[]);
 
+handles.SaveParamsButton.UserData = 'CA';
+
 axis image;
 
 % This function has no output args, see OutputFcn.
@@ -122,7 +124,6 @@ varargout{1} = handles.output;
 % --- Executes on button press in StartButton.
 function StartButton_Callback(hObject, eventdata, handles)
 %%
-profile on;
 
 SaveParamsButton_Callback(handles.SaveParamsButton, eventdata, handles)
 
@@ -183,8 +184,6 @@ if saveRes.IsSaveData
     saveRes = SaveModelingResults(saveRes, res, oldIteratedObject, IteratedObject, calcParams, graphics);
 end
 
-profile viewer;
-
 setappdata(handles.output, 'graphics', graphics);
 setappdata(handles.output, 'IIteratedObject', IteratedObject);
 setappdata(handles.output, 'VisOptions', visualOptions);
@@ -193,684 +192,6 @@ handles.ResetButton.Enable='on';
 
 delete(wb);
 return;
-%%
-%legacy
-
-contParms = getappdata(handles.output,'ContParms');
-resProc = getappdata(handles.output,'ResProc');
-ca = getappdata(handles.output,'CurrCA');
-
-error = getappdata(handles.output,'error');
-errorStr = getappdata(handles.output,'errorStr');
-
-if (length(resProc.ResPath)==1 || ~ischar(resProc.ResPath)) &&  resProc.IsSaveData
-    error=true;
-    errorStr=strcat(errorStr,'Не задана директория сохранения результатов; ');
-end
-
-if isempty(regexp(handles.IterCountEdit.String,'^\d+$'))
-    error=true;
-    errorStr=strcat(errorStr,'Ошибка в поле числа итераций; ');
-end
-
-if isempty(regexp(handles.InfValueEdit.String,'^\d+$')) || isempty(regexp(handles.ConvergValueEdit.String,'^\d+$'))
-    error=true;
-    errorStr=strcat(errorStr,'Ошибка в полях точности вычислений; ');
-end
-
-if  (isempty(regexp(handles.MaxPeriodEdit.String,'^\d+$')) || str2double(handles.MaxPeriodEdit.String)>str2double(handles.IterCountEdit.String)) && (~contParms.SingleOrMultipleCalc || length(ca.Cells)==1)
-    error=true;
-    errorStr=strcat(errorStr,'Ошибка в поле максимального периода; ');
-end
-
-if error
-    handles.ResetButton.Enable='on';
-    errorStr=regexprep(errorStr,';$','.');
-    errordlg(errorStr,'Ошибки ввода:');
-    return;
-end
-
-handles.ParamRePointsEdit.Enable='off';
-handles.ParamNameMenu.Enable='off';
-handles.ParamReDeltaEdit.Enable='off';
-handles.ParamImDeltaEdit.Enable='off';
-handles.ParamRePointsEdit.Enable='off';
-handles.ParamImPointsEdit.Enable='off';
-handles.DefaultMultiParmCB.Enable='off';
-    
-handles.NFieldEdit.Enable='off';
-handles.SquareFieldRB.Enable='off';
-handles.HexFieldRB.Enable='off';
-handles.GorOrientRB.Enable='off';
-handles.VertOrientRB.Enable='off';
-handles.DefaultCACB.Enable='off';
-handles.CompletedBordersRB.Enable='off';
-handles.DeathLineBordersRB.Enable='off';
-handles.ClosedBordersRB.Enable='off';
-handles.NeumannRB.Enable ='off';
-handles.MooreRB.Enable ='off';
-handles.CustomIterFuncCB.Enable  ='off';
-    
-handles.BaseImagMenu.Enable='off';
-handles.UsersBaseImagEdit.Enable='off';
-handles.LambdaMenu.Enable='off';
-handles.DefaultFuncsCB.Enable='off';
-    
-handles.z0Edit.Enable='off';
-handles.MiuEdit.Enable='off';
-handles.Miu0Edit.Enable='off';
-handles.DefaultCB.Enable='off';
-handles.CountBaseZButton.Enable='off';
-    
-handles.DistributionTypeMenu.Enable='off';
-handles.DistributStartEdit.Enable='off';
-handles.DistributStepEdit.Enable='off';
-handles.DistributEndEdit.Enable='off';
-    
-handles.Z0SourcePathButton.Enable='off';
-handles.ReadZ0SourceButton.Enable='off';
-    
-handles.SingleCalcRB.Enable='off';
-handles.MultipleCalcRB.Enable='off';
-handles.ReadModelingParmsFrmFile.Enable='off';
-handles.CASettingsMenuItem.Enable='off';
-
-visualizationSettings = ResultsProcessing.GetSetVisualizationSettings;
-
-switch visualizationSettings(1)
-
-    case 1
-        ModelingParams.GetSetPrecisionParms([str2double(strcat('1e', handles.InfValueEdit.String)) str2double(strcat('1e-', handles.ConvergValueEdit.String))]);
-    case 2
-        ModelingParams.GetSetPrecisionParms([str2double(handles.InfValueEdit.String) str2double(strcat('1e-', handles.ConvergValueEdit.String))]);
-end
-
-handles.CancelParamsButton.Enable = 'off';
-itersCount = str2double(handles.IterCountEdit.String); %число итераций
-contParms.IterCount = contParms.IterCount + itersCount;
-
-ControlParams.GetSetMaxPeriod(str2double(handles.MaxPeriodEdit.String));
-
-if ~contParms.SingleOrMultipleCalc% в случае мультирассчета
-
-    %создание окна и матрицы функций базы
-    [WindowParam contParms z_eqArr] = DataFormatting.MakeFuncsWithNumsForMultipleCalc(ca, contParms);
-
-    len = size(WindowParam);
-    zParam = false;
-    Z_Old = [];
-
-    switch contParms.WindowParamName
-        case 'z0'
-            z_New = WindowParam;
-            Z_Old = z_New;
-            zParam = true;
-        case {'Miu', 'Miu0'}
-            z_New = zeros(len);
-            z_New(:) = str2double(handles.z0Edit.String);
-            Z_Old = z_New;
-    end
-
-    fStepNew = zeros(len);
-    Delta = zeros(len);
-
-    ZParam = zeros(len);
-    ZParam(:) = zParam;
-    Z_Old_1 = Inf(len);
-
-    FStep = zeros(len);
-    ItersCount = zeros(len);
-    ItersCount(:) =  itersCount;
-    Pathes = cell(len);
-
-    wb = waitbar(0,'Выполняется расчет...','WindowStyle','modal');
-%     profile on;
-    [z_New fStepNew Fcode Iters Periods] = arrayfun(@ControlParams.MakeMultipleCalcIter, WindowParam, Z_Old, Z_Old_1, ItersCount, ZParam, z_eqArr);
-%     profile viewer;
-    waitbar(1,wb,'Отрисовка...');
-    axes(handles.CAField);
-
-    zRes = z_New;
-    PrecisionParms = ModelingParams.GetSetPrecisionParms;
-
-    contParms.Periods = Periods;
-    contParms.LastIters = Iters;
-    fcodeIndicate = find(Fcode == 1);
-    
-    posSteps = unique(fStepNew(fcodeIndicate));
-    fcodeIndicate = find(Fcode == -1);
-    negSteps = unique(fStepNew(fcodeIndicate));
-
-    chaosCodeIndicate = find(Fcode == 2);
-    fStepNew(chaosCodeIndicate) = -1;
-
-    periodCodeIndicate = find(Fcode == 3);
-    fStepNew(periodCodeIndicate) = Periods(periodCodeIndicate);
-
-    maxPosSteps = zeros(len);
-    minNegStep = min(negSteps);
-    clmp = [];
-
-    if ~isempty(posSteps)
-        maxPosSteps(:) = max(posSteps); %+(10-mod(max(posSteps),10));
-
-        periodCodeIndicate = find(Fcode == 3);
-        fStepNew(periodCodeIndicate) = maxPosSteps(periodCodeIndicate) + Periods(periodCodeIndicate);
-
-        if ~isempty(negSteps)
-            chaosCodeIndicate = find(Fcode == 2);
-            fStepNew(chaosCodeIndicate) = max(negSteps) + 1;
-            clmp = [flipud(gray(max(negSteps))); flipud(winter(floor((max(negSteps) * ((max(posSteps) + 2) / max(negSteps))))))]; %(max(posSteps)-mod(max(posSteps),10))
-        else
-            clmp = flipud(winter(floor((max(posSteps) - mod(max(posSteps), 10)))));
-        end
-
-    else
-
-        if ~isempty(negSteps)
-            clmp = flipud(gray(max(negSteps)));
-        end
-
-    end
-
-    if ~isempty(chaosCodeIndicate)
-        clmp = [spring(1); clmp];
-        Fcode(chaosCodeIndicate) = -1;
-    end
-
-    if ~isempty(periodCodeIndicate)
-        clmp = [clmp; autumn(max(Periods(periodCodeIndicate)))];
-        Fcode(periodCodeIndicate) = 1;
-    end
-
-    clrmp = colormap(clmp);
-
-    [Re, Im] = meshgrid(contParms.ReRangeWindow, contParms.ImRangeWindow);
-    pcolor(Re, Im, (fStepNew .* Fcode));
-
-    shading flat;
-    clrbr = colorbar;
-
-    if ~isempty(periodCodeIndicate)
-        lim = clrbr.Limits;
-        ticks = clrbr.Ticks;
-        ticksDelta = ticks(2) - ticks(1);
-
-        if lim(2) > max(posSteps) + ticksDelta / 5
-            ticks = ticks(find(ticks <= max(posSteps)));
-            ticks = [ticks max(posSteps) + ticksDelta / 5:ticksDelta / 5:lim(2)];
-            clrbr.Ticks = ticks;
-
-            lables = clrbr.TickLabels';
-            lables = arrayfun(@(num)str2double(cell2mat(num)), lables);
-            newLables = [lables(find(lables <= max(posSteps))) (lables(find(lables > max(posSteps))) - max(posSteps))];
-            clrbr.TickLabels = {newLables};
-        end
-
-    end
-
-    zoom on;
-
-    DataFormatting.PlotFormatting(contParms, ca, handles);
-
-    graphics.Axs = handles.CAField;
-    graphics.Clrbr = clrbr;
-    graphics.Clrmp = clrmp;
-
-    if resProc.IsSaveData
-        waitbar(1,wb,'Сохранение выходных данных...');
-        resProc = SaveRes(resProc, ca, graphics, contParms, zRes);
-    end
-
-    handles.ResetButton.Enable = 'on';
-    setappdata(handles.output, 'CurrCA', ca);
-    setappdata(handles.output, 'ContParms', contParms);
-    setappdata(handles.output, 'ResProc', resProc);
-    handles.SaveAllModelParamsB.Enable = 'on';
-    delete(wb);
-    return;
-end
-
-
-ca.Weights = CellularAutomat.GetSetWeights;
-
-if isempty(ca.Weights)
-    ca.Weights = [1 1 1 1 1 1 1 1];
-end
-
-%подготовка обоих функций
-DataFormatting.MakeCAFuncsWithNums(ca);
-
-if length(ca.Cells) == 1%случай когда рассматривается одна ячейка/точка
-
-    N1Path = getappdata(handles.output, 'N1Path');
-    msg = [];
-
-    N1PathOld = complex(N1Path(1, :), N1Path(2, :));
-    len = length(N1Path(1, :));
-    N1Path = [N1Path nan(2, itersCount)];
-
-    for i = 1:itersCount
-        ca.Cells(1) = CellularAutomat.MakeIter(ca.Cells(1));
-        N1Path(1, i + len) = real(ca.Cells(1).ZPath(end));
-        N1Path(2, i + len) = imag(ca.Cells(1).ZPath(end));
-
-        pointPath = complex(N1Path(1, :), N1Path(2, :));
-        [fCode iter period] = ControlParams.CheckConvergence(pointPath);
-
-        if fCode ~= 2
-            str = strcat('Точка ', num2str(ca.Cells(1).z0));
-
-            switch fCode
-                case - 1
-                    ca.Cells(1).ZPath = ca.Cells(1).ZPath(:, 1:iter - 1);
-                    str = strcat(str, ' уходит в бесконечность на итерации:');
-                    str = strcat(str, '  ');
-                    msg = strcat(str, num2str(iter - 1));
-                case 1
-                    str = strcat(str, ' сходится к аттрактору на итерации:');
-                    str = strcat(str, '  ');
-                    msg = strcat(str, num2str(iter - 1));
-                otherwise
-                    str = strcat(str, ' имеет период: ');
-                    str = strcat(str, num2str(period));
-                    str = strcat(str, ', найденный на итерации:');
-                    str = strcat(str, '  ');
-                    msg = strcat(str, num2str(iter - 1));
-            end
-
-            break;
-        end
-
-    end
-
-    if fCode == -1
-        N1Path = N1Path(:, 1:iter - 1);
-    else
-        N1Path = N1Path(:, 1:iter);
-    end
-
-    N1PathNew = complex(N1Path(1, :), N1Path(2, :));
-    N1PathOldVisual = [real(N1PathOld);imag(N1PathOld)];
-    N1PathOld = [N1PathOld nan(1, length(N1PathNew) - length(N1PathOld))];
-    ind = length(find(N1PathOld == N1PathNew));
-
-    if ind < length(N1PathNew)
-        temp = N1PathNew(ind:length(N1PathNew));
-        tempNew = zeros(2, length(temp));
-        tempNew(1, :) = real(temp);
-        tempNew(2, :) = imag(temp);
-        N1PathNew = tempNew;
-    else
-        N1PathNew = [];
-    end
-    
-    if ~isempty(N1PathNew)
-        axes(handles.CAField);
-        cla reset;
-
-        N1PathOld(end) = [];
-        newPartPathLength = length(N1PathNew);
-
-        [vSettings1 vSettings2]  = ResultsProcessing.GetSetPointsVisualizationSettings;
-        N1PathNewVisual = N1PathNew;
-
-        switch vSettings1
-            case 1
-                xlabel('Re(z)');
-                ylabel('Im(z)');
-            case 2
-                xlabel('\midz\mid');
-                N1PathNewVisual(1, :) = abs(complex(N1PathNewVisual(1, :), N1PathNewVisual(2, :)));
-                ylabel('\phi(z)');
-                N1PathNewVisual(2, :) = angle(complex(N1PathNewVisual(1, :), N1PathNewVisual(2, :)));
-
-                N1PathOldVisual(1, :) = abs(complex(N1PathOldVisual(1, :), N1PathOldVisual(2, :)));
-                N1PathOldVisual(2, :) = angle(complex(N1PathOldVisual(1, :), N1PathOldVisual(2, :)));
-            case 3
-                xlabel('lg\midz+1\mid');
-                N1PathNewVisual(1, :) = log(abs(complex(N1PathNewVisual(1, :), N1PathNewVisual(2, :)) + 1))/log(10);
-                ylabel('\phi(z)');
-                N1PathNewVisual(2, :) = angle(complex(N1PathNewVisual(1, :), N1PathNewVisual(2, :)));
-
-                N1PathOldVisual(1, :) = log(abs(complex(N1PathOldVisual(1, :), N1PathOldVisual(2, :)) + 1)) / log(10);
-                N1PathOldVisual(2, :) = angle(complex(N1PathOldVisual(1, :), N1PathOldVisual(2, :)));
-            case 4
-                xlabel('lg\midRe+1\mid');
-                N1PathNewVisual(1, :) = log(abs(N1PathNewVisual(1, :) + 1)) / log(10);
-                xlabel('lg\midIm+1\mid');
-                N1PathNewVisual(2, :) = log(abs(N1PathNewVisual(2, :) + 1)) / log(10);
-
-                N1PathOldVisual(1, :) = log(abs(N1PathOldVisual(1, :) + 1)) / log(10);
-                N1PathOldVisual(2, :) = log(abs(N1PathOldVisual(2, :) + 1)) / log(10);
-                
-
-        end
-        N1PathOldVisual=complex(N1PathOldVisual(1,:),N1PathOldVisual(1,:));
-        eval(strcat('clrmp = colormap(', vSettings2, '(newPartPathLength));'));
-        ms = 20;
-
-
-        %%
-        hold on;
-        for i = 1:length(N1PathNewVisual)
-            plot(N1PathNewVisual(1, i), N1PathNewVisual(2, i), 'o', 'MarkerSize', ms, 'Color', clrmp(i, :));
-
-            if ms ~= 2
-                ms = ms - 2;
-            end
-
-        end
-
-        imStep = (abs(max(N1PathNewVisual(2, :)) - min(N1PathNewVisual(2, :))) / length(N1PathNewVisual(2, :))) * 0.2 * length(N1PathNewVisual(2, :));
-        reStep = (abs(max(N1PathNewVisual(1, :)) - min(N1PathNewVisual(1, :))) / length(N1PathNewVisual(1, :))) * 0.2 * length(N1PathNewVisual(1, :));
-
-        if (any(N1PathNewVisual(1, :) < min(real(N1PathOldVisual))) || any(N1PathNewVisual(1, :) > max(real(N1PathOldVisual))))
-            handles.CAField.XLim = [min(N1PathNewVisual(1, :)) max(N1PathNewVisual(1, :))];
-        end
-
-        if (any(N1PathNewVisual(2, :) < min(imag(N1PathOldVisual))) || any(N1PathNewVisual(2, :) > max(imag(N1PathOldVisual))))
-            handles.CAField.YLim = [min(N1PathNewVisual(2, :)) max(N1PathNewVisual(2, :))];
-        end
-
-        handles.CAField.YTick = [min(N1PathNewVisual(2, :)):imStep:max(N1PathNewVisual(2, :))];
-        handles.CAField.XTick = [min(N1PathNewVisual(1, :)):reStep:max(N1PathNewVisual(1, :))];
-
-        ImLength = max(N1PathNewVisual(2, :)) - min(N1PathNewVisual(2, :));
-        ReLength = max(N1PathNewVisual(1, :)) - min(N1PathNewVisual(1, :));
-
-        Coeff = ReLength - ImLength;
-
-        if Coeff ~= 0
-
-            if Coeff < 0
-                Coeff = abs(Coeff);
-
-                handles.CAField.XLim = [min(N1PathNewVisual(1, :)) - Coeff / 2 max(N1PathNewVisual(1, :)) + Coeff / 2];
-
-            else
-                
-                handles.CAField.YLim = [min(N1PathNewVisual(2, :)) - Coeff / 2 max(N1PathNewVisual(2, :)) + Coeff / 2];
-
-            end
-
-        end
-
-        xticks('auto');
-        yticks('auto');
-
-        handles.CAField.XGrid = 'on';
-        handles.CAField.YGrid = 'on';
-
-        if newPartPathLength < 15
-            clrbr = colorbar('Ticks', [1:newPartPathLength] / newPartPathLength, 'TickLabels', {1:newPartPathLength});
-        else
-            clrbr = colorbar('Ticks', [0, 0.2, 0.4, 0.6, 0.8, 1], ...
-                'TickLabels', {0, floor(newPartPathLength * 0.2), floor(newPartPathLength * 0.4), floor(newPartPathLength * 0.6), floor(newPartPathLength * 0.8), newPartPathLength - 1});
-            clrbr.Label.String = 'Число итераций';
-        end
-
-        zoom on;
-        graphics.Axs = handles.CAField;
-        graphics.Clrbr = clrbr;
-        graphics.Clrmp = clrmp;
-
-        DataFormatting.PlotFormatting(contParms, ca, handles);
-
-        contParms.LastIters = length(N1Path);
-        contParms.Periods = period;
-
-        N1PathNew(1,1) = [];
-        N1PathNew(2,1) = [];
-        if resProc.IsSaveData
-            resProc = SaveRes(resProc, ca, graphics, contParms, N1PathNew);
-        end
-    end
-
-    handles.ResetButton.Enable = 'on';
-    setappdata(handles.output, 'CurrCA', ca);
-    setappdata(handles.output, 'ContParms', contParms);
-    setappdata(handles.output, 'N1Path', N1Path);
-    setappdata(handles.output, 'ResProc', resProc);
-    handles.SaveAllModelParamsB.Enable = 'on';
-
-    if ~isempty(msg)
-        msgbox(msg, 'modal');
-    end
-
-    return;
-
-end
-
-%        profile on;
-%нахождение соседей каждой ячейки
-for i = 1:length(ca.Cells)
-    ca.Cells(i) = FindCellsNeighbors(ca, ca.Cells(i));
-end
-
-cellArr = ca.Cells;
-ca_L = length(ca.Cells);
-
-%блок тестирования правильности нахождения элементов и работы всех типов границ
-bordersType = zeros(1, ca_L);
-bordersType(:) = ca.BordersType;
-fieldType = bordersType;
-fieldType(:) = ca.FieldType;
-nArr = fieldType;
-nArr(:) = ca.N;
-
-[isIntrnl, isIntrnlPlus, isCorner, isCornerAx, isEdg, isZero, isTrueCell, errorCellsInfo] = arrayfun(@TestingScripts.CheckNeighborsAndBorderType, ca.Cells, nArr, fieldType, bordersType);
-
-switch ca.BordersType
-
-    case 1
-
-        if ca.FieldType == 1
-            %внутренние ячейки:
-            Intrnl = length(find(isIntrnl)) == ((3 * ca.N^2) - (15 * ca.N) + 18);
-
-            %внутренние ячейки с соседями из другой фигуры:
-            IntrnlPlus = length(find(isIntrnlPlus)) == 6 * ca.N - 12;
-
-            %мертвые ячейки:
-            Edg = length(find(isEdg)) == 6 * ca.N - 12 + 6;
-
-            %нулевая ячейка:
-            Zero = length(find(isZero)) == 1;
-
-            all([Intrnl IntrnlPlus Edg Zero])
-        else
-            Intrnl = length(find(isIntrnl)) == (ca.N - 2)^2;
-            Edg = length(find(isEdg)) == (ca.N)^2 - (ca.N - 2)^2;
-
-            all([Intrnl Edg])
-        end
-
-    case 2
-
-        if ca.FieldType == 1
-            %внутренние ячейки:
-            Intrnl = length(find(isIntrnl)) == ((3 * ca.N^2) - (15 * ca.N) + 18);
-
-            %внутренние ячейки с соседями из другой фигуры:
-            IntrnlPlus = length(find(isIntrnlPlus)) == 6 * ca.N - 12;
-
-            %ячейки на ребре:
-            Edg = length(find(isEdg)) == 6 * ca.N - 12;
-
-            %угловые ячейки:
-            Corner = length(find(isCorner)) == 3;
-
-            %осевые  угловые ячейки:
-            CornerAx = length(find(isCornerAx)) == 3;
-
-            %нулевая ячейка:
-            Zero = length(find(isZero)) == 1;
-
-            all([Intrnl IntrnlPlus Edg Corner CornerAx Zero])
-        else
-            TrueCell = all(isTrueCell);
-
-            Intrnl = length(find(isIntrnl)) == (ca.N - 2)^2;
-
-            Edg = length(find(isEdg)) == (ca.N)^2 - (ca.N - 2)^2 - 4;
-
-            Corner = length(find(isCorner)) == 4;
-
-            all([TrueCell Intrnl Edg Corner])
-        end
-
-    case 3
-
-        if ca.FieldType == 1
-            %внутренние ячейки:
-            Intrnl = length(find(isIntrnl)) == ((3 * ca.N^2) - (15 * ca.N) + 18);
-
-            %внутренние ячейки с соседями из другой фигуры:
-            IntrnlPlus = length(find(isIntrnlPlus)) == 6 * ca.N - 12;
-
-            %ячейки на ребре c четырьмя соседями:
-            Edg = length(find(isEdg)) == 6 * ca.N - 12;
-
-            %ячейки c тремя соседями:
-            Corner = length(find(isCorner)) == 6;
-
-            %нулевая ячейка:
-            Zero = length(find(isZero)) == 1;
-
-            all([Intrnl IntrnlPlus Edg Corner Zero])
-        else
-            Intrnl = length(find(isIntrnl)) == (ca.N - 2)^2;
-
-            Edg = length(find(isEdg)) == (ca.N)^2 - (ca.N - 2)^2 - 4;
-
-            Corner = length(find(isCorner)) == 4;
-
-            all([Intrnl Edg Corner])
-        end
-
-end
-
-%блок тестирования правильности нахождения элементов и всех типов границ
-%рассчет поля КА
-
-wb = waitbar(0,'Выполняется расчет...','WindowStyle','modal');
-for i = 1:itersCount
-
-    try
-        cellArr = arrayfun(@(cell)CellularAutomat.MakeIter(cell), cellArr);
-    catch ex
-        errordlg(getReport(ex), 'Ошибка:');
-        return;
-    end
-
-    ca.Cells = cellArr;
-
-    for j = 1:ca_L
-        cellArr(j) = UpdateNeighborsValues(ca, ca.Cells(j));
-    end
-    waitbar(i/itersCount,wb,'Выполняется расчет...','WindowStyle','modal');
-
-end
-
-waitbar(1,wb,'Отрисовка...','WindowStyle','modal');
-axes(handles.CAField);
-
-modulesArr = zeros(1, ca_L);
-zbase = zeros(1, ca_L);
-zbase(:) = ca.Zbase;
-PrecisionParms = ModelingParams.GetSetPrecisionParms;
-
-cellsValsArr = arrayfun(@(cell) cell.ZPath(end), ca.Cells);
-cellsValsArr = round(cellsValsArr * (1 / PrecisionParms(2))) / (1 / PrecisionParms(2));
-
-[visualiseData, clrMap] = ResultsProcessing.GetSetVisualizationSettings;
-switch visualiseData
-    case 1
-        modulesArr = arrayfun(@(val) abs(val), cellsValsArr);
-        colorBarTitle = '\fontsize{16}\midz\mid';
-    case 2
-        modulesArr = arrayfun(@(val, zbase) log(abs(val - zbase)) / log(10), cellsValsArr, zbase);
-        colorBarTitle = '\fontsize{16}log_{10}(\midz-z^{*}\mid)';
-end
-
-[modulesArrSrt indxes] = sort(modulesArr);
-
-infValCACellsIndxes = find(modulesArr > PrecisionParms(1) | isnan(modulesArr));
-
-for ind = 1:length(infValCACellsIndxes)
-    ca.Cells(infValCACellsIndxes(ind)).Color = [0 0 0];
-end
-
-minusinfValCACellsIndxes = find(modulesArr < -PrecisionParms(1));
-
-for ind = 1:length(minusinfValCACellsIndxes)
-    ca.Cells(minusinfValCACellsIndxes(ind)).Color = [1 1 1];
-end
-
-modulesArrNanInfFiltered = modulesArr;
-modulesArrNanInfFiltered(infValCACellsIndxes) = [];
-modulesArrNanInfFiltered(minusinfValCACellsIndxes) = [];
-modulesArrNanInfFiltered = sort(modulesArrNanInfFiltered);
-
-%создание палитры
-eval(strcat('colors=colormap(', clrMap, '(', num2str(length(modulesArrNanInfFiltered)), '));'));
-
-for index = 1:length(modulesArrNanInfFiltered)
-    sameValCACellsindxes = find(modulesArr == modulesArrNanInfFiltered(index));
-    for ind = 1:length(sameValCACellsindxes)
-        ca.Cells(sameValCACellsindxes(ind)).Color = colors(index, :);
-    end
-end
-
-%отрисовка поля
-arrayfun(@(cell) ResultsProcessing.DrawCell(cell), ca.Cells);
-colors = arrayfun(@(cell) {cell.Color}, ca.Cells(indxes));
-colors = cell2mat(colors');
-
-if ~isempty(infValCACellsIndxes)
-    colors = [colors; [0 0 0]];
-end
-
-if ~isempty(minusinfValCACellsIndxes)
-    colors = [[1 1 1]; colors];
-end
-
-visualValsArr = modulesArr;
-visualValsArr(infValCACellsIndxes) = inf;
-visualValsArr(minusinfValCACellsIndxes) = -inf;
-visualValsArr = sort(visualValsArr);
-
-[unqVisualValsArr unqVisualValsArrIndxs] = unique(visualValsArr);
-unqColors = colors(unqVisualValsArrIndxs', :);
-
-clrbr = colorbar;
-clrmp = colormap(unqColors);
-clrbr.Ticks = [0:1 / length(unqVisualValsArr):1 - (1 / length(unqVisualValsArr))];
-clrbr.TickLabels = unqVisualValsArr;
-
-clrbr.Label.String = colorBarTitle;
-
-DataFormatting.PlotFormatting(contParms, ca, handles);
-
-graphics.Axs = handles.CAField;
-graphics.Clrbr = clrbr;
-graphics.Clrmp = clrmp;
-
-if resProc.IsSaveData
-    waitbar(1,wb,'Сохранение выходных данных...','WindowStyle','modal');
-    resProc = SaveRes(resProc, ca, graphics, contParms, []);
-end
-
-setappdata(handles.output, 'CurrCA', ca);
-setappdata(handles.output, 'ContParms', contParms);
-setappdata(handles.output, 'ResProc', resProc);
-handles.ResetButton.Enable = 'on';
-handles.SaveAllModelParamsB.Enable = 'on';
-delete(wb);
-
-      
-
 
 % hObject    handle to StartButton (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -1457,109 +778,109 @@ saveRes = getappdata(handles.output, 'SaveResults');
 saveRes.ResultsFilename = '';
 setappdata(handles.output, 'SaveResults', saveRes);
 
-setappdata(handles.output, 'IIteratedObject', []);%нет ли утечки памяти если итерированный объект КА?
+setappdata(handles.output, 'IIteratedObject', []);
 setappdata(handles.output, 'calcParams', []);
 
 
-handles.SaveAllModelParamsB.Enable='off';
-handles.VisualIteratedObjectMenu.Visible='off';
-handles.CellInfoLabel.Visible='off';
-handles.LambdaMenu.Enable='on';
-
-if string(class(oldIteratedObject)) ~= "IteratedMatrix"
-    
-    if str2double(handles.NFieldEdit.String)==1
-        handles.DistributionTypeMenu.Enable='off';
-        handles.DistributStartEdit.Enable='off';
-        handles.DistributStepEdit.Enable='off';
-        handles.DistributEndEdit.Enable='off';
-        handles.Z0SourcePathButton.Enable='off';
-        handles.ReadZ0SourceButton.Enable='off';
-%         handles.LambdaMenu.Enable='off';
-        handles.MaxPeriodEdit.Enable='on';
-    else
-        handles.DistributionTypeMenu.Enable='on';
-        handles.DistributStartEdit.Enable='on';
-        handles.DistributStepEdit.Enable='on';
-        handles.DistributEndEdit.Enable='on';
-        handles.Z0SourcePathButton.Enable='on';
-        handles.ReadZ0SourceButton.Enable='on';
-        handles.MaxPeriodEdit.Enable='off';
-        handles.SquareFieldRB.Enable = 'on';
-        handles.HexFieldRB.Enable = 'on';
-        handles.GorOrientRB.Enable = 'on';
-        handles.VertOrientRB.Enable = 'on';
-        handles.DefaultCACB.Enable = 'on';
-        handles.CompletedBordersRB.Enable = 'on';
-        handles.DeathLineBordersRB.Enable = 'on';
-        handles.ClosedBordersRB.Enable = 'on';
-        handles.NeumannRB.Enable = 'on';
-        handles.MooreRB.Enable = 'on';
-    end
-    
-    handles.CustomIterFuncCB.Enable = 'on';
-    handles.NFieldEdit.Enable = 'on';
-    handles.ParamRePointsEdit.Enable='off';
-    handles.ParamNameMenu.Enable='off';
-    handles.ParamReDeltaEdit.Enable='off';
-    handles.ParamImDeltaEdit.Enable='off';
-    handles.ParamRePointsEdit.Enable='off';
-    handles.ParamImPointsEdit.Enable='off';
-    handles.DefaultMultiParmCB.Enable='off';
-    
-else
-    handles.NFieldEdit.Enable='off';
-    handles.SquareFieldRB.Enable='off';
-    handles.HexFieldRB.Enable='off';
-    handles.GorOrientRB.Enable='off';
-    handles.VertOrientRB.Enable='off';
-    handles.DefaultCACB.Enable='off';
-    handles.CompletedBordersRB.Enable='off';
-    handles.DeathLineBordersRB.Enable='off';
-    handles.ClosedBordersRB.Enable='off';
-    
-    handles.DistributionTypeMenu.Enable='off';
-    handles.DistributStartEdit.Enable='off';
-    handles.DistributStepEdit.Enable='off';
-    handles.DistributEndEdit.Enable='off';
-    
-    handles.Z0SourcePathButton.Enable='off';
-    handles.ReadZ0SourceButton.Enable='off';
-    
-    handles.MaxPeriodEdit.Enable='on';
-    handles.ParamRePointsEdit.Enable='on';
-    handles.ParamNameMenu.Enable='on';
-    handles.ParamReDeltaEdit.Enable='on';
-    handles.ParamImDeltaEdit.Enable='on';
-    handles.ParamRePointsEdit.Enable='on';
-    handles.ParamImPointsEdit.Enable='on';
-    handles.DefaultMultiParmCB.Enable='on';
-    
-end
-
-handles.CustomIterFuncCB.Enable='on';
-
-if handles.CustomIterFuncCB.Value ~= 1
-    handles.UsersBaseImagEdit.Enable = 'off';
-    handles.BaseImagMenu.Enable = 'on';
-else
-%     handles.LambdaMenu.Enable = 'off';
-    handles.BaseImagMenu.Enable = 'off';
-    handles.UsersBaseImagEdit.Enable = 'on';
-end
-
-    handles.ReadModelingParmsFrmFile.Enable='on';
-    handles.DefaultFuncsCB.Enable='on';
-    
-    handles.z0Edit.Enable='on';
-    handles.MiuEdit.Enable='on';
-    handles.Miu0Edit.Enable='on';
-    handles.DefaultCB.Enable='on';
-    
-    
-    handles.SingleCalcRB.Enable='on';
-    handles.MultipleCalcRB.Enable='on';
-    handles.CASettingsMenuItem.Enable='on';
+% handles.SaveAllModelParamsB.Enable='off';
+% handles.VisualIteratedObjectMenu.Visible='off';
+% handles.CellInfoLabel.Visible='off';
+% handles.LambdaMenu.Enable='on';
+% 
+% if string(class(oldIteratedObject)) ~= "IteratedMatrix"
+%     
+%     if str2double(handles.NFieldEdit.String)==1
+%         handles.DistributionTypeMenu.Enable='off';
+%         handles.DistributStartEdit.Enable='off';
+%         handles.DistributStepEdit.Enable='off';
+%         handles.DistributEndEdit.Enable='off';
+%         handles.Z0SourcePathButton.Enable='off';
+%         handles.ReadZ0SourceButton.Enable='off';
+% %         handles.LambdaMenu.Enable='off';
+%         handles.MaxPeriodEdit.Enable='on';
+%     else
+%         handles.DistributionTypeMenu.Enable='on';
+%         handles.DistributStartEdit.Enable='on';
+%         handles.DistributStepEdit.Enable='on';
+%         handles.DistributEndEdit.Enable='on';
+%         handles.Z0SourcePathButton.Enable='on';
+%         handles.ReadZ0SourceButton.Enable='on';
+%         handles.MaxPeriodEdit.Enable='off';
+%         handles.SquareFieldRB.Enable = 'on';
+%         handles.HexFieldRB.Enable = 'on';
+%         handles.GorOrientRB.Enable = 'on';
+%         handles.VertOrientRB.Enable = 'on';
+%         handles.DefaultCACB.Enable = 'on';
+%         handles.CompletedBordersRB.Enable = 'on';
+%         handles.DeathLineBordersRB.Enable = 'on';
+%         handles.ClosedBordersRB.Enable = 'on';
+%         handles.NeumannRB.Enable = 'on';
+%         handles.MooreRB.Enable = 'on';
+%     end
+%     
+%     handles.CustomIterFuncCB.Enable = 'on';
+%     handles.NFieldEdit.Enable = 'on';
+%     handles.ParamRePointsEdit.Enable='off';
+%     handles.ParamNameMenu.Enable='off';
+%     handles.ParamReDeltaEdit.Enable='off';
+%     handles.ParamImDeltaEdit.Enable='off';
+%     handles.ParamRePointsEdit.Enable='off';
+%     handles.ParamImPointsEdit.Enable='off';
+%     handles.DefaultMultiParmCB.Enable='off';
+%     
+% else
+%     handles.NFieldEdit.Enable='off';
+%     handles.SquareFieldRB.Enable='off';
+%     handles.HexFieldRB.Enable='off';
+%     handles.GorOrientRB.Enable='off';
+%     handles.VertOrientRB.Enable='off';
+%     handles.DefaultCACB.Enable='off';
+%     handles.CompletedBordersRB.Enable='off';
+%     handles.DeathLineBordersRB.Enable='off';
+%     handles.ClosedBordersRB.Enable='off';
+%     
+%     handles.DistributionTypeMenu.Enable='off';
+%     handles.DistributStartEdit.Enable='off';
+%     handles.DistributStepEdit.Enable='off';
+%     handles.DistributEndEdit.Enable='off';
+%     
+%     handles.Z0SourcePathButton.Enable='off';
+%     handles.ReadZ0SourceButton.Enable='off';
+%     
+%     handles.MaxPeriodEdit.Enable='on';
+%     handles.ParamRePointsEdit.Enable='on';
+%     handles.ParamNameMenu.Enable='on';
+%     handles.ParamReDeltaEdit.Enable='on';
+%     handles.ParamImDeltaEdit.Enable='on';
+%     handles.ParamRePointsEdit.Enable='on';
+%     handles.ParamImPointsEdit.Enable='on';
+%     handles.DefaultMultiParmCB.Enable='on';
+%     
+% end
+% 
+% handles.CustomIterFuncCB.Enable='on';
+% 
+% if handles.CustomIterFuncCB.Value ~= 1
+%     handles.UsersBaseImagEdit.Enable = 'off';
+%     handles.BaseImagMenu.Enable = 'on';
+% else
+% %     handles.LambdaMenu.Enable = 'off';
+%     handles.BaseImagMenu.Enable = 'off';
+%     handles.UsersBaseImagEdit.Enable = 'on';
+% end
+% 
+%     handles.ReadModelingParmsFrmFile.Enable='on';
+%     handles.DefaultFuncsCB.Enable='on';
+%     
+%     handles.z0Edit.Enable='on';
+%     handles.MiuEdit.Enable='on';
+%     handles.Miu0Edit.Enable='on';
+%     handles.DefaultCB.Enable='on';
+%     
+%     
+%     handles.SingleCalcRB.Enable='on';
+%     handles.MultipleCalcRB.Enable='on';
+%     handles.CASettingsMenuItem.Enable='on';
 % hObject    handle to ResetButton (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -1644,6 +965,9 @@ setappdata(handles.output, 'SaveResults', saveRes);
 % --- Executes on button press in SaveFigCB.
 function SaveFigCB_Callback(hObject, eventdata, handles)
 graphics = getappdata(handles.output, 'graphics');
+if isempty(graphics)
+    return;
+end
 h = figure;
 set(h, 'units', 'normalized', 'outerposition', [0 0 1 1])
 colormap(graphics.Clrmp);
@@ -2130,77 +1454,6 @@ function radiobutton25_Callback(hObject, eventdata, handles)
 
 
 function NFieldEdit_Callback(hObject, eventdata, handles)
-    if all([~isnan(str2double(hObject.String)) ~isinf(str2double(hObject.String)) (str2double(hObject.String) > 1)])
-        handles.LambdaMenu.String = [
-                                {'<HTML>&#956<sub>0</sub> + &#8721;<sup>n</sup><sub>k=1</sub> &#956<sub>k</sub> &#8901; z<sup>t</sup><sub>k</sub>'},% 'Сумма состояний соседей '
-                                {'<HTML>&#956 + &#956<sub>0</sub>&#8739;<sup>1</sup>&frasl;<sub>n</sub> &#8901; &#8721;<sup>n</sup><sub>k=1</sub>z<sup>t</sup><sub>k</sub>-z<sup>*</sup>(&#956)&#8739;'}, % 'Нормированный модуль суммы (состояние соседа - z *) '
-                                {'<HTML>&#956 + &#956<sub>0</sub>&#8739;<sup>1</sup>&frasl;<sub>n</sub> &#8901; &#8721;<sup>n</sup><sub>k=1</sub>(-1<sup>k</sup>)z<sup>t</sup><sub>k</sub>&#8739;'}, % 'Модуль суммы состояний соседей с переменным знаком'
-                                {'<HTML>&#956 + &#956<sub>0</sub>(<sup>1</sup>&frasl;<sub>n</sub> &#8901; &#8721;<sup>n</sup><sub>k=1</sub>z<sup>t</sup><sub>k</sub>-z<sup>*</sup>(&#956))'}, % 'Нормированная сумма (состояние соседа - z *) '
-                                {'<HTML>&#956 + &#956<sub>0</sub>'} % 'Константа (mu0 + mu)'
-                                ];
-    else
-        handles.LambdaMenu.String = [
-                                {'<HTML>&#956 + z'}, %mu + z
-                                {'<HTML>&#956 + (&#956<sub>0</sub> &#8901; &#8739;z - z<sup>*</sup>&#8739;)'}, %mu + (mu0 * abs(z - (z*)))
-                                {'<HTML>&#956 + (&#956<sub>0</sub> &#8901; &#8739;z&#8739;)'}, %mu + (mu0 * abs(z))
-                                {'<HTML>&#956 + (&#956<sub>0</sub> &#8901; (z - z<sup>*</sup>))'}, %mu + (mu0 * (z - (z*)))
-                                {'<HTML>&#956 + &#956<sub>0</sub>'} %mu + mu0
-                                ];
-                                
-    end
-
-contParms = getappdata(handles.output,'ContParms');
-if(~isempty(regexp(handles.NFieldEdit.String,'^\d+$')))
-    if str2double(handles.NFieldEdit.String)==1
-        handles.DistributionTypeMenu.Enable='off';
-        handles.DistributStartEdit.Enable='off';
-        handles.DistributStepEdit.Enable='off';
-        handles.DistributEndEdit.Enable='off';
-        handles.Z0SourcePathButton.Enable='off';
-        handles.ReadZ0SourceButton.Enable='off';
-        handles.SquareFieldRB.Enable ='off';
-        handles.HexFieldRB.Enable='off';
-        handles.GorOrientRB.Enable ='off';
-        handles.VertOrientRB.Enable ='off';
-        handles.DefaultCACB.Enable ='off';
-        handles.CompletedBordersRB.Enable ='off';
-        handles.DeathLineBordersRB.Enable ='off';
-        handles.ClosedBordersRB.Enable ='off';
-        handles.NeumannRB.Enable ='off';
-        handles.MooreRB.Enable ='off';
-%         handles.LambdaMenu.Enable='off';
-        handles.LambdaMenu.Value=5;
-        
-        handles.DistributStartEdit.String='';
-        handles.DistributStepEdit.String='';
-        handles.DistributEndEdit.String='';
-        handles.Z0SourcePathEdit.String='';
-        
-        handles.MaxPeriodEdit.Enable='on';
-        
-    else
-        handles.DistributionTypeMenu.Enable='on';
-        handles.DistributStartEdit.Enable='on';
-        handles.DistributStepEdit.Enable='on';
-        handles.DistributEndEdit.Enable='on';
-        handles.Z0SourcePathButton.Enable='on';
-        handles.ReadZ0SourceButton.Enable='on';
-        handles.MaxPeriodEdit.Enable='off';
-        handles.SquareFieldRB.Enable = 'on';
-        handles.HexFieldRB.Enable = 'on';
-        handles.GorOrientRB.Enable = 'on';
-        handles.VertOrientRB.Enable = 'on';
-        handles.DefaultCACB.Enable = 'on';
-        handles.CompletedBordersRB.Enable = 'on';
-        handles.DeathLineBordersRB.Enable = 'on';
-        handles.ClosedBordersRB.Enable = 'on';
-        handles.NeumannRB.Enable = 'on';
-        handles.MooreRB.Enable = 'on';
-        if handles.CustomIterFuncCB.Value==0
-            handles.LambdaMenu.Enable='on';
-        end
-    end
-end
 % hObject    handle to NFieldEdit (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3107,12 +2360,12 @@ end
 function SaveParamsButton_Callback(hObject, eventdata, handles)
 
 handles.CellInfoLabel.Visible='off';
-modelingTypeParams = strcat(handles.NFieldEdit.String, handles.CalcGroup.SelectedObject.Tag);
+modelingTypeParams = hObject.UserData;
 calcParams = [];
 isObjectExist = true;
 
 switch modelingTypeParams
-    case '1SingleCalcRB'
+    case 'Point'
 
         iteratedObject = getappdata(handles.output, 'IIteratedObject');
 
@@ -3138,7 +2391,7 @@ switch modelingTypeParams
             end
         end
 
-    case 'MultipleCalcRB'
+    case 'Matrix'
         [obj] = IteratedMatrix();
         [obj] = Initialization(obj, handles);
 
@@ -3638,12 +2891,6 @@ function DefaultCB_Callback(hObject, eventdata, handles)
     handles.z0Edit.String='0+0i';
     handles.MiuEdit.String='1+0i';
     handles.Miu0Edit.String='0.25i+0';
-    if str2double(handles.NFieldEdit.String)~=1
-        handles.DistributionTypeMenu.Value=1;
-        handles.DistributStartEdit.String='0';
-        handles.DistributStepEdit.String='1';
-        handles.DistributEndEdit.String='1';
-    end
 % hObject    handle to DefaultCB (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -3993,103 +3240,6 @@ function CalcGroup_SelectionChangedFcn(hObject, eventdata, handles)
 % hObject    handle to the selected object in CalcGroup 
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-contParms=getappdata(handles.output,'ContParms');
-resProc=getappdata(handles.output,'ResProc');
-if strcmp(get(hObject,'Tag'),'SingleCalcRB')
-    contParms.SingleOrMultipleCalc=1;
-    
-    handles.ParamRePointsEdit.Enable='off';
-    handles.ParamNameMenu.Enable='off';
-    handles.ParamReDeltaEdit.Enable='off';
-    handles.ParamImDeltaEdit.Enable='off';
-    handles.ParamRePointsEdit.Enable='off';
-    handles.ParamImPointsEdit.Enable='off';
-    handles.DefaultMultiParmCB.Enable='off';
-    
-    handles.MaxPeriodEdit.String='';
-    handles.ParamReDeltaEdit.String='';
-    handles.ParamImDeltaEdit.String='';
-    handles.ParamRePointsEdit.String='';
-    handles.ParamImPointsEdit.String='';
-    
-    handles.NFieldEdit.Enable='on';
-    handles.SquareFieldRB.Enable='on';
-    handles.HexFieldRB.Enable='on';
-    handles.GorOrientRB.Enable='on';
-    handles.VertOrientRB.Enable='on';
-    handles.DefaultCACB.Enable='on';
-    handles.CompletedBordersRB.Enable='on';
-    handles.DeathLineBordersRB.Enable='on';
-    handles.ClosedBordersRB.Enable='on';
-    
-    handles.DistributionTypeMenu.Enable='on';
-    handles.DistributStartEdit.Enable='on';
-    handles.DistributStepEdit.Enable='on';
-    handles.DistributEndEdit.Enable='on';
-    
-    handles.Z0SourcePathButton.Enable='on';
-    handles.ReadZ0SourceButton.Enable='on';
-    
-    handles.NeumannRB.Enable = 'on';
-    handles.MooreRB.Enable = 'on';
-    
-else
-    contParms.SingleOrMultipleCalc=0;
-    
-    
-    handles.MaxPeriodEdit.Enable='on';
-    handles.ParamRePointsEdit.Enable='on';
-    handles.ParamNameMenu.Enable='on';
-    handles.ParamReDeltaEdit.Enable='on';
-    handles.ParamImDeltaEdit.Enable='on';
-    handles.ParamRePointsEdit.Enable='on';
-    handles.ParamImPointsEdit.Enable='on';
-    handles.DefaultMultiParmCB.Enable='on';
-    
-    handles.NFieldEdit.String='';
-    handles.NFieldEdit.Enable='off';
-    NFieldEdit_Callback(handles.NFieldEdit, [], handles);
-    handles.SquareFieldRB.Enable='off';
-    handles.HexFieldRB.Enable='off';
-    handles.GorOrientRB.Enable='off';
-    handles.VertOrientRB.Enable='off';
-    handles.DefaultCACB.Enable='off';
-    handles.CompletedBordersRB.Enable='off';
-    handles.DeathLineBordersRB.Enable='off';
-    handles.ClosedBordersRB.Enable='off';
-    
-    handles.DistributStartEdit.String='';
-    handles.DistributStepEdit.String='';
-    handles.DistributEndEdit.String='';
-    handles.DistributStartEdit.Enable='off';
-    handles.DistributStepEdit.Enable='off';
-    handles.DistributEndEdit.Enable='off';
-    handles.DistributionTypeMenu.Enable='off';
-    
-    handles.Z0SourcePathButton.Enable='off';
-    handles.ReadZ0SourceButton.Enable='off';
-    
-    handles.NeumannRB.Enable='off';
-    handles.MooreRB.Enable='off';
-    
-end
-
-if handles.CustomIterFuncCB.Value==1
-    handles.BaseImagMenu.Enable='off';
-%     handles.LambdaMenu.Enable='off';
-    
-    handles.UsersBaseImagEdit.Enable='on';
-else
-    handles.BaseImagMenu.Enable='on';
-    handles.LambdaMenu.Enable='on';
-    
-    handles.UsersBaseImagEdit.Enable='off';
-    handles.UsersBaseImagEdit.String='';
-end
-
-handles.DefaultCB.Value=0;
-setappdata(handles.output,'ContParms',contParms);
-setappdata(handles.output,'ResProc',resProc);
 
 
 % --- Executes on selection change in DistributionTypeMenu.
@@ -4373,232 +3523,12 @@ function edit138_CreateFcn(hObject, eventdata, handles)
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
-       
-
-
-% --- Executes on button press in SaveAllModelParamsB.
-function SaveAllModelParamsB_Callback(hObject, eventdata, handles)
-
-if isempty(handles.SaveResPathEdit.String) || ~ischar(handles.SaveResPathEdit.String) || length(handles.SaveResPathEdit.String)==1
-     errordlg('Ошибка. Не задана директория сохранения результатов.');
-    return;
-end
-ResProc=getappdata(handles.output,'ResProc');
-ResProc.ResPath=handles.SaveResPathEdit.String;
-CurrCA=getappdata(handles.output,'CurrCA');
-ContParms=getappdata(handles.output,'ContParms');
-FileWasRead=getappdata(handles.output,'FileWasRead');
-param=[];
-if ContParms.SingleOrMultipleCalc
-    if FileWasRead
-        param=handles.Z0SourcePathEdit.String;
-    else
-        if CurrCA.N~=1
-            distrStart=str2double(handles.DistributStartEdit.String);
-            distrStep=str2double(handles.DistributStepEdit.String);
-            distrEnd=str2double(handles.DistributEndEdit.String);
-            ContParms.ReRangeWindow=real(distrStart):distrStep:real(distrEnd);
-            ContParms.ImRangeWindow=imag(distrStart):distrStep:imag(distrEnd);
-            param=handles.DistributionTypeMenu.Value;
-        else
-            param=0;
-        end
-    end
-end
-
-fn = SaveParms(ResProc, CurrCA, ContParms,param);
-msgbox(strcat('Параметры моделирования были успешно сохранены в файл ',fn),'modal');
-
-% hObject    handle to SaveAllModelParamsB (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
 
 % --------------------------------------------------------------------
 function FileMenuItem_Callback(hObject, eventdata, handles)
 % hObject    handle to FileMenuItem (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-
-
-% --------------------------------------------------------------------
-function ReadModelingParmsFrmFile_Callback(hObject, eventdata, handles)
-[file,path] = uigetfile('*.txt');
-path=strcat(path,file);
-if file==0
-    return;
-end
-
-fileID = fopen(path, 'r');
-data = textscan(fileID,'%s');
-data=data{1,1};
-if cell2mat(data(1))=='1'
-    if length(data)~=16 && length(data)~=13
-        fclose(fileID);
-        errordlg('Ошибка. Неправильный формат данных в файле.','modal');
-        return;
-    end
-    ResProc=getappdata(handles.output,'ResProc');
-    CurrCA=getappdata(handles.output,'CurrCA');
-    ContParms=getappdata(handles.output,'ContParms');
-    ContParms.SingleOrMultipleCalc=1;
-    
-    handles.SingleCalcRB.Value=1;
-    CalcGroup_SelectionChangedFcn(handles.SingleCalcRB, [], handles)
-    
-    CurrCA.FieldType=str2double(cell2mat(data(2)));
-    ResultsProcessing.GetSetFieldOrient(CurrCA.FieldType);
-    if CurrCA.FieldType
-        handles.HexFieldRB.Value=1;
-    else
-        handles.SquareFieldRB.Value=1;
-    end
-    
-    CurrCA.BordersType=str2double(cell2mat(data(3)));
-    switch  CurrCA.BordersType
-        case 1
-            handles.DeathLineBordersRB.Value=1;
-        case 2
-            handles.CompletedBordersRB.Value=1;
-        case 3
-            handles.ClosedBordersRB.Value=1;
-    end
-    
-    ResultsProcessing.GetSetCellOrient(str2double(cell2mat(data(4))));
-    switch ResultsProcessing.GetSetCellOrient
-        case 0
-            handles.InvisibleRB.Value=1;
-        case 1
-            handles.VertOrientRB.Value=1;
-        case 2
-            handles.GorOrientRB.Value=1;
-    end
-    CurrCA.N=str2double(cell2mat(data(5)));
-    handles.NFieldEdit.String=num2str(CurrCA.N);
-    
-    CurrCA.Base=str2func(cell2mat(data(6)));
-    switch func2str(CurrCA.Base)
-        case '@(z)(exp(i*z))'
-            handles.BaseImagMenu.Value=1;
-        case '@(z)(z^2+Miu)'
-            handles.BaseImagMenu.Value=2;
-        otherwise
-            handles.BaseImagMenu.Value=3;
-            handles.UsersBaseImagEdit.String=strrep(func2str(CurrCA.Base),'@(z)','');
-    end
-    BaseImagMenu_Callback(handles.BaseImagMenu, [], handles)
-    
-    CurrCA.Lambda=str2func(cell2mat(data(7)));
-    switch func2str(CurrCA.Lambda)
-        case '@(z_k)Miu0+sum(z_k)'
-            handles.LambdaMenu.Value=1;
-        case '@(z_k)Miu+Miu0*(abs(sum(z_k-Zbase)/(length(z_k))))'
-            handles.LambdaMenu.Value=2;
-        case '@(z_k,n)Miu+Miu0*abs(sum(arrayfun(@(z_n,o)o*z_n ,z_k,n)))'
-            handles.LambdaMenu.Value=3;
-        case '@(z_k)Miu+Miu0*(sum(z_k-Zbase)/(length(z_k)))'
-            handles.LambdaMenu.Value=4;
-    end
-    
-    CurrCA.Zbase=str2double(cell2mat(data(8)));
-    
-    CurrCA.Miu0=str2double(cell2mat(data(9)));
-    handles.Miu0Edit.String=num2str(CurrCA.Miu0);
-    
-    CurrCA.Miu=str2double(cell2mat(data(10)));
-    handles.MiuEdit.String=num2str(CurrCA.Miu);
-    if CurrCA.N~=1
-        if length(cell2mat(data(11)))>1
-            handles.Z0SourcePathEdit.String=cell2mat(data(11));
-            handles.InfValueEdit.String=cell2mat(data(12));
-            handles.ConvergValueEdit.String=strrep(cell2mat(data(13)),'1e-','');
-        else
-            handles.DistributionTypeMenu.Value=str2double(cell2mat(data(11)));
-            handles.DistributStartEdit.String=strrep(cell2mat(data(12)),':','');
-            handles.DistributStepEdit.String=strrep(cell2mat(data(13)),':','');
-            handles.DistributEndEdit.String=strrep(cell2mat(data(14)),':','');
-            handles.InfValueEdit.String=cell2mat(data(15));
-            handles.ConvergValueEdit.String=strrep(cell2mat(data(16)),'1e-','');
-        end
-    else
-        NFieldEdit_Callback(handles.NFieldEdit, [], handles);
-        handles.InfValueEdit.String=cell2mat(data(11));
-        handles.ConvergValueEdit.String=strrep(cell2mat(data(12)),'1e-','');
-        handles.MaxPeriodEdit.String=cell2mat(data(13));
-    end
-else
-    if cell2mat(data(1))=='0'
-        if  length(data)~=12
-            fclose(fileID);
-            errordlg('Ошибка. Неправильный формат данных в файле.','modal');
-            return;
-        end
-        ResProc=getappdata(handles.output,'ResProc');
-        CurrCA=getappdata(handles.output,'CurrCA');
-        ContParms=getappdata(handles.output,'ContParms');
-        ContParms.SingleOrMultipleCalc=0;
-        
-        handles.MultipleCalcRB.Value=1;
-        CalcGroup_SelectionChangedFcn(handles.MultipleCalcRB, [], handles)
-        
-        CurrCA.Zbase=str2double(cell2mat(data(2)));
-        
-        ContParms.ImageFunc=str2func(cell2mat(data(3)));
-        
-        ContParms.SingleParams=[str2double(cell2mat(data(4))) str2double(cell2mat(data(5)))];
-        
-        ContParms.WindowParamName=cell2mat(data(6));
-        
-        WindowStartNum=str2double(strrep(cell2mat(data(7)),':',''));
-        WindowStepNum=str2double(strrep(cell2mat(data(8)),':',''));
-        WindowEndNum=str2double(strrep(cell2mat(data(9)),':',''));
-        
-        RealWindow=real(WindowStartNum):real(WindowStepNum):real(WindowEndNum);
-        ImagWindow=imag(WindowStartNum):imag(WindowStepNum):imag(WindowEndNum);
-        
-        DeltaRe=real(WindowEndNum-WindowStartNum);
-        DeltaIm=imag(WindowEndNum-WindowStartNum);
-        PointsReCount=DeltaRe/real(WindowStepNum);
-        PointsImCount=DeltaIm/imag(WindowStepNum);
-        
-        handles.ParamReDeltaEdit.String=num2str(DeltaRe/2);
-        handles.ParamRePointsEdit.String=num2str(PointsReCount);
-        
-        handles.ParamImDeltaEdit.String=num2str(DeltaIm/2);
-        handles.ParamImPointsEdit.String=num2str(PointsImCount);
-        
-        switch ContParms.WindowParamName
-            case 'z0'
-                handles.SingleParamNameMenu.Value=1;
-                handles.z0Edit.String=num2str(complex(mean(RealWindow),mean(ImagWindow)));
-                handles.MiuEdit.String=num2str(ContParms.SingleParams(1));
-                handles.Miu0Edit.String=num2str(ContParms.SingleParams(2));
-            case 'Miu'
-                handles.SingleParamNameMenu.Value=2;
-                handles.MiuEdit.String=num2str(complex(mean(RealWindow),mean(ImagWindow)));
-                handles.z0Edit.String=num2str(ContParms.SingleParams(1));
-                handles.Miu0Edit.String=num2str(ContParms.SingleParams(2));
-        end
-        
-        handles.InfValueEdit.String=cell2mat(data(10));
-        handles.ConvergValueEdit.String=strrep(cell2mat(data(11)),'1e-','');
-        handles.MaxPeriodEdit.String=cell2mat(data(12));
-    else
-        errordlg('Ошибка. Неправильный формат данных в файле.','modal');
-        return;
-    end
-end
-
-setappdata(handles.output,'CurrCA',CurrCA);
-setappdata(handles.output,'ContParms',ContParms);
-setappdata(handles.output,'ResProc',ResProc);
-fclose(fileID);
-
-% hObject    handle to ReadModelingParmsFrmFile (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-
 
 function ConvergValueEdit_Callback(hObject, eventdata, handles)
 % hObject    handle to ConvergValueEdit (see GCBO)
@@ -4877,18 +3807,24 @@ end
 
 % --- Executes on button press in DefaultCACB.
 function DefaultCACB_Callback(hObject, eventdata, handles)
-CurrCA=getappdata(handles.output,'CurrCA');
-ResultsProcessing.GetSetFieldOrient(0);
-ResultsProcessing.GetSetCellOrient(0);
-CurrCA.FieldType=0;
-CurrCA.BordersType=2;
-CurrCA.N=5;
-handles.NFieldEdit.String='5';
-handles.SquareFieldRB.Value=1;
-handles.InvisibleRB.Value=1;
-handles.CompletedBordersRB.Value=1;
-NFieldEdit_Callback(handles.NFieldEdit, eventdata, handles);
-setappdata(handles.output,'CurrCA',CurrCA);
+
+    handles.SquareFieldRB.Value = 1;
+    handles.FieldTypeGroup.UserData = 0;
+    handles.NFieldEdit.String = '5';
+
+    handles.GorOrientRB.Value = 0;
+    handles.VertOrientRB.Value = 0;
+    handles.HexOrientationPanel.UserData = [{@SquareCACell} -1];
+
+    handles.CompletedBordersRB.Value = 1;
+    handles.BordersTypePanel.UserData=2;
+
+    handles.NeumannRB.Value = 1;
+    newNeighborhood = NeumannNeighbourHood(handles.BordersTypePanel.UserData);
+    handles.NeighborhoodTemp.UserData = 'NeumannRB';
+
+    
+
 % hObject    handle to DefaultCACB (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -4913,18 +3849,12 @@ handles.ParamNameMenu.Value=1;
 % --- Executes on button press in DefaultFuncsCB.
 function DefaultFuncsCB_Callback(hObject, eventdata, handles)
 
-iteratedObject=getappdata(handles.output, 'IIteratedObject');
-
-if string(class(iteratedObject)) ~= "IteratedMatrix"
-    if strcmp(handles.LambdaMenu.Enable,'off')
-        handles.LambdaMenu.Value=5;
-    else
-        handles.LambdaMenu.Value=1;
-    end
-else
-    handles.LambdaMenu.Value=5;
-end
 handles.BaseImagMenu.Value=1;
+handles.LambdaMenu.Value=5;
+handles.BaseImagMenu.Enable='on';
+handles.LambdaMenu.Enable='on';
+
+handles.CustomIterFuncCB.Value = 0;
 handles.UsersBaseImagEdit.Enable='off';
 handles.UsersBaseImagEdit.String='';
 
@@ -4939,6 +3869,14 @@ handles.UsersBaseImagEdit.String='';
 function DefaultModelParmCB_Callback(hObject, eventdata, handles)
 handles.InfValueEdit.String='15';
 handles.ConvergValueEdit.String='5';
+
+if string(handles.SaveParamsButton.UserData) ~= "CA"
+    handles.IterCountEdit.String='100';
+    handles.MaxPeriodEdit.String='100';
+else
+    handles.IterCountEdit.String='5';
+    handles.MaxPeriodEdit.String='';
+end
 
 % hObject    handle to DefaultModelParmCB (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -4994,16 +3932,12 @@ function CustomIterFuncCB_Callback(hObject, eventdata, handles)
 
 if hObject.Value==1
     handles.BaseImagMenu.Enable='off';
-%     handles.LambdaMenu.Enable='off';
+    handles.LambdaMenu.Enable='off';
     
     handles.UsersBaseImagEdit.Enable='on';
 else
     handles.BaseImagMenu.Enable='on';
-    
     handles.LambdaMenu.Enable='on';
-    if handles.NFieldEdit.String=='1'
-%         handles.LambdaMenu.Enable='off';
-    end
     
     handles.UsersBaseImagEdit.Enable='off';
     handles.UsersBaseImagEdit.String='';
@@ -5116,3 +4050,776 @@ winopen('help.pdf');
 
 function aboutProg_Callback(hObject, eventdata, handles)
 about
+
+
+% --- Executes on button press in pushbutton50.
+function pushbutton50_Callback(hObject, eventdata, handles)
+% hObject    handle to pushbutton50 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
+
+function edit156_Callback(hObject, eventdata, handles)
+% hObject    handle to edit156 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of edit156 as text
+%        str2double(get(hObject,'String')) returns contents of edit156 as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function edit156_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to edit156 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+% --- Executes on button press in checkbox16.
+function checkbox16_Callback(hObject, eventdata, handles)
+% hObject    handle to checkbox16 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of checkbox16
+
+
+% --- Executes on button press in pushbutton46.
+function pushbutton46_Callback(hObject, eventdata, handles)
+% hObject    handle to pushbutton46 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
+% --- Executes on button press in pushbutton47.
+function pushbutton47_Callback(hObject, eventdata, handles)
+% hObject    handle to pushbutton47 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
+
+function edit152_Callback(hObject, eventdata, handles)
+% hObject    handle to edit152 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of edit152 as text
+%        str2double(get(hObject,'String')) returns contents of edit152 as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function edit152_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to edit152 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function edit153_Callback(hObject, eventdata, handles)
+% hObject    handle to edit153 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of edit153 as text
+%        str2double(get(hObject,'String')) returns contents of edit153 as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function edit153_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to edit153 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function edit154_Callback(hObject, eventdata, handles)
+% hObject    handle to edit154 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of edit154 as text
+%        str2double(get(hObject,'String')) returns contents of edit154 as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function edit154_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to edit154 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+% --- Executes on selection change in popupmenu32.
+function popupmenu32_Callback(hObject, eventdata, handles)
+% hObject    handle to popupmenu32 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: contents = cellstr(get(hObject,'String')) returns popupmenu32 contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from popupmenu32
+
+
+% --- Executes during object creation, after setting all properties.
+function popupmenu32_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to popupmenu32 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: popupmenu controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+% --- Executes on selection change in popupmenu33.
+function popupmenu33_Callback(hObject, eventdata, handles)
+% hObject    handle to popupmenu33 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: contents = cellstr(get(hObject,'String')) returns popupmenu33 contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from popupmenu33
+
+
+% --- Executes during object creation, after setting all properties.
+function popupmenu33_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to popupmenu33 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: popupmenu controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+% --- Executes on button press in RangeInitStateRB.
+function RangeInitStateRB_Callback(hObject, eventdata, handles)
+% hObject    handle to RangeInitStateRB (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of RangeInitStateRB
+
+
+% --- Executes on button press in FileInitStateRB.
+function FileInitStateRB_Callback(hObject, eventdata, handles)
+% hObject    handle to FileInitStateRB (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of FileInitStateRB
+
+
+% --- Executes on button press in pushbutton62.
+function pushbutton62_Callback(hObject, eventdata, handles)
+% hObject    handle to pushbutton62 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
+% --- Executes on button press in PointDefaultCB.
+function PointDefaultCB_Callback(hObject, eventdata, handles)
+handles.Pointz0Edit.String='0+0i';
+handles.PointMiuEdit.String='1+0i';
+handles.PointMiu0Edit.String='0.25i+0';
+% hObject    handle to PointDefaultCB (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
+
+function PointMiuEdit_Callback(hObject, eventdata, handles)
+% hObject    handle to PointMiuEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of PointMiuEdit as text
+%        str2double(get(hObject,'String')) returns contents of PointMiuEdit as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function PointMiuEdit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to PointMiuEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function PointMiu0Edit_Callback(hObject, eventdata, handles)
+% hObject    handle to PointMiu0Edit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of PointMiu0Edit as text
+%        str2double(get(hObject,'String')) returns contents of PointMiu0Edit as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function PointMiu0Edit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to PointMiu0Edit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function Pointz0Edit_Callback(hObject, eventdata, handles)
+% hObject    handle to Pointz0Edit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of Pointz0Edit as text
+%        str2double(get(hObject,'String')) returns contents of Pointz0Edit as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function Pointz0Edit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to Pointz0Edit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+% --- Executes on button press in PointDefaultFuncsCB.
+function PointDefaultFuncsCB_Callback(hObject, eventdata, handles)
+handles.PointBaseImagMenu.Value=1;
+handles.PointLambdaMenu.Value=5;
+handles.PointBaseImagMenu.Enable='on';
+handles.PointLambdaMenu.Enable='on';
+
+handles.PointCustomIterFuncCB.Value = 0;
+handles.PointUsersBaseImagEdit.Enable='off';
+handles.PointUsersBaseImagEdit.String='';
+% hObject    handle to PointDefaultFuncsCB (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
+
+function PointUsersBaseImagEdit_Callback(hObject, eventdata, handles)
+% hObject    handle to PointUsersBaseImagEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of PointUsersBaseImagEdit as text
+%        str2double(get(hObject,'String')) returns contents of PointUsersBaseImagEdit as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function PointUsersBaseImagEdit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to PointUsersBaseImagEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+% --- Executes on button press in PointCustomIterFuncCB.
+function PointCustomIterFuncCB_Callback(hObject, eventdata, handles)
+
+if hObject.Value==1
+    handles.PointBaseImagMenu.Enable='off';
+    handles.PointLambdaMenu.Enable='off';
+    
+    handles.PointUsersBaseImagEdit.Enable='on';
+else
+    handles.PointBaseImagMenu.Enable='on';
+    handles.PointLambdaMenu.Enable='on';
+    
+    handles.PointUsersBaseImagEdit.Enable='off';
+    handles.PointUsersBaseImagEdit.String='';
+end
+% hObject    handle to PointCustomIterFuncCB (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of PointCustomIterFuncCB
+
+
+% --- Executes on selection change in PointBaseImagMenu.
+function PointBaseImagMenu_Callback(hObject, eventdata, handles)
+% hObject    handle to PointBaseImagMenu (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: contents = cellstr(get(hObject,'String')) returns PointBaseImagMenu contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from PointBaseImagMenu
+
+
+% --- Executes during object creation, after setting all properties.
+function PointBaseImagMenu_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to PointBaseImagMenu (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: popupmenu controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+% --- Executes on selection change in PointLambdaMenu.
+function PointLambdaMenu_Callback(hObject, eventdata, handles)
+% hObject    handle to PointLambdaMenu (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: contents = cellstr(get(hObject,'String')) returns PointLambdaMenu contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from PointLambdaMenu
+
+
+% --- Executes during object creation, after setting all properties.
+function PointLambdaMenu_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to PointLambdaMenu (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: popupmenu controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+% --- Executes on button press in MultiDefaultFuncsCB.
+function MultiDefaultFuncsCB_Callback(hObject, eventdata, handles)
+handles.MultiBaseImagMenu.Value=1;
+handles.MultiLambdaMenu.Value=5;
+handles.MultiBaseImagMenu.Enable='on';
+handles.MultiLambdaMenu.Enable='on';
+
+handles.MultiCustomIterFuncCB.Value = 0;
+handles.MultiUsersBaseImagEdit.Enable='off';
+handles.MultiUsersBaseImagEdit.String='';
+% hObject    handle to MultiDefaultFuncsCB (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
+
+function MultiUsersBaseImagEdit_Callback(hObject, eventdata, handles)
+% hObject    handle to MultiUsersBaseImagEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of MultiUsersBaseImagEdit as text
+%        str2double(get(hObject,'String')) returns contents of MultiUsersBaseImagEdit as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function MultiUsersBaseImagEdit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to MultiUsersBaseImagEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+% --- Executes on button press in MultiCustomIterFuncCB.
+function MultiCustomIterFuncCB_Callback(hObject, eventdata, handles)
+
+if hObject.Value==1
+    handles.MultiBaseImagMenu.Enable='off';
+    handles.MultiLambdaMenu.Enable='off';
+    
+    handles.MultiUsersBaseImagEdit.Enable='on';
+else
+    handles.MultiBaseImagMenu.Enable='on';
+    handles.MultiLambdaMenu.Enable='on';
+    
+    handles.MultiUsersBaseImagEdit.Enable='off';
+    handles.MultiUsersBaseImagEdit.String='';
+end
+% hObject    handle to MultiCustomIterFuncCB (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of MultiCustomIterFuncCB
+
+
+% --- Executes on button press in WindowParamDefaultB.
+function WindowParamDefaultB_Callback(hObject, eventdata, handles)
+handles.ParamNameMenu.Value = 1;
+handles.ParamReDeltaEdit.String = '5';
+handles.ParamImDeltaEdit.String = '5';
+handles.ParamRePointsEdit.String = '100';
+handles.ParamImPointsEdit.String = '100';
+% hObject    handle to WindowParamDefaultB (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
+% --- Executes on selection change in ParamNameMenu.
+function popupmenu35_Callback(hObject, eventdata, handles)
+% hObject    handle to ParamNameMenu (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: contents = cellstr(get(hObject,'String')) returns ParamNameMenu contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from ParamNameMenu
+
+
+% --- Executes during object creation, after setting all properties.
+function popupmenu35_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to ParamNameMenu (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: popupmenu controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+% --- Executes on button press in pushbutton58.
+function pushbutton58_Callback(hObject, eventdata, handles)
+% hObject    handle to pushbutton58 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
+% --- Executes on button press in MultiDefaultCB.
+function MultiDefaultCB_Callback(hObject, eventdata, handles)
+
+handles.Multiz0Edit.String='0+0i';
+handles.MultiMiuEdit.String='1+0i';
+handles.MultiMiu0Edit.String='0.25i+0';
+% hObject    handle to MultiDefaultCB (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
+
+function MultiMiuEdit_Callback(hObject, eventdata, handles)
+% hObject    handle to MultiMiuEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of MultiMiuEdit as text
+%        str2double(get(hObject,'String')) returns contents of MultiMiuEdit as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function MultiMiuEdit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to MultiMiuEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function MultiMiu0Edit_Callback(hObject, eventdata, handles)
+% hObject    handle to MultiMiu0Edit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of MultiMiu0Edit as text
+%        str2double(get(hObject,'String')) returns contents of MultiMiu0Edit as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function MultiMiu0Edit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to MultiMiu0Edit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function Multiz0Edit_Callback(hObject, eventdata, handles)
+% hObject    handle to Multiz0Edit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of Multiz0Edit as text
+%        str2double(get(hObject,'String')) returns contents of Multiz0Edit as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function Multiz0Edit_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to Multiz0Edit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function edit173_Callback(hObject, eventdata, handles)
+% hObject    handle to ParamRePointsEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of ParamRePointsEdit as text
+%        str2double(get(hObject,'String')) returns contents of ParamRePointsEdit as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function edit173_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to ParamRePointsEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function edit174_Callback(hObject, eventdata, handles)
+% hObject    handle to ParamReDeltaEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of ParamReDeltaEdit as text
+%        str2double(get(hObject,'String')) returns contents of ParamReDeltaEdit as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function edit174_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to ParamReDeltaEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function edit175_Callback(hObject, eventdata, handles)
+% hObject    handle to ParamImDeltaEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of ParamImDeltaEdit as text
+%        str2double(get(hObject,'String')) returns contents of ParamImDeltaEdit as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function edit175_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to ParamImDeltaEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function edit176_Callback(hObject, eventdata, handles)
+% hObject    handle to ParamImPointsEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of ParamImPointsEdit as text
+%        str2double(get(hObject,'String')) returns contents of ParamImPointsEdit as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function edit176_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to ParamImPointsEdit (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+% --- Executes on selection change in MultiBaseImagMenu.
+function MultiBaseImagMenu_Callback(hObject, eventdata, handles)
+% hObject    handle to MultiBaseImagMenu (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: contents = cellstr(get(hObject,'String')) returns MultiBaseImagMenu contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from MultiBaseImagMenu
+
+
+% --- Executes during object creation, after setting all properties.
+function MultiBaseImagMenu_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to MultiBaseImagMenu (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: popupmenu controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+% --- Executes on selection change in MultiLambdaMenu.
+function MultiLambdaMenu_Callback(hObject, eventdata, handles)
+% hObject    handle to MultiLambdaMenu (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: contents = cellstr(get(hObject,'String')) returns MultiLambdaMenu contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from MultiLambdaMenu
+
+
+% --- Executes during object creation, after setting all properties.
+function MultiLambdaMenu_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to MultiLambdaMenu (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: popupmenu controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+% --------------------------------------------------------------------
+function CalcObjMenuItem_Callback(hObject, eventdata, handles)
+% hObject    handle to CalcObjMenuItem (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
+% --------------------------------------------------------------------
+function PointObjMenuItem_Callback(hObject, eventdata, handles)
+handles.CAPanel.Visible = 'off';
+handles.MatrixPanel.Visible = 'off';
+handles.PointPanel.Visible = 'on';
+handles.SaveParamsButton.UserData = 'Point';
+handles.MaxPeriodEdit.Enable = 'on';
+
+% hObject    handle to PointObjMenuItem (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
+% --------------------------------------------------------------------
+function MatrixObjMenuItem_Callback(hObject, eventdata, handles)
+handles.CAPanel.Visible = 'off';
+handles.PointPanel.Visible = 'off';
+handles.MatrixPanel.Visible = 'on';
+handles.SaveParamsButton.UserData = 'Matrix';
+handles.MaxPeriodEdit.Enable = 'on';
+% hObject    handle to MatrixObjMenuItem (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
+% --------------------------------------------------------------------
+function CAObjMenuItem_Callback(hObject, eventdata, handles)
+handles.PointPanel.Visible = 'off';
+handles.MatrixPanel.Visible = 'off';
+handles.CAPanel.Visible = 'on';
+handles.SaveParamsButton.UserData = 'CA';
+handles.MaxPeriodEdit.Enable = 'off';
+handles.MaxPeriodEdit.String='';
+% hObject    handle to CAObjMenuItem (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
+% --- Executes when selected object is changed in InitCAStateBG.
+function InitCAStateBG_SelectionChangedFcn(hObject, eventdata, handles)
+switch hObject.Tag
+    case 'RangeInitStateRB'
+        handles.FileInitStatePanel.Visible = 'off';
+        handles.RangeInitStatePanel.Visible = 'on';
+        handles.Z0SourcePathEdit.UserData = 0;
+    case 'FileInitStateRB'
+        handles.RangeInitStatePanel.Visible = 'off';
+        handles.FileInitStatePanel.Visible = 'on';
+        handles.Z0SourcePathEdit.UserData = 1;
+end
+% hObject    handle to the selected object in InitCAStateBG 
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
+% --- Executes on button press in DefaultCAInitStateCB.
+function DefaultCAInitStateCB_Callback(hObject, eventdata, handles)
+handles.RangeInitStateRB.Value = 1;
+InitCAStateBG_SelectionChangedFcn(handles.RangeInitStateRB, [], handles);
+handles.DistributionTypeMenu.Value = 1;
+handles.DistributStartEdit.String = '1';
+handles.DistributStepEdit.String = '1';
+handles.DistributEndEdit.String = '0';
+% hObject    handle to DefaultCAInitStateCB (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)

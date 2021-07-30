@@ -1,12 +1,19 @@
-classdef SquareCACell < CA_cell
+classdef SquareCACell < CA_cell % €чейка клеточного автомата, представл€ема€ квадратом
 
     properties
+        % начальное состо€ние €чейки
         z0
+        % значени€ состо€ний €чейки дл€ каждой итерации эволюции
         ZPath
+        % флаг - €вл€етс€ ли €чейка внешней
         IsExternal
+        % соседи €чейки в окрестности
         CurrNeighbors
+        % цвет при отрисовке
         RenderColor
+        % индексы в двумерном (в общем случае зубчатом) массиве пол€  ј
         CAIndexes
+        % номер последней итерации эволюции  ј
         Step
 
         CAHandle CellularAutomat
@@ -30,6 +37,7 @@ classdef SquareCACell < CA_cell
 
         end
 
+        %установка свойства IsExternal (true - внешн€€, false - внутренн€€) на основе координат в массиве €чеек пол€
         function obj = SetIsExternal(obj)
             CAindexes = obj.CAIndexes;
             n = obj.CAHandle.N;
@@ -44,6 +52,7 @@ classdef SquareCACell < CA_cell
             [neibsArrIndexes, extraNeibsArrIndexes] = GetSquareFieldMooreNeighbs(obj);
         end
 
+        % получение индексов соседних €чеек в массиве всех €чеек пол€ с окрестностью ћура
         function [neibsArrIndexes, extraNeibsArrIndexes] = GetSquareFieldMooreNeighbs(obj)
             n = obj.CAHandle.N;
             checkDiffMatr = [
@@ -73,6 +82,7 @@ classdef SquareCACell < CA_cell
             [neibsArrIndexes, extraNeibsArrIndexes] = GetSquareFieldNeumannNeighbs(obj);
         end
 
+        % получение индексов соседних €чеек в массиве всех €чеек пол€ с окрестностью фон-Ќеймана
         function [neibsArrIndexes, extraNeibsArrIndexes] = GetSquareFieldNeumannNeighbs(obj)
             n = obj.CAHandle.N;
             checkDiffMatr = [
@@ -98,6 +108,8 @@ classdef SquareCACell < CA_cell
             neibsArrIndexes = GetSquareFieldNeumannNeighbsPlaces(obj);
         end
 
+
+        % сортировка соседних €чеек в локальной окрестности фон-Ќеймана (по местам визуально снизу по часовой)
         function neibsArrIndexes = GetSquareFieldNeumannNeighbsPlaces(obj)
             
             neibsArrIndexes = [];
@@ -137,6 +149,7 @@ classdef SquareCACell < CA_cell
             neibsArrIndexes = GetSquareFieldMooreNeighbsPlaces(obj);
         end
 
+        % сортировка соседних €чеек в локальной окрестности ћура (по местам визуально снизу по часовой)
         function neibsArrIndexes = GetSquareFieldMooreNeighbsPlaces(obj)
             
             neibsArrIndexes = [];
@@ -200,8 +213,8 @@ classdef SquareCACell < CA_cell
             
         end
 
+        % отрисовка квадратной €чейки в квадратном поле
         function [obj] = Render(obj)
-            %% ќтрисовка квадрата в квадратном поле
             x_arr = [obj.CAIndexes(2) obj.CAIndexes(2) + 1 obj.CAIndexes(2) + 1 obj.CAIndexes(2)];
             y_arr = [(obj.CAIndexes(1)) (obj.CAIndexes(1)) (obj.CAIndexes(1)) + 1 (obj.CAIndexes(1)) + 1];
 
@@ -212,31 +225,6 @@ classdef SquareCACell < CA_cell
             %%
         end
 
-    end
-
-end
-
-function res = CompareDouble(a, b)
-
-    if a > b
-        res = 1;
-    else
-
-        if a < b
-            res = -1;
-        else
-            res = 0;
-        end
-
-    end
-
-end
-
-function mustBeInRange(a, b)
-
-    if any(a(:) < b(1)) || any(a(:) > b(2))
-        error(['Value assigned to RenderColor property is not in range ', ...
-                num2str(b(1)), '...', num2str(b(2))])
     end
 
 end

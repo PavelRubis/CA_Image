@@ -11,12 +11,6 @@ classdef ModelingParams
 
         function obj = ModelingParams(iterCount, infVal, equalityVal)
 
-            arguments
-                iterCount double {mustBeInteger, mustBePositive}
-                infVal double
-                equalityVal double
-            end
-
             obj.IterCount = iterCount;
             obj.InfVal = infVal;
             obj.EqualityVal = equalityVal;
@@ -51,10 +45,6 @@ classdef ModelingParams
 
 
         function [obj] = ModelingParamsInitialization(handles)
-
-            arguments
-                handles struct
-            end
 
             errorCheck = false;
             errorStr = 'Ошибки в полях управления моделированием: ';

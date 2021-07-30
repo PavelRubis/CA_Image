@@ -10,12 +10,6 @@ classdef CAVisualisationOptions < VisualisationOptions & handle
 
         function obj = CAVisualisationOptions(colorMap, dataProcessingFunc, colorBarLabel)
 
-            arguments
-                colorMap(1, :) char
-                dataProcessingFunc function_handle
-                colorBarLabel(1, :) char
-            end
-
             obj.ColorMap = colorMap;
 
             obj.DataProcessingFunc = dataProcessingFunc;
@@ -24,12 +18,6 @@ classdef CAVisualisationOptions < VisualisationOptions & handle
         end
 
         function [res, obj, graphics] = PrepareDataAndAxes(obj, ca, handles)
-
-            arguments
-                obj CAVisualisationOptions
-                ca CellularAutomat
-                handles struct
-            end
 
             res = [];
 

@@ -8,12 +8,6 @@ classdef ModelingParamsForPath < ModelingParams
 
         function obj = ModelingParamsForPath(iterCount, infVal, equalityVal, maxPeriod)
 
-            arguments
-                iterCount double {mustBeInteger, mustBePositive}
-                infVal double
-                equalityVal double
-                maxPeriod double {mustBeInteger, mustBePositive}
-            end
             obj@ModelingParams(iterCount,infVal,equalityVal);
             obj.MaxPeriod = maxPeriod;
 
@@ -34,10 +28,6 @@ classdef ModelingParamsForPath < ModelingParams
         end
 
         function [obj] = ModelingParamsInitialization(handles)
-
-            arguments
-                handles struct
-            end
 
             errStruct = getappdata(handles.output,'errStruct');
             errStruct.msg = strcat(errStruct.msg,'Ошибки в полях управления моделированием: '); 

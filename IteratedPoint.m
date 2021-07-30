@@ -1,19 +1,29 @@
-classdef IteratedPoint < IIteratedObject & handle
+classdef IteratedPoint < IIteratedObject & handle % объект итерированной функции
 
     properties
-        IteratedFunc %function_handle;
-        IteratedFuncStr %(1, :) char;
-        InitState double = nan;
-        StatePath (1, :) double;
-        FuncParams %containers.Map;
-        Fate double = Inf;
-        LastIterNum double {mustBePositive, mustBeInteger};
 
+        % итерированная функция
+        IteratedFunc
+        % строка итерированной функцией, в которую вставляются параметры
+        IteratedFuncStr
+        % начальный аргумент итерированной функциии
+        InitState double = nan;
+        % значения итерированной функциии на каждой итерации
+        StatePath (1, :) double;
+        % словарь параметров итерированной функции
+        FuncParams
+        % "судьба" итерированной функции
+        Fate double = Inf;
+        % итерация, на которой была определена "судьба"
+        LastIterNum double {mustBePositive, mustBeInteger};
+        % последня итерация данного этапа моделирования
         Step double {mustBePositive, mustBeInteger};
+
     end
 
     methods
 
+        % конструктор объекта в памяти
         function [obj] = IteratedPoint()
 
             obj.IteratedFunc = @(z)nan;
@@ -23,15 +33,11 @@ classdef IteratedPoint < IIteratedObject & handle
 
         end
 
+        % фактический конструктор
         function [obj] = Initialization(obj, handles)
 
-            arguments
-                obj IteratedPoint
-                handles struct
-            end
-
             obj = SetInitValueAndFuncParams(obj, handles);
-            obj = IteratedPoint.GetIteratedFuncStr(obj, handles);
+            obj = GetIteratedFuncStr(obj, handles);
             [obj, errorStr] = CreateIteratedFunc(obj, handles);
             
             errStruct = struct;
@@ -40,33 +46,77 @@ classdef IteratedPoint < IIteratedObject & handle
             setappdata(handles.output, 'errStruct', errStruct);
         end
 
+        % получение итерированной функции из GUI - елементов
+        function [obj] = GetIteratedFuncStr(obj, handles)
+
+            funcStr = '';
+
+            if ~handles.PointCustomIterFuncCB.Value
+
+                switch handles.PointBaseImagMenu.Value
+                    case 1
+                        funcStr = strcat(funcStr, '@(z)(exp(i * z))');
+                    case 2
+                        funcStr = strcat(funcStr, '@(z)(z^2+mu)');
+                    case 3
+                        funcStr = strcat(funcStr, '@(z)(1)');
+
+                end
+
+                switch handles.PointLambdaMenu.Value
+
+                    case 1
+                        funcStr = strcat(funcStr, '*(mu+z)');
+                    case 2
+                        funcStr = strcat(funcStr, '*(mu+(mu0*abs(z-(eq))))');
+
+                    case 3
+                        funcStr = strcat(funcStr, '*(mu+(mu0*abs(z)))');
+
+                    case 4
+                        funcStr = strcat(funcStr, '*(mu+(mu0*(z-(eq))))');
+
+                    case 5
+                        funcStr = strcat(funcStr, '*(mu+mu0)');
+
+                end
+
+            else
+                funcStr = strcat(funcStr, '@(z)', handles.PointUsersBaseImagEdit.String);
+            end
+
+            obj.IteratedFuncStr = funcStr;
+
+        end
+
+        % установка начального аргумента и параметров итерированной функции
         function [obj] = SetInitValueAndFuncParams(obj, handles)
 
             probalyParamsNames = {'z0', 'mu0', 'mu'};
             probalyParamsValues = [];
 
-            if (~isempty(regexp(handles.z0Edit.String, '^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')))
+            if (~isempty(regexp(handles.Pointz0Edit.String, '^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')))
 
-                probalyParamsValues = [probalyParamsValues str2double(handles.z0Edit.String)];
+                probalyParamsValues = [probalyParamsValues str2double(handles.Pointz0Edit.String)];
 
-                obj.InitState = str2double(handles.z0Edit.String);
+                obj.InitState = str2double(handles.Pointz0Edit.String);
                 obj.StatePath = obj.InitState;
 
             else
                 probalyParamsValues = [probalyParamsValues nan];
             end
 
-            if (~isempty(regexp(handles.Miu0Edit.String, '^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')))
+            if (~isempty(regexp(handles.PointMiu0Edit.String, '^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')))
 
-                probalyParamsValues = [probalyParamsValues str2double(handles.Miu0Edit.String)];
+                probalyParamsValues = [probalyParamsValues str2double(handles.PointMiu0Edit.String)];
 
             else
                 probalyParamsValues = [probalyParamsValues nan];
             end
 
-            if (~isempty(regexp(handles.MiuEdit.String, '^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')))
+            if (~isempty(regexp(handles.PointMiuEdit.String, '^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')))
 
-                probalyParamsValues = [probalyParamsValues str2double(handles.MiuEdit.String)];
+                probalyParamsValues = [probalyParamsValues str2double(handles.PointMiuEdit.String)];
 
             else
                 probalyParamsValues = [probalyParamsValues nan];
@@ -80,6 +130,7 @@ classdef IteratedPoint < IIteratedObject & handle
 
         end
 
+        % валидация итерированной функции и вставка числовых значений параметров
         function [obj, errorStr] = CreateIteratedFunc(obj, handles)
 
             errorCheck = false;
@@ -144,16 +195,14 @@ classdef IteratedPoint < IIteratedObject & handle
 
         end
 
+        % выделение памяти для последующих ModelingParamsForPath.GetIterCount значений функции перед моделированием
         function [obj] = BeforeModeling(obj)
-
-            arguments
-                obj IteratedPoint
-            end
 
             obj.Step = length(obj.StatePath) + 1;
             obj.StatePath = [obj.StatePath nan(1, ModelingParamsForPath.GetIterCount)];
         end
 
+        % итерация эволюции итерированной функции
         function [obj] = Iteration(obj, calcParams)
 
             obj.StatePath(obj.Step) = obj.IteratedFunc(obj.StatePath(obj.Step - 1));
@@ -162,6 +211,7 @@ classdef IteratedPoint < IIteratedObject & handle
             
         end
 
+        % проверка на достижение какой-либо "судьбы" (0-уход в бесконечность, 1-сходимость, >1-периодичность, inf-хаос)
         function [obj] = CheckConvergence(obj, calcParams)
 
             PrecisionParms = [calcParams.InfVal calcParams.EqualityVal];
@@ -220,10 +270,12 @@ classdef IteratedPoint < IIteratedObject & handle
             obj.Fate = Inf;
         end
 
+        % проверка: если "судьба" хаотична - продолжение текущего этапа моделирования
         function check = IsContinue(obj)
             check = (obj.Fate == Inf);
         end
 
+        % 
         function [status] = GetModellingStatus(obj)
             status = true;
             
@@ -252,48 +304,7 @@ classdef IteratedPoint < IIteratedObject & handle
 
     methods (Static)
 
-        function [obj] = GetIteratedFuncStr(obj, handles)
-
-            funcStr = '';
-
-            if ~handles.CustomIterFuncCB.Value
-
-                switch handles.BaseImagMenu.Value
-                    case 1
-                        funcStr = strcat(funcStr, '@(z)(exp(i * z))');
-                    case 2
-                        funcStr = strcat(funcStr, '@(z)(z^2+mu)');
-                    case 3
-                        funcStr = strcat(funcStr, '@(z)(1)');
-
-                end
-
-                switch handles.LambdaMenu.Value
-
-                    case 1
-                        funcStr = strcat(funcStr, '*(mu+z)');
-                    case 2
-                        funcStr = strcat(funcStr, '*(mu+(mu0*abs(z-(eq))))');
-
-                    case 3
-                        funcStr = strcat(funcStr, '*(mu+(mu0*abs(z)))');
-
-                    case 4
-                        funcStr = strcat(funcStr, '*(mu+(mu0*(z-(eq))))');
-
-                    case 5
-                        funcStr = strcat(funcStr, '*(mu+mu0)');
-
-                end
-
-            else
-                funcStr = strcat(funcStr, '@(z)', handles.UsersBaseImagEdit.String);
-            end
-
-            obj.IteratedFuncStr = funcStr;
-
-        end
-
+        % расчет параметра z* (если он имеется в качестве параметра функции) на основе параметра mu и начального аргумента z0
         function zBase = calcZBase(mu)
 
             MiuStr = strcat('(', num2str(mu), ')');

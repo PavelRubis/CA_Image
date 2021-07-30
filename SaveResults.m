@@ -20,15 +20,6 @@ classdef SaveResults
 
         function obj = SaveModelingResults(obj, res, oldIteratedObject, iteratedObject, calcParms, graphics)
 
-            arguments
-                obj SaveResults
-                res(:, :) double;
-                oldIteratedObject IIteratedObject
-                iteratedObject IIteratedObject
-                calcParms ModelingParams
-                graphics struct
-            end
-
             if obj.IsSaveData
 
                 switch class(iteratedObject)
@@ -50,12 +41,6 @@ classdef SaveResults
         end
 
         function obj = SaveFig(obj, graphics, iteratedObject)
-
-            arguments
-                obj SaveResults
-                graphics struct
-                iteratedObject IIteratedObject
-            end
 
             fig = graphics.Axs;
 
@@ -96,13 +81,6 @@ classdef SaveResults
         end
 
         function obj = SavePointPath(obj, res, point, calcParms)
-
-            arguments
-                obj SaveResults
-                res(2, :) double;
-                point IteratedPoint
-                calcParms ModelingParamsForPath
-            end
 
             point.StatePath = point.StatePath(find(~isnan(point.StatePath)));
 
@@ -362,14 +340,6 @@ classdef SaveResults
 
         function WritePointPathTable2Txt(fileName, iters, res, point, pointOrRes)
 
-            arguments
-                fileName(1, :) char
-                iters(1, :) double
-                res(:, :) double
-                point IteratedPoint
-                pointOrRes logical
-            end
-
             if pointOrRes
                 iters = 1:length(point.StatePath);
                 res = [arrayfun(@(iter) {iter}, iters); arrayfun(@(zPathItem) {num2str(real(zPathItem), '%.8e')}, point.StatePath); arrayfun(@(zPathItem) {num2str(imag(zPathItem), '%.8e')}, point.StatePath)];
@@ -424,10 +394,6 @@ classdef SaveResults
 
         function check = IsCustomResultsPath(obj)
 
-            arguments
-                obj SaveResults
-            end
-
             check = true;
 
             if (obj.IsSaveData && (isempty(obj.ResultsPath) || ~ischar(obj.ResultsPath)))
@@ -436,15 +402,12 @@ classdef SaveResults
 
         end
 
+        % —”œ≈– √≈Õ»¿À‹Õ€≈ Ã≈“Œƒ€ ƒÀﬂ «¿œ»—» ÀﬁŒ… —“–” “”–€ ƒ¿ÕÕ€’ ¬ “≈ —“Œ¬€… ◊≈–≈« cell,table 
+        % ÕŒ ¬ ÕŒ¬€’ ¬≈–—»ﬂ’ Ã¿“–À¿¡¿ “¿ Œ≈ ”∆≈ ≈—“‹
+
         %{
 
 function writePointResults(fileName, iters, res)
-
-            arguments
-                fileName (1, :) char
-                iters (1, :) double
-                res (2, :) double
-            end
 
             iters = iters';
             res = res';
@@ -460,12 +423,6 @@ function writePointResults(fileName, iters, res)
 
 function len = writeMatrix2txt(filename, matrix, delimiter)
 
-            arguments
-                filename (1, :) char
-                matrix (:, :) double
-                delimiter (1, :) char
-            end
-
             lenArr = arrayfun(@(col) SaveResults.getLongestItemLength(col{1}), SaveResults.getMatrixColumns(matrix));
 
             formattedRows = arrayfun(@(row) SaveResults.getFormattedRow(row{1}, delimiter, lenArr), SaveResults.getMatrixRows(matrix));
@@ -476,23 +433,11 @@ function len = writeMatrix2txt(filename, matrix, delimiter)
 
 function formattedRow = getFormattedRow(row, delimiter, longestItemsLength)
 
-            arguments
-                row (1, :) double;
-                delimiter (1, :) char;
-                longestItemsLength (1, :) double;
-            end
-
             formattedRow = {arrayfun(@(item, len) {SaveResults.getFormattedItem(item, len, delimiter)}, row, longestItemsLength)};
 
         end
 
 function formattedItem = getFormattedItem(item, longestItemLen, baseDelimiter)
-
-            arguments
-                item double;
-                longestItemLen double;
-                baseDelimiter (1, :) char;
-            end
 
             spaceSign = ' ';
             itemStr = num2str(item, '%.8e');
@@ -511,29 +456,17 @@ function formattedItem = getFormattedItem(item, longestItemLen, baseDelimiter)
 
 function rows = getMatrixRows(matrix)
 
-            arguments
-                matrix (:, :) double;
-            end
-
             rows = arrayfun(@(ind) {matrix(ind, :)}, 1:length(matrix(:, 1)));
 
         end
 
 function cols = getMatrixColumns(matrix)
 
-            arguments
-                matrix (:, :) double;
-            end
-
             cols = arrayfun(@(ind) {matrix(:, ind)}, 1:length(matrix(1, :)));
 
         end
 
 function len = getLongestItemLength(matrixColumn)
-
-            arguments
-                matrixColumn (1, :) double;
-            end
 
             len = max(arrayfun(@(item) length(cell2mat(item)), arrayfun(@(item) {num2str(item, '%.8e')}, matrixColumn)));
 

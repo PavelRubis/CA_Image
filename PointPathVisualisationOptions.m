@@ -14,15 +14,6 @@ classdef PointPathVisualisationOptions < VisualisationOptions & handle
 
         function obj = PointPathVisualisationOptions(colorMap, xAxesdataProcessingFunc, yAxesdataProcessingFunc, xAxescolorMapLabel, yAxescolorMapLabel, visualpath)
 
-            arguments
-                colorMap (1, :) char
-                xAxesdataProcessingFunc function_handle
-                yAxesdataProcessingFunc function_handle
-                xAxescolorMapLabel (1, :) char
-                yAxescolorMapLabel (1, :) char
-                visualpath (:, :) double
-            end
-
             obj.ColorMap = colorMap;
 
             obj.XAxesdataProcessingFunc = xAxesdataProcessingFunc;
@@ -34,12 +25,6 @@ classdef PointPathVisualisationOptions < VisualisationOptions & handle
         end
 
         function [newPathPart obj graphics] = PrepareDataAndAxes(obj, point, handles)
-
-            arguments
-                obj PointPathVisualisationOptions
-                point IteratedPoint
-                handles struct
-            end
 
             str = strcat({'Точка'},{' '}, {num2str(point.InitState)});
 
@@ -78,12 +63,6 @@ classdef PointPathVisualisationOptions < VisualisationOptions & handle
         end
 
         function graphics = FormatAndPlotPath(obj, point, handles)
-
-            arguments
-                obj PointPathVisualisationOptions
-                point IteratedPoint
-                handles struct
-            end
 
             graphics.Axs = handles.CAField;
 
@@ -172,12 +151,6 @@ classdef PointPathVisualisationOptions < VisualisationOptions & handle
         check
 
         function MakeTitle(obj, point, handles)
-
-            arguments
-                obj PointPathVisualisationOptions
-                point IteratedPoint
-                handles struct
-            end
 
             titleStr = strcat('z\rightarrow', strrep(point.IteratedFuncStr, '@(z)', ''));
 

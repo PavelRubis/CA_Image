@@ -1,19 +1,29 @@
-classdef HexagonCACell < CA_cell
+classdef HexagonCACell < CA_cell % €чейка клеточного автомата, представл€ема€ гексагоном
 
     properties
+        % начальное состо€ние €чейки
         z0
+        % значени€ состо€ний €чейки дл€ каждой итерации эволюции
         ZPath
+        % флаг - €вл€етс€ ли €чейка внешней
         IsExternal
+        % соседи €чейки в окрестности
         CurrNeighbors
+        % цвет при отрисовке
         RenderColor
+        % индексы в двумерном (в общем случае зубчатом) массиве пол€  ј
         CAIndexes
+        % номер последней итерации эволюции  ј
         Step
-        %temporal
+        % номер "кольца", состо€щего из гексагональных €чеек к которому принадлежит данна€ €чейка
         HexRingNum double {mustBeInteger} = 0
-        %temporal
+        % указатель на  ј
         CAHandle CellularAutomat
+        % индексы i,j,k (нужны только дл€ внешних €чеек) дл€ поиска всех соседей в поле с цикличными границами 
         Indexes (1, 3) double
+        % ориентаци€ гексагона, представл€емого €чейкой
         CellOrientation logical
+        % тип пол€  ј (0-квадратное, 1-гексагональное)
         FieldType logical
     end
 
@@ -40,6 +50,7 @@ classdef HexagonCACell < CA_cell
 
         end
 
+        % определение свойства IsExternal (true - внешн€€, false - внутренн€€) на основе координат в массиве €чеек пол€
         function [obj] = SetIsExternal(obj)
             if obj.FieldType
                obj = SetIsExternalHex(obj);
@@ -48,6 +59,7 @@ classdef HexagonCACell < CA_cell
             end
         end
         
+        % определение свойства IsExternal на основе координат в массиве €чеек квадратного пол€
         function [obj] = SetIsExternalSquare(obj)
             CAindexes = obj.CAIndexes;
             n = obj.CAHandle.N;
@@ -58,6 +70,7 @@ classdef HexagonCACell < CA_cell
             end
         end
 
+        % определение свойства IsExterna на основе координат в массиве €чеек гексагонального пол€
         function [obj] = SetIsExternalHex(obj)
 
             rowLength = length(find(arrayfun(@(caCell)caCell.CAIndexes(1) == obj.CAIndexes(1),obj.CAHandle.Cells)));
@@ -70,6 +83,7 @@ classdef HexagonCACell < CA_cell
             end
         end
         
+        % определение номера "кольца", которому принадлежит €чейка 
         function [obj] = RingNumSet(obj)
 
             for ringNum=0:(obj.CAHandle.N - 1)
@@ -86,11 +100,8 @@ classdef HexagonCACell < CA_cell
             end
         end
 
+        % определение индексов i,j,k
         function [obj] = SetCellIndexes(obj)
-
-            arguments
-                obj HexagonCACell
-            end
 
             if obj.IsExternal
                 N = obj.CAHandle.N;
@@ -260,6 +271,7 @@ classdef HexagonCACell < CA_cell
             [neibsArrIndexes, extraNeibsArrIndexes] = GetSquareFieldMooreNeighbs(obj);
         end
 
+        % получение (поиск в массиве всех €чеек пол€) соседних €чеек в окрестности ћура в квадратном поле
         function [neibsArrIndexes, extraNeibsArrIndexes] = GetSquareFieldMooreNeighbs(obj)
             
             checkDiffMatr = [
@@ -320,6 +332,7 @@ classdef HexagonCACell < CA_cell
             end
         end
         
+        % получение соседних €чеек, обусловленных циклическими границами в окрестности ћура в квадратном поле
         function neibsArrIndexes = extraSquareMooreNeighborsPlaces(obj, neibsArrIndexes)
 
             n = obj.CAHandle.N;
@@ -871,10 +884,9 @@ classdef HexagonCACell < CA_cell
             else
                 if obj.CellOrientation
                     %% ќтрисовка вертикального гексагона в квадратном поле
-                    x0 = obj.CAIndexes(1, 1); % визуальна€ координата на оси x
-                    y0 = obj.CAIndexes(1, 2); % визуальна€ координата на оси y
+                    x0 = obj.CAIndexes(1, 1);
+                    y0 = obj.CAIndexes(1, 2);
 
-                    %расчет шести точек гексагона на экране
                     if (x0)
                         x0 = x0 + (x0 * sqrt(3) - x0);
                     end
@@ -901,10 +913,9 @@ classdef HexagonCACell < CA_cell
                     %%
                 else
                     %% ќтрисовка горизонтального гексагона в квадратном поле
-                    x0 = obj.CAIndexes(1, 1); % визуальна€ координата на оси x
-                    y0 = obj.CAIndexes(1, 2); % визуальна€ координата на оси y
+                    x0 = obj.CAIndexes(1, 1);
+                    y0 = obj.CAIndexes(1, 2);
 
-                    %расчет шести точек гексагона на экране
                     if (y0)
                         y0 = y0 + (y0 * sqrt(3) - y0);
                     end

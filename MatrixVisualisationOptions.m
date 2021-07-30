@@ -4,21 +4,11 @@ classdef MatrixVisualisationOptions < VisualisationOptions
 
         function obj = MatrixVisualisationOptions(colorMap)
 
-            arguments
-                colorMap (1, :) char
-            end
-
             obj.ColorMap = colorMap;
 
         end
 
         function [res, obj, graphics] = PrepareDataAndAxes(obj, matr, handles)
-
-            arguments
-                obj MatrixVisualisationOptions
-                matr IteratedMatrix
-                handles struct
-            end
 
             res = [];
 
@@ -90,12 +80,6 @@ classdef MatrixVisualisationOptions < VisualisationOptions
         end
 
         function MakeTitle(obj, matr, handles)
-
-            arguments
-                obj MatrixVisualisationOptions
-                matr IteratedMatrix
-                handles struct
-            end
 
             paramsSubStr = matr.ConstIteratedFuncStr(1:find(matr.ConstIteratedFuncStr == ')', 1, 'first'));
             titleStr = strcat('z\rightarrow', strrep(matr.ConstIteratedFuncStr, paramsSubStr, ''));

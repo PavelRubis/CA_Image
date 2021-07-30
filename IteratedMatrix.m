@@ -44,7 +44,7 @@ classdef IteratedMatrix < IIteratedObject
                 return
             end
 
-            obj = IteratedPoint.GetIteratedFuncStr(obj, handles);
+            obj = GetIteratedFuncStr(obj, handles);
             obj.ConstIteratedFuncStr = obj.IteratedFuncStr;
             
             [obj, errStruct] = CreateIteratedFunc(obj, errStruct);
@@ -53,6 +53,48 @@ classdef IteratedMatrix < IIteratedObject
                 obj = [];
                 setappdata(handles.output, 'errStruct', errStruct);
             end
+
+        end
+        
+        function [obj] = GetIteratedFuncStr(obj, handles)
+
+            funcStr = '';
+
+            if ~handles.MultiCustomIterFuncCB.Value
+
+                switch handles.MultiBaseImagMenu.Value
+                    case 1
+                        funcStr = strcat(funcStr, '@(z)(exp(i * z))');
+                    case 2
+                        funcStr = strcat(funcStr, '@(z)(z^2+mu)');
+                    case 3
+                        funcStr = strcat(funcStr, '@(z)(1)');
+
+                end
+
+                switch handles.MultiLambdaMenu.Value
+
+                    case 1
+                        funcStr = strcat(funcStr, '*(mu+z)');
+                    case 2
+                        funcStr = strcat(funcStr, '*(mu+(mu0*abs(z-(eq))))');
+
+                    case 3
+                        funcStr = strcat(funcStr, '*(mu+(mu0*abs(z)))');
+
+                    case 4
+                        funcStr = strcat(funcStr, '*(mu+(mu0*(z-(eq))))');
+
+                    case 5
+                        funcStr = strcat(funcStr, '*(mu+mu0)');
+
+                end
+
+            else
+                funcStr = strcat(funcStr, '@(z)', handles.MultiUsersBaseImagEdit.String);
+            end
+
+            obj.IteratedFuncStr = funcStr;
 
         end
 
@@ -187,25 +229,25 @@ classdef IteratedMatrix < IIteratedObject
             probalyParamsNames = {'z0', 'mu0', 'mu'};
             probalyParamsValues = [];
 
-            if (~isempty(regexp(handles.z0Edit.String, '^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')))
+            if (~isempty(regexp(handles.Multiz0Edit.String, '^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')))
 
-                probalyParamsValues = [probalyParamsValues {handles.z0Edit.String}];
-
-            else
-                probalyParamsValues = [probalyParamsValues {'nan'}];
-            end
-
-            if (~isempty(regexp(handles.Miu0Edit.String, '^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')))
-
-                probalyParamsValues = [probalyParamsValues {handles.Miu0Edit.String}];
+                probalyParamsValues = [probalyParamsValues {handles.Multiz0Edit.String}];
 
             else
                 probalyParamsValues = [probalyParamsValues {'nan'}];
             end
 
-            if (~isempty(regexp(handles.MiuEdit.String, '^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')))
+            if (~isempty(regexp(handles.MultiMiu0Edit.String, '^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')))
 
-                probalyParamsValues = [probalyParamsValues {handles.MiuEdit.String}];
+                probalyParamsValues = [probalyParamsValues {handles.MultiMiu0Edit.String}];
+
+            else
+                probalyParamsValues = [probalyParamsValues {'nan'}];
+            end
+
+            if (~isempty(regexp(handles.MultiMiuEdit.String, '^[-\+]?\d+(\.)?(?(1)\d+|)(i)?([-\+]\d+(\.)?((?<=\.)\d+|)(?(3)|i))?$')))
+
+                probalyParamsValues = [probalyParamsValues {handles.MultiMiuEdit.String}];
 
             else
                 probalyParamsValues = [probalyParamsValues {'nan'}];

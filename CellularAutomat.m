@@ -1,20 +1,30 @@
-classdef CellularAutomat < IIteratedObject & handle
+classdef CellularAutomat < IIteratedObject & handle % объект клеточного автомата
 
     properties
 
+        % итерированна€ функци€
         IteratedFunc
+        % словарь параметров итерированной функции
         FuncParams
+        % строка итерированной функцией, в которую вставл€ютс€ параметры
         IteratedFuncStr
 
-        Cells %массив всех €чеек на поле
-        Neighborhood % тип окрестности
-        N double {mustBePositive, mustBeInteger} % ребро пол€
-        Weights(1, :) double = [1, 1, 1, 1, 1] % массив весов всех соседей и центральной €чейки
+        % массив всех €чеек на поле
+        Cells
+        % тип окрестности
+        Neighborhood
+        % ребро пол€
+        N double {mustBePositive, mustBeInteger}
+        % массив весов всех соседей и центральной €чейки
+        Weights(1, :) double = [1, 1, 1, 1, 1]
+        % посто€нна€ строка с общим видом итерированной функции
         ConstIteratedFuncStr(1, :) char
+        
     end
 
     methods
 
+        % конструктор объекта в пам€ти
         function obj = CellularAutomat()
 
             obj.IteratedFunc = @(z, neibs, oness)nan;
@@ -23,12 +33,8 @@ classdef CellularAutomat < IIteratedObject & handle
 
         end
 
+        % фактический конструктор
         function obj = Initialization(obj, handles)
-
-            arguments
-                obj CellularAutomat
-                handles struct
-            end
 
             errStruct.check = 0;
             errStruct.msg = 'ќшибки в текстовых пол€х параметров: ';
@@ -65,13 +71,10 @@ classdef CellularAutomat < IIteratedObject & handle
 
 
         function [obj] = BeforeModeling(obj)
-
-            arguments
-                obj CellularAutomat
-            end
             obj = obj;
         end
 
+        % установка длины ребра пол€ и типа окрестности
         function errStruct = SetMainProperties(obj, handles, errStruct)
 
             if isempty(regexp(handles.NFieldEdit.String, '^\d+$')) || str2double(handles.NFieldEdit.String) < 3
@@ -84,6 +87,7 @@ classdef CellularAutomat < IIteratedObject & handle
             obj.Neighborhood = getappdata(handles.output, 'Neighborhood');
         end
 
+        % установка параметров итерированной функции
         function SetFuncParams(obj, handles)
 
             probalyParamsNames = {'z0', 'mu0', 'mu'};
@@ -121,6 +125,7 @@ classdef CellularAutomat < IIteratedObject & handle
 
         end
 
+        % получение итерированной функции из GUI - елементов
         function GetIteratedFuncStr(obj, handles)
 
             funcStr = '';
@@ -163,6 +168,7 @@ classdef CellularAutomat < IIteratedObject & handle
 
         end
 
+        % валидаци€ итерированной функции и вставка числовых значений параметров
         function errStruct = CheckIteratedFuncStr(obj, errStruct)
 
             funcParamsNames = keys(obj.FuncParams);
@@ -262,12 +268,8 @@ classdef CellularAutomat < IIteratedObject & handle
             obj.IteratedFuncStr = iteratedFuncStr;
         end
 
+        % создание пол€ клеточного автомата
         function CreateCAField(obj, handles)
-
-            arguments
-                obj CellularAutomat
-                handles struct
-            end
 
             switch handles.FieldTypeGroup.UserData
                 case 1
@@ -281,6 +283,7 @@ classdef CellularAutomat < IIteratedObject & handle
 
         end
 
+        % генераци€ массива гексагональных €чеек дл€  ј
         function GenerateHexField(obj, handles)
             N = obj.N;
             cellsCount = (N * (N - 1) * 3) + 1;
@@ -310,6 +313,7 @@ classdef CellularAutomat < IIteratedObject & handle
             
         end
 
+        % генераци€ массива квадратных €чеек дл€  ј
         function GenerateSquareField(obj, handles)
             N = obj.N;
             cellsCount = N * N;
@@ -338,6 +342,7 @@ classdef CellularAutomat < IIteratedObject & handle
             end
         end
 
+        % задание начальных состо€ний €чеек  ј
         function errStruct = CellsInitialization(obj, handles, errStruct)
 
             if handles.Z0SourcePathEdit.UserData
@@ -349,6 +354,7 @@ classdef CellularAutomat < IIteratedObject & handle
 
         end
 
+        % задание начальных состо€ний €чеек  ј при помощи диапазона значений выбранной функции с заданными параметрами
         function errStruct = InitCellsWithRandRange(obj, handles, errStruct)
 
             aParam = (handles.DistributStartEdit.String);
@@ -396,6 +402,7 @@ classdef CellularAutomat < IIteratedObject & handle
 
         end
 
+        % генераци€ начальных состо€ний €чеек  ј при помощи диапазона значений выбранной функции с заданными параметрами
         function GenerateRandInitCellsVals(obj, a, b, c, z0, DistributType)
 
             cellsInxs = arrayfun(@(caCell)caCell.CAIndexes, obj.Cells, 'UniformOutput', false);
@@ -434,6 +441,7 @@ classdef CellularAutomat < IIteratedObject & handle
 
         end
 
+        % задание начальных состо€ний €чеек  ј путем чтени€ файла (.txt,.xlsx)
         function errStruct = InitCellsWithFile(obj, handles, errStruct)
             cellCount = length(obj.Cells);
             z0Arr = [];
@@ -470,6 +478,7 @@ classdef CellularAutomat < IIteratedObject & handle
             end
         end
 
+        % итераци€ эволюции  ј
         function obj = Iteration(obj, calcParams)
             cellsCount = length(obj.Cells);
             persistent PrecisionParms;
@@ -503,6 +512,7 @@ classdef CellularAutomat < IIteratedObject & handle
 
         end
 
+        % обновление состо€ний соседей дл€ каждой €чейки после итерации
         function NewCell = UpdateCellNeighborsValues(ca, caCell)
 
             if ~isempty(caCell.CurrNeighbors)
@@ -520,6 +530,7 @@ classdef CellularAutomat < IIteratedObject & handle
             NewCell = caCell;
         end
 
+        % вставка параметров конкретной €чейки в итерированную функцию (значени€ соседей и их число)
         function iteratedFunc = CreateIteratedFuncForCell(obj, CACell)
 
             iteratedFuncStr = obj.IteratedFuncStr;
@@ -548,6 +559,7 @@ classdef CellularAutomat < IIteratedObject & handle
 
         end
 
+        % проверка: продолжать ли текущий этап моделировани€
         function check = IsContinue(obj)
             PrecisionParms = ModelingParams.GetSetPrecisionParms;
 
