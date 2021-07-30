@@ -100,7 +100,7 @@ classdef HexagonCACell < CA_cell % ячейка клеточного автомата, представляемая ге
             end
         end
 
-        % определение индексов i,j,k
+        % определение индексов i,j,k (для внешних ячеек)
         function [obj] = SetCellIndexes(obj)
 
             if obj.IsExternal
@@ -134,6 +134,7 @@ classdef HexagonCACell < CA_cell % ячейка клеточного автомата, представляемая ге
 
         end
 
+        % определение индекса k (для внешних ячеек)
         function [obj] = SetCellK_Index(obj)
 
             obj.Indexes = [0 0 nan];
@@ -153,6 +154,7 @@ classdef HexagonCACell < CA_cell % ячейка клеточного автомата, представляемая ге
 
         end
 
+        % определение индексов соседей в массиве ячеека поля КА в зависимости от типа поля (окрестность Мура)
         function [neibsArrIndexes, extraNeibsArrIndexes] = GetMooreNeighbs(obj)
             if obj.FieldType
                 [neibsArrIndexes, extraNeibsArrIndexes] = GetHexFieldMooreNeighbs(obj);
@@ -161,6 +163,7 @@ classdef HexagonCACell < CA_cell % ячейка клеточного автомата, представляемая ге
             end
         end
         
+        % определение индексов соседей в массиве ячеека поля КА в зависимости от типа поля (окрестность фон-Неймана)
         function [neibsArrIndexes, extraNeibsArrIndexes] = GetNeumannNeighbs(obj)
             if obj.FieldType
                 [neibsArrIndexes, extraNeibsArrIndexes] = GetHexFieldNeumannNeighbs(obj);
@@ -168,7 +171,8 @@ classdef HexagonCACell < CA_cell % ячейка клеточного автомата, представляемая ге
                 [neibsArrIndexes, extraNeibsArrIndexes] = GetSquareFieldNeumannNeighbs(obj);
             end
         end
-        
+
+        % сортировка соседей  (получение упорядоченных индексов в массиве всех ячеек) текущей ячейки в ее окрестности в зависимости от типа поля (окрестность Мура)
         function sortedNeighbors = GetMooreNeighbsPlaces(obj)
             if obj.FieldType
                 sortedNeighbors = GetHexFieldMooreNeighbsPlaces(obj);
@@ -177,6 +181,7 @@ classdef HexagonCACell < CA_cell % ячейка клеточного автомата, представляемая ге
             end
         end
         
+        % сортировка соседей  (получение упорядоченных индексов в массиве всех ячеек) текущей ячейки в ее окрестности в зависимости от типа поля (окрестность фон-Неймана)
         function sortedNeighbors = GetNeumannNeighbsPlaces(obj)
             if obj.FieldType
                 sortedNeighbors = GetHexFieldNeumannNeighbsPlaces(obj);
@@ -185,10 +190,12 @@ classdef HexagonCACell < CA_cell % ячейка клеточного автомата, представляемая ге
             end
         end
 
+        % сортировка соседей (получение упорядоченных индексов в массиве всех ячеек) в окрестности текущей (квадратное поле, окрестность фон-Неймана)
         function sortedNeighbors =  GetSquareFieldNeumannNeighbsPlaces(obj)
             sortedNeighbors = GetSquareFieldMooreNeighbsPlaces(obj);
         end
 
+        % сортировка соседей (получение упорядоченных индексов в массиве всех ячеек) в окрестности текущей (квадратное поле, окрестность Мура)
         function sortedNeighbors = GetSquareFieldMooreNeighbsPlaces(obj)
             
             sortedNeighbors = neighborsOnTheirPlaces(obj, obj.CurrNeighbors, [{[-1 -1]},{[0 -1]},{[1 -1]},{[1 0]},{[0 1]},{[-1 0]}]);
@@ -220,6 +227,7 @@ classdef HexagonCACell < CA_cell % ячейка клеточного автомата, представляемая ге
 
         end
 
+        % определение номера соседней ячейки в окрестности данной ячейки в квадратном поле с шаблоном Мура
         function neibNum = GetSquareFieldMooreNeighbNum(obj, neib)
             
             n = obj.CAHandle.N;
@@ -271,7 +279,7 @@ classdef HexagonCACell < CA_cell % ячейка клеточного автомата, представляемая ге
             [neibsArrIndexes, extraNeibsArrIndexes] = GetSquareFieldMooreNeighbs(obj);
         end
 
-        % получение (поиск в массиве всех ячеек поля) соседних ячеек в окрестности Мура в квадратном поле
+        % получение индексов (поиск в массиве всех ячеек поля) соседних ячеек в окрестности Мура в квадратном поле
         function [neibsArrIndexes, extraNeibsArrIndexes] = GetSquareFieldMooreNeighbs(obj)
             
             checkDiffMatr = [
@@ -332,7 +340,7 @@ classdef HexagonCACell < CA_cell % ячейка клеточного автомата, представляемая ге
             end
         end
         
-        % получение соседних ячеек, обусловленных циклическими границами в окрестности Мура в квадратном поле
+        % получение индексов соседних ячеек, обусловленных циклическими границами в окрестности Мура в квадратном поле
         function neibsArrIndexes = extraSquareMooreNeighborsPlaces(obj, neibsArrIndexes)
 
             n = obj.CAHandle.N;
@@ -389,6 +397,8 @@ classdef HexagonCACell < CA_cell % ячейка клеточного автомата, представляемая ге
             end
         end
 
+        
+        % получение индексов (поиск в массиве всех ячеек поля) соседних ячеек в окрестности Мура в гексагональном поле
         function [neibsArrIndexes, extraNeibsArrIndexes] = GetHexFieldMooreNeighbs(obj)
 
             neibsArrIndexes = [];
@@ -455,6 +465,7 @@ classdef HexagonCACell < CA_cell % ячейка клеточного автомата, представляемая ге
 
         end
 
+        % получение индексов (поиск  в массиве всех ячеек поля) соседних ячеек в окрестности фон-Неймана в гексагональном поле
         function [neibsArrIndexes, extraNeibsArrIndexes] = GetHexFieldNeumannNeighbs(obj)
 
             neibsArrIndexes = [];
@@ -553,6 +564,7 @@ classdef HexagonCACell < CA_cell % ячейка клеточного автомата, представляемая ге
 
         end
 
+        % сортировка индексов соседей текущей ячейки в ее окрестности
         function neibsArrIndexes = neighborsOnTheirPlaces(obj, neibs, diffsArr)
             
             neibsArrIndexes = zeros(1, length(diffsArr));
@@ -830,7 +842,7 @@ classdef HexagonCACell < CA_cell % ячейка клеточного автомата, представляемая ге
 
         end
 
-
+        % отрисовка ячейки
         function [obj] = Render(obj)
 
             if obj.FieldType

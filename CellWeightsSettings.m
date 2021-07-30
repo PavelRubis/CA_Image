@@ -77,7 +77,7 @@ neighborhoodsMatr = [
                 [1 1];
                 ];
 neighborhood = varargin;
-neighborhoodType = find(ismember([neighborhood{1}(1) == "HexFieldRB", neighborhood{1}(2) == "NeumannRB"] == neighborhoodsMatr, [1 1], 'rows'));
+neighborhoodType = find(ismember([neighborhood{1}(1) == "1", neighborhood{1}(2) == "NeumannRB"] == neighborhoodsMatr, [1 1], 'rows'));
 
 switch neighborhoodType
     %4
